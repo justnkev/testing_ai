@@ -56,6 +56,26 @@ class StorageService:
     def fetch_plan(self, user_id: str) -> Dict:
         return self._read_json(self._plan_path(user_id)) or {}
 
+    def save_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
+        """Persist the onboarding conversation so users can resume later."""
+
+        self._write_json(self._conversation_path(user_id), conversation)
+
+    def fetch_conversation(self, user_id: str) -> List[Dict[str, str]]:
+        """Return the stored onboarding conversation for a user."""
+
+        data = self._read_json(self._conversation_path(user_id))
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def clear_conversation(self, user_id: str) -> None:
+        """Remove any persisted onboarding conversation for a user."""
+
+        path = self._conversation_path(user_id)
+        if path.exists():
+            path.unlink()
+
     def append_log(self, user_id: str, log_entry: Dict) -> None:
         logs = self.fetch_logs(user_id)
         logs.append(log_entry)
@@ -103,3 +123,6 @@ class StorageService:
 
     def _log_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_logs.json'
+
+    def _conversation_path(self, user_id: str) -> Path:
+        return self._data_dir / f'{user_id}_conversation.json'

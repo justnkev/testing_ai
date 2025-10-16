@@ -104,7 +104,11 @@ def onboarding() -> str | Response:
     if redirect_url:
         return redirect(redirect_url)
 
-    conversation: List[Dict[str, str]] = session.setdefault('onboarding_conversation', [])
+    user_id = session['user']['id']
+    conversation: List[Dict[str, str]] = session.get('onboarding_conversation')
+    if conversation is None:
+        conversation = storage_service.fetch_conversation(user_id)
+        session['onboarding_conversation'] = conversation
 
     if request.method == 'POST':
         user_message = request.form['message']
@@ -112,11 +116,17 @@ def onboarding() -> str | Response:
 
         ai_message = ai_service.continue_onboarding(conversation, session['user'])
         conversation.append({'role': 'assistant', 'content': ai_message})
+        session['onboarding_conversation'] = conversation
+        session.modified = True
+
+        storage_service.save_conversation(user_id, conversation)
 
         if request.form.get('complete'):
             plan = ai_service.generate_plan(conversation, session['user'])
             storage_service.save_plan(session['user']['id'], plan)
             session.pop('onboarding_conversation', None)
+            session.modified = True
+            storage_service.clear_conversation(user_id)
             flash('Your personalized plan is ready!', 'success')
             return redirect(url_for('main.plan'))
 

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row align-items-center">
+  <div class="col-md-6">
+    <h1 class="display-5 fw-bold mb-3">FitVision: AI Health Companion</h1>
+    <p class="lead">Craft a personalized fitness, nutrition, and lifestyle journey with an AI coach that listens, adapts, and celebrates every win with you.</p>
+    <div class="d-flex gap-3">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('main.signup') }}">Start Free</a>
+      <a class="btn btn-outline-light btn-lg" href="{{ url_for('main.login') }}">Log In</a>
+    </div>
+  </div>
+  <div class="col-md-6 mt-4 mt-md-0">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">What to expect</h5>
+        <ul class="list-unstyled">
+          <li class="mb-2">✔️ Conversational onboarding that meets you where you are.</li>
+          <li class="mb-2">✔️ Detailed weekly plans across training, nutrition, and habits.</li>
+          <li class="mb-2">✔️ Dynamic replanning based on your check-ins.</li>
+          <li class="mb-2">✔️ All data securely stored via Supabase.</li>
+        </ul>
+        <p class="text-muted small mb-0">*FitVision provides coaching insights and is not a substitute for medical advice.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

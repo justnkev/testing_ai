@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Log your progress</h2>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="workout">Workouts</label>
+            <input class="form-control" id="workout" name="workout" placeholder="Strength session, mobility, rest day...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="meals">Meals</label>
+            <textarea class="form-control" id="meals" name="meals" rows="2" placeholder="Highlights, challenges, cravings..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="sleep">Sleep</label>
+            <input class="form-control" id="sleep" name="sleep" placeholder="Hours slept or quality notes">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="habits">Habits</label>
+            <textarea class="form-control" id="habits" name="habits" rows="2" placeholder="Meditation, hydration, gratitude..."></textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Save log</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">History</h2>
+        {% if logs %}
+        <div class="timeline">
+          {% for log in logs|reverse %}
+          <div class="timeline-item">
+            <div class="timeline-date">{{ log.timestamp }}</div>
+            <div class="timeline-content">
+              {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
+              {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+              {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
+              {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">No entries yet. Record your first check-in to begin charting progress.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

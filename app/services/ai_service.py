@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     _TOPIC_SEQUENCE = [
+        'physical_profile',
+        'injury_history',
         'stress',
         'sleep',
         'activity',
@@ -28,6 +30,27 @@ class AIService:
     )
 
     _TOPIC_KEYWORDS = {
+        'physical_profile': [
+            'height',
+            'weight',
+            'age',
+            'birthday',
+            'gender',
+            'pronoun',
+            'measurements',
+            'body composition',
+        ],
+        'injury_history': [
+            'injury',
+            'injuries',
+            'surgery',
+            'sciatica',
+            'pain',
+            'rehab',
+            'physical therapy',
+            'condition',
+            'medical history',
+        ],
         'stress': ['stress', 'stressed', 'burnout', 'anxiety'],
         'sleep': ['sleep', 'bedtime', 'insomnia', 'rest'],
         'activity': ['activity', 'active', 'movement', 'lifestyle'],
@@ -37,6 +60,14 @@ class AIService:
     }
 
     _FALLBACK_TOPIC_QUESTIONS = {
+        'physical_profile': (
+            "To personalise your plan, could you share the basics—age, pronouns or gender identity, "
+            "height, weight, and any body composition goals you're focusing on?"
+        ),
+        'injury_history': (
+            "Do you have any current or past injuries, surgeries, or health conditions that affect how "
+            "you move, train, or recover?"
+        ),
         'stress': (
             "I'd love to understand your stress levels. What tends to raise or lower your stress "
             "throughout the week, and how do you usually decompress?"
@@ -226,7 +257,8 @@ class AIService:
             "Core wellbeing dimensions to weave into the intake: mental resilience and stress coping,"
             " sleep quality and recovery, daily movement and incidental activity, purposeful exercise"
             " or training, nutrition and hydration habits, social connection/support, energy levels,"
-            " medical considerations, time/schedule constraints, and motivation/accountability needs."
+            " anthropometrics (age, height, weight, gender identity), injury and medical history,"
+            " time/schedule constraints, and motivation/accountability needs."
         )
 
         if remaining_topics:
@@ -236,8 +268,8 @@ class AIService:
                 f"Immediate focus: {next_topic}.\n"
                 "Blend motivational interviewing with coaching expertise: briefly reflect the user's"
                 " previous message, surface one insight that ties their goals to the focus area, and"
-                " ask an open question that uncovers specifics (intensity, frequency, obstacles,"
-                " desired changes) plus any related context from the wellbeing dimensions."
+                " ask an open question that uncovers specifics (numbers, intensity, frequency,"
+                " obstacles, desired changes) plus any related context from the wellbeing dimensions."
             )
         else:
             topics_guidance = (

@@ -20,6 +20,13 @@ class AIService:
         'socialization',
     ]
 
+    _ENV_KEY_PRIORITY = (
+        'GEMINI_API_KEY',
+        'GOOGLE_API_KEY',
+        'GEMINI_API_KEY_SECRET',
+        'FITVISION_GEMINI_API_KEY',
+    )
+
     _TOPIC_KEYWORDS = {
         'stress': ['stress', 'stressed', 'burnout', 'anxiety'],
         'sleep': ['sleep', 'bedtime', 'insomnia', 'rest'],
@@ -64,7 +71,8 @@ class AIService:
     """
 
     def __init__(self) -> None:
-        self._gemini_model = self._configure_gemini()
+        self._api_key = self._resolve_api_key()
+        self._gemini_model = self._configure_gemini(self._api_key)
 
     def continue_onboarding(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> str:
         """Generate the assistant's next onboarding message."""
@@ -132,13 +140,13 @@ class AIService:
 
     # --- Helper methods -------------------------------------------------
 
-    def _configure_gemini(self) -> Optional[Any]:
-        api_key = self._get_env_value(
-            'GEMINI_API_KEY',
-            'GOOGLE_API_KEY',
-            'GEMINI_API_KEY_SECRET',
-            'FITVISION_GEMINI_API_KEY',
-        )
+    def _resolve_api_key(self) -> Optional[str]:
+        api_key = self._get_env_value(*self._ENV_KEY_PRIORITY)
+        if not api_key:
+            logger.info('Gemini API key not found in environment; using fallback prompts.')
+        return api_key
+
+    def _configure_gemini(self, api_key: Optional[str]) -> Optional[Any]:
         if not api_key:
             return None
 
@@ -214,20 +222,29 @@ class AIService:
         remaining_topics = topics_state['remaining']
         covered_topics = topics_state['covered'] or ['none yet']
 
+        wellbeing_dimensions = (
+            "Core wellbeing dimensions to weave into the intake: mental resilience and stress coping,"
+            " sleep quality and recovery, daily movement and incidental activity, purposeful exercise"
+            " or training, nutrition and hydration habits, social connection/support, energy levels,"
+            " medical considerations, time/schedule constraints, and motivation/accountability needs."
+        )
+
         if remaining_topics:
             next_topic = remaining_topics[0]
             topics_guidance = (
-                "Required wellbeing pillars: stress, sleep, activity, exercise, diet, socialization.\n"
                 f"Topics already covered: {', '.join(covered_topics)}.\n"
-                f"Focus the next question on: {next_topic}.\n"
-                "Acknowledge the user's last reply, share one encouraging insight, and end with a"
-                " single open question about that topic."
+                f"Immediate focus: {next_topic}.\n"
+                "Blend motivational interviewing with coaching expertise: briefly reflect the user's"
+                " previous message, surface one insight that ties their goals to the focus area, and"
+                " ask an open question that uncovers specifics (intensity, frequency, obstacles,"
+                " desired changes) plus any related context from the wellbeing dimensions."
             )
         else:
             topics_guidance = (
-                "All required wellbeing pillars have been discussed. Offer a concise reflection on"
-                " what you've learned and invite the user to share any additional priorities or"
-                " support they need. End with a single open question."
+                "All priority pillars have been discussed. Offer a concise reflection summarising"
+                " the user's overall picture (strengths, friction points, aspirations) and invite"
+                " them to add any final context about readiness, boundaries, medical notes, or support"
+                " they want before the plan is drafted. End with an open invitation question."
             )
 
         return (
@@ -237,6 +254,7 @@ class AIService:
             f"User name: {user_name}.\n"
             "Conversation so far:\n"
             f"{transcript}\n"
+            f"{wellbeing_dimensions}\n"
             f"{topics_guidance}\n"
             "Provide the next assistant reply to continue the intake."
         )

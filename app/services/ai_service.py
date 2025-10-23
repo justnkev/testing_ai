@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -104,6 +106,7 @@ class AIService:
     def __init__(self) -> None:
         self._api_key = self._resolve_api_key()
         self._gemini_model = self._configure_gemini(self._api_key)
+        self._image_model = self._configure_image_model(self._api_key)
 
     def continue_onboarding(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> str:
         """Generate the assistant's next onboarding message."""
@@ -169,6 +172,44 @@ class AIService:
         updated_plan['overview']['latest_review'] = adjustments
         return updated_plan
 
+    def generate_visualization(self, image_path: Path, context: Dict[str, Any]) -> Optional[bytes]:
+        """Return generated image bytes representing the user's future self."""
+
+        prompt = self._build_visualization_prompt(context)
+
+        if self._image_model:
+            try:  # pragma: no cover - depends on external API
+                with image_path.open('rb') as uploaded:
+                    input_image = {
+                        'mime_type': self._guess_mime_type(image_path),
+                        'data': uploaded.read(),
+                    }
+
+                response = self._image_model.generate_content(
+                    [prompt, input_image], stream=False
+                )
+                if response and getattr(response, 'candidates', None):
+                    for candidate in response.candidates:
+                        parts = getattr(candidate, 'content', None)
+                        if not parts:
+                            continue
+                        content_parts = getattr(parts, 'parts', [])
+                        for part in content_parts:
+                            inline_data = getattr(part, 'inline_data', None)
+                            if inline_data and getattr(inline_data, 'data', None):
+                                encoded = inline_data.data
+                                try:
+                                    return base64.b64decode(encoded)
+                                except Exception:
+                                    return encoded
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning('Gemini image generation failed: %s', exc)
+
+        try:
+            return image_path.read_bytes()
+        except OSError:
+            return None
+
     # --- Helper methods -------------------------------------------------
 
     def _resolve_api_key(self) -> Optional[str]:
@@ -190,6 +231,19 @@ class AIService:
             logger.warning('Gemini integration disabled: %s', exc)
             return None
 
+    def _configure_image_model(self, api_key: Optional[str]) -> Optional[Any]:
+        if not api_key:
+            return None
+
+        try:  # pragma: no cover - depends on external SDK availability
+            import google.generativeai as genai
+
+            genai.configure(api_key=api_key)
+            return genai.GenerativeModel('gemini-1.5-pro-vision')
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning('Gemini image model disabled: %s', exc)
+            return None
+
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:
         for name in names:
@@ -197,6 +251,32 @@ class AIService:
             if value:
                 return value
         return None
+
+    def _build_visualization_prompt(self, context: Dict[str, Any]) -> str:
+        goal = context.get('goal_type', 'a healthy and energised appearance')
+        intensity = context.get('intensity', 'moderate')
+        timeline = context.get('timeline', 'six months')
+        profile = context.get('profile', {})
+        profile_bits = []
+        for key in ('age', 'gender', 'height', 'weight', 'body_type'):
+            value = profile.get(key)
+            if value:
+                profile_bits.append(f"{key.replace('_', ' ')} {value}")
+        profile_text = ', '.join(profile_bits) if profile_bits else 'overall wellbeing'
+        return (
+            "Create a hyper-realistic, encouraging future version of this person. Focus on {goal} "
+            "with a {intensity} transformation over {timeline}. Keep proportions natural, honour "
+            "the individual characteristics ({profile_text}), and express vitality without unrealistic alterations."
+        ).format(goal=goal, intensity=intensity, timeline=timeline, profile_text=profile_text)
+
+    @staticmethod
+    def _guess_mime_type(path: Path) -> str:
+        suffix = path.suffix.lower()
+        if suffix in {'.png'}:
+            return 'image/png'
+        if suffix in {'.webp'}:
+            return 'image/webp'
+        return 'image/jpeg'
 
     def _topics_state(self, conversation: List[Dict[str, str]]) -> Dict[str, List[str]]:
         transcript = ' '.join((message.get('content') or '').lower() for message in conversation)

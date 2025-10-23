@@ -94,6 +94,42 @@ class StorageService:
             "Anything you'd like me to adjust?"
         ).format(date=latest.get('timestamp', 'recently'))
 
+    # --- Visualization storage -----------------------------------------
+
+    def append_visualization(self, user_id: str, entry: Dict) -> None:
+        items = self.fetch_visualizations(user_id)
+        items.append(entry)
+        self._write_json(self._visualizations_path(user_id), items)
+
+    def fetch_visualizations(self, user_id: str) -> List[Dict]:
+        data = self._read_json(self._visualizations_path(user_id))
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def get_visualization(self, user_id: str, visualization_id: str) -> Optional[Dict]:
+        for item in self.fetch_visualizations(user_id):
+            if item.get('id') == visualization_id:
+                return item
+        return None
+
+    def remove_visualization(self, user_id: str, visualization_id: str) -> Optional[Dict]:
+        items = self.fetch_visualizations(user_id)
+        remaining: List[Dict] = []
+        removed: Optional[Dict] = None
+        for item in items:
+            if item.get('id') == visualization_id and removed is None:
+                removed = item
+                continue
+            remaining.append(item)
+        self._write_json(self._visualizations_path(user_id), remaining)
+        return removed
+
+    def visualization_image_dir(self, user_id: str) -> Path:
+        path = self._data_dir / 'visualizations' / user_id
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
     # --- Private helpers -------------------------------------------------
 
     def _init_supabase(self) -> Optional[Client]:
@@ -134,6 +170,9 @@ class StorageService:
 
     def _conversation_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_conversation.json'
+
+    def _visualizations_path(self, user_id: str) -> Path:
+        return self._data_dir / f'{user_id}_visualizations.json'
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:

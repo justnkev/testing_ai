@@ -1,18 +1,24 @@
 from __future__ import annotations
 
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
+from uuid import uuid4
 
 from flask import (
     Blueprint,
     Response,
+    abort,
     flash,
     redirect,
     render_template,
     request,
     session,
+    send_from_directory,
     url_for,
 )
+from werkzeug.utils import secure_filename
 
 from .services.ai_service import AIService
 from .services.storage_service import StorageService
@@ -195,3 +201,139 @@ def weekly_prompt() -> Dict[str, Any]:
 
     prompt = storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
+
+
+@main_bp.route('/visualize', methods=['GET', 'POST'])
+def visualize() -> str | Response:
+    redirect_url = _require_login()
+    if redirect_url:
+        return redirect(redirect_url)
+
+    user = session['user']
+    user_id = user['id']
+    visualizations = storage_service.fetch_visualizations(user_id)
+
+    if request.method == 'POST':
+        file = request.files.get('photo')
+        if not file or file.filename == '':
+            flash('Please upload a full-body photo to continue.', 'warning')
+            return redirect(url_for('main.visualize'))
+
+        filename = secure_filename(file.filename)
+        if not filename:
+            filename = 'upload.jpg'
+        extension = Path(filename).suffix.lower()
+        if extension not in {'.jpg', '.jpeg', '.png', '.webp'}:
+            extension = '.jpg'
+        viz_id = uuid4().hex
+        directory = storage_service.visualization_image_dir(user_id)
+        temp_path = directory / f'{viz_id}_source{extension}'
+        file.save(temp_path)
+
+        profile_data = {
+            'age': request.form.get('age', '').strip(),
+            'gender': request.form.get('gender', '').strip(),
+            'height': request.form.get('height', '').strip(),
+            'weight': request.form.get('weight', '').strip(),
+            'body_type': request.form.get('body_type', '').strip(),
+        }
+
+        context = {
+            'goal_type': (request.form.get('goal_type', 'Toned & healthy') or 'Toned & healthy').strip(),
+            'intensity': (request.form.get('intensity', 'Moderate') or 'Moderate').strip(),
+            'timeline': (request.form.get('timeline', '6 months') or '6 months').strip(),
+            'profile': profile_data,
+            'user_name': user.get('name', ''),
+        }
+
+        generated_bytes = ai_service.generate_visualization(temp_path, context)
+
+        original_name = f'{viz_id}_original{extension}'
+        future_name = f'{viz_id}_future{extension}'
+        original_path = directory / original_name
+        future_path = directory / future_name
+        temp_path.rename(original_path)
+
+        if generated_bytes:
+            future_path.write_bytes(generated_bytes)
+        else:
+            shutil.copyfile(original_path, future_path)
+
+        entry = {
+            'id': viz_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'goal_type': context['goal_type'],
+            'intensity': context['intensity'],
+            'timeline': context['timeline'],
+            'profile': profile_data,
+            'original': original_name,
+            'future': future_name,
+        }
+        storage_service.append_visualization(user_id, entry)
+
+        flash('Your future self visualization is ready! Explore it below.', 'success')
+        return redirect(url_for('main.visualize'))
+
+    latest_entry = visualizations[-1] if visualizations else {}
+    latest_profile = dict(latest_entry.get('profile', {})) if latest_entry else {}
+    goal_defaults = {
+        'goal_type': latest_entry.get('goal_type', 'Toned & healthy') if latest_entry else 'Toned & healthy',
+        'intensity': latest_entry.get('intensity', 'Moderate') if latest_entry else 'Moderate',
+        'timeline': latest_entry.get('timeline', '6 months') if latest_entry else '6 months',
+    }
+
+    return render_template(
+        'visualize.html',
+        visualizations=visualizations,
+        profile_defaults=latest_profile,
+        goal_defaults=goal_defaults,
+    )
+
+
+@main_bp.route('/visualize/image/<visualization_id>/<variant>')
+def visualize_image(visualization_id: str, variant: str):
+    redirect_url = _require_login()
+    if redirect_url:
+        return redirect(redirect_url)
+
+    if variant not in {'original', 'future'}:
+        abort(404)
+
+    user_id = session['user']['id']
+    entry = storage_service.get_visualization(user_id, visualization_id)
+    if not entry:
+        abort(404)
+
+    filename = entry.get(variant)
+    if not filename:
+        abort(404)
+
+    directory = storage_service.visualization_image_dir(user_id)
+    return send_from_directory(directory, filename)
+
+
+@main_bp.route('/visualize/<visualization_id>/delete', methods=['POST'])
+def delete_visualization(visualization_id: str) -> Response:
+    redirect_url = _require_login()
+    if redirect_url:
+        return redirect(redirect_url)
+
+    user_id = session['user']['id']
+    removed = storage_service.remove_visualization(user_id, visualization_id)
+    if not removed:
+        flash('Visualization not found.', 'warning')
+        return redirect(url_for('main.visualize'))
+
+    directory = storage_service.visualization_image_dir(user_id)
+    for key in ('original', 'future'):
+        filename = removed.get(key)
+        if not filename:
+            continue
+        path = directory / filename
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+
+    flash('Visualization deleted.', 'info')
+    return redirect(url_for('main.visualize'))

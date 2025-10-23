@@ -122,3 +122,56 @@ body {
 .alert-danger {
   backdrop-filter: blur(6px);
 }
+
+.visualize-form .form-control,
+.visualize-form .form-select {
+  background-color: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+}
+
+.visualize-form .form-control:focus,
+.visualize-form .form-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.25);
+}
+
+.visualization-card {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.visualization-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.visualization-preview .ratio {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.visualization-preview img {
+  object-fit: cover;
+}
+
+.visualization-list {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.visualization-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.visualization-list::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.4);
+  border-radius: 9999px;
+}
+
+.visualization-list::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}

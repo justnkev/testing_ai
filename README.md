@@ -31,7 +31,7 @@ app.py                  # Flask entry point
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install -r requirements.txt
+   flask --app app.py --debug run
    ```
 
 2. **Configure environment variables (optional)**

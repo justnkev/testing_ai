@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -133,7 +133,7 @@ class AIService:
                 return structured_plan
 
         summary = self._summarize_conversation(conversation)
-        today = datetime.utcnow().strftime('%B %d, %Y')
+        today = datetime.now(timezone.utc).strftime('%B %d, %Y')
 
         plan = {
             'overview': {
@@ -226,7 +226,7 @@ class AIService:
             import google.generativeai as genai
 
             genai.configure(api_key=api_key)
-            return genai.GenerativeModel('gemini-pro')
+            return genai.GenerativeModel('gemini-2.5-flash')
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini integration disabled: %s', exc)
             return None
@@ -239,7 +239,7 @@ class AIService:
             import google.generativeai as genai
 
             genai.configure(api_key=api_key)
-            return genai.GenerativeModel('gemini-1.5-pro-vision')
+            return genai.GenerativeModel('gemini-2.5-flash-image')
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini image model disabled: %s', exc)
             return None
@@ -267,6 +267,10 @@ class AIService:
             "Create a hyper-realistic, encouraging future version of this person. Focus on {goal} "
             "with a {intensity} transformation over {timeline}. Keep proportions natural, honour "
             "the individual characteristics ({profile_text}), and express vitality without unrealistic alterations."
+            "Analyze the provided image of a person. Create a hyper-realistic, encouraging future version of this person "
+            "based on the following goals. The output MUST be a high-quality PNG image file and nothing else. "
+            "Goal: {goal}. Transformation intensity: {intensity}. Timeline: {timeline}. "
+            "Keep proportions natural, honour the individual's facial features and characteristics ({profile_text}), and express vitality without unrealistic alterations."
         ).format(goal=goal, intensity=intensity, timeline=timeline, profile_text=profile_text)
 
     @staticmethod
@@ -377,7 +381,7 @@ class AIService:
         transcript = self._format_conversation(conversation)
         summary = self._summarize_conversation(conversation)
         user_name = user.get('name') or 'the user'
-        today = datetime.utcnow().strftime('%B %d, %Y')
+        today = datetime.now(timezone.utc).strftime('%B %d, %Y')
 
         schema = (
             '{\n'
@@ -440,7 +444,7 @@ class AIService:
 
         if any(section for section in plan.values()):
             if 'generated_on' not in plan['overview']:
-                plan['overview']['generated_on'] = datetime.utcnow().strftime('%B %d, %Y')
+                plan['overview']['generated_on'] = datetime.now(timezone.utc).strftime('%B %d, %Y')
             return plan
         return None
 

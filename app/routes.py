@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from uuid import uuid4
@@ -163,7 +163,7 @@ def progress() -> str | Response:
 
     if request.method == 'POST':
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'workout': request.form.get('workout'),
             'meals': request.form.get('meals'),
             'sleep': request.form.get('sleep'),
@@ -261,7 +261,7 @@ def visualize() -> str | Response:
 
         entry = {
             'id': viz_id,
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': datetime.now(timezone.utc).isoformat(),
             'goal_type': context['goal_type'],
             'intensity': context['intensity'],
             'timeline': context['timeline'],

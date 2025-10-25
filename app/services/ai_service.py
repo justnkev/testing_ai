@@ -156,19 +156,32 @@ class AIService:
         }
         return plan
 
-    def regenerate_plan(self, plan: Dict[str, Dict[str, str]], logs, user: Dict[str, str]):
+    def regenerate_plan(
+        self,
+        plan: Dict[str, Dict[str, str]],
+        logs: List[Dict[str, Any]],
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+    ) -> Dict[str, Dict[str, str]]:
         """Produce an updated plan by layering in a short retrospective summary."""
 
         if not plan:
-            return self.generate_plan([], user)
+            return self.generate_plan(conversation, user)
 
+        if self._gemini_model:
+            prompt = self._build_replan_prompt(plan, logs, conversation, user)
+            raw_plan = self._call_gemini(prompt)
+            structured_plan = self._parse_plan_response(raw_plan)
+            if structured_plan:
+                return structured_plan
+
+        # Fallback for when Gemini is unavailable
         consistency_score = self._calculate_consistency(logs)
         adjustments = (
             "Consistency has been {score}. We'll fine-tune intensity and recovery."
         ).format(score=consistency_score)
 
-        updated_plan = dict(plan)
-        updated_plan['overview'] = dict(plan.get('overview', {}))
+        updated_plan = {**plan, 'overview': {**plan.get('overview', {})}}
         updated_plan['overview']['latest_review'] = adjustments
         return updated_plan
 
@@ -360,7 +373,6 @@ class AIService:
             )
 
         return (
-            "You are FitVision, a compassionate AI health companion guiding a user "
             "You are FitVision, a compassionate and motivational AI health and wellness companion guiding a user "
             "through an onboarding conversation. Keep responses concise (2-3 "
             "sentences), encouraging, and end with a clear follow-up question.\n"
@@ -403,7 +415,7 @@ class AIService:
         )
 
         return (
-            "You are FitVision, an AI health companion who crafts detailed yet "
+            "You are a health and wellness companion who crafts detailed yet "
             "approachable wellness plans. Based on the onboarding transcript "
             "create a personalised plan for the user.\n"
             f"User name: {user_name}.\n"
@@ -414,6 +426,40 @@ class AIService:
             "Return only valid JSON (no Markdown formatting) following this schema:\n"
             f"{schema}\n"
             "Keep each value to 1-3 sentences tailored to the user's goals."
+        )
+
+    def _build_replan_prompt(
+        self,
+        current_plan: Dict[str, Dict[str, str]],
+        logs: List[Dict[str, Any]],
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+    ) -> str:
+        """Build a prompt to regenerate a plan based on new logs and original context."""
+        onboarding_transcript = self._format_conversation(conversation)
+        log_summary = self._format_logs(logs)
+        user_name = user.get('name') or 'the user'
+        today = datetime.now(timezone.utc).strftime('%B %d, %Y')
+        schema = self._get_plan_schema()
+
+        return (
+            "You are FitVision, an AI health companion who adapts a user's wellness plan based on their progress. "
+            "You will be given their original onboarding conversation, their current plan, and their recent progress logs. "
+            "Your task is to generate a *new, updated* plan that acknowledges their progress and adjusts for challenges.\n\n"
+            f"User name: {user_name}.\n"
+            f"Today's date: {today}.\n\n"
+            "--- Original Onboarding Context ---\n"
+            f"{onboarding_transcript}\n\n"
+            "--- Current Plan ---\n"
+            f"{json.dumps(current_plan, indent=2)}\n\n"
+            "--- Recent Progress Logs ---\n"
+            f"{log_summary}\n\n"
+            "--- Your Task ---\n"
+            "1. Analyze the logs to identify successes (e.g., consistent workouts) and challenges (e.g., poor sleep).\n"
+            "2. Reflect these insights in the 'focus' of the new plan's overview.\n"
+            "3. Adjust the workout, nutrition, or habits sections to better support the user. For example, if sleep is a challenge, suggest a more robust evening habit. If workouts are consistent, suggest a progression.\n"
+            "4. Return ONLY a valid JSON object for the new plan, strictly following this schema:\n"
+            f"{schema}"
         )
 
     def _parse_plan_response(self, raw: str) -> Optional[Dict[str, Dict[str, str]]]:
@@ -444,6 +490,30 @@ class AIService:
                 plan['overview']['generated_on'] = datetime.now(timezone.utc).strftime('%B %d, %Y')
             return plan
         return None
+
+    def _get_plan_schema(self) -> str:
+        """Returns the JSON schema for the wellness plan."""
+        return (
+            '{\n'
+            '  "overview": {\n'
+            '    "generated_on": "Month DD, YYYY",\n'
+            '    "focus": "short focus summary"\n'
+            '  },\n'
+            '  "workout": {\n'
+            '    "weekly_split": "weekly training split",\n'
+            '    "sample_session": "sample workout session"\n'
+            '  },\n'
+            '  "nutrition": {\n'
+            '    "daily_structure": "daily nutrition structure",\n'
+            '    "hydration": "hydration guidance"\n'
+            '  },\n'
+            '  "habits": {\n'
+            '    "morning": "morning habit",\n'
+            '    "evening": "evening habit",\n'
+            '    "weekly": "weekly reflection habit"\n'
+            '  }\n'
+            '}'
+        )
 
     def _extract_json_fragment(self, text: str) -> Optional[Dict[str, Any]]:
         start = text.find('{')
@@ -512,6 +582,19 @@ class AIService:
             if content:
                 lines.append(f"{prefix}: {content}")
         return '\n'.join(lines) if lines else 'No prior context provided.'
+
+    def _format_logs(self, logs: List[Dict[str, Any]]) -> str:
+        """Formats a list of log entries into a readable string."""
+        if not logs:
+            return "No progress has been logged yet."
+
+        lines = ["User's recent check-ins:"]
+        for log in logs[-7:]:  # Limit to the last 7 logs to keep the prompt concise
+            ts = log.get('timestamp', 'N/A').split('T')[0]
+            details = [f"{k}: {v}" for k, v in log.items() if k != 'timestamp' and v]
+            if details:
+                lines.append(f"- On {ts}: " + "; ".join(details))
+        return "\n".join(lines)
 
     def _summarize_conversation(self, conversation: List[Dict[str, str]]) -> str:
         """Create a summary of the conversation, using Gemini if available."""

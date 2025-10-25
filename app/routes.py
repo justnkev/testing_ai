@@ -184,11 +184,13 @@ def replan() -> Response:
         return redirect(redirect_url)
 
     user = session['user']
-    plan = storage_service.fetch_plan(user['id'])
-    logs = storage_service.fetch_logs(user['id'])
+    user_id = user['id']
+    plan = storage_service.fetch_plan(user_id)
+    logs = storage_service.fetch_logs(user_id)
+    conversation = storage_service.fetch_conversation(user_id)
 
-    updated_plan = ai_service.regenerate_plan(plan, logs, user)
-    storage_service.save_plan(user['id'], updated_plan)
+    updated_plan = ai_service.regenerate_plan(plan, logs, conversation, user)
+    storage_service.save_plan(user_id, updated_plan)
     flash('Your plan has been refreshed based on your latest updates.', 'success')
     return redirect(url_for('main.plan'))
 

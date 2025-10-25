@@ -263,11 +263,7 @@ class AIService:
             if value:
                 profile_bits.append(f"{key.replace('_', ' ')} {value}")
         profile_text = ', '.join(profile_bits) if profile_bits else 'overall wellbeing'
-        return (
-            "Create a hyper-realistic, encouraging future version of this person. Focus on {goal} "
-            "with a {intensity} transformation over {timeline}. Keep proportions natural, honour "
-            "the individual characteristics ({profile_text}), and express vitality without unrealistic alterations."
-            "Analyze the provided image of a person. Create a hyper-realistic, encouraging future version of this person "
+        return ("Analyze the provided image of a person. Create a hyper-realistic, encouraging future version of this person "
             "based on the following goals. The output MUST be a high-quality PNG image file and nothing else. "
             "Goal: {goal}. Transformation intensity: {intensity}. Timeline: {timeline}. "
             "Keep proportions natural, honour the individual's facial features and characteristics ({profile_text}), and express vitality without unrealistic alterations."
@@ -365,6 +361,7 @@ class AIService:
 
         return (
             "You are FitVision, a compassionate AI health companion guiding a user "
+            "You are FitVision, a compassionate and motivational AI health and wellness companion guiding a user "
             "through an onboarding conversation. Keep responses concise (2-3 "
             "sentences), encouraging, and end with a clear follow-up question.\n"
             f"User name: {user_name}.\n"
@@ -517,11 +514,26 @@ class AIService:
         return '\n'.join(lines) if lines else 'No prior context provided.'
 
     def _summarize_conversation(self, conversation: List[Dict[str, str]]) -> str:
+        """Create a summary of the conversation, using Gemini if available."""
         if not conversation:
             return 'balanced health foundations with gentle progression'
+
+        if self._gemini_model:
+            transcript = self._format_conversation(conversation)
+            prompt = (
+                "Summarize the following conversation transcript from a health and wellness onboarding session. "
+                "Focus on the user's goals, current habits, challenges, and any key personal details mentioned. "
+                "The summary should be concise, coherent, direct, and under 200 words.\n\n"
+                f"Transcript:\n{transcript}"
+            )
+            summary = self._call_gemini(prompt)
+            if summary:
+                return summary
+
+        # Fallback to original heuristic if Gemini fails or is not configured
         user_highlights = [item['content'] for item in conversation if item['role'] == 'user']
         joined = ' '.join(user_highlights)
-        return joined[-280:] if joined else 'holistic wellness focus'
+        return joined[-500:] if joined else 'holistic wellness focus'
 
     def _build_workout_split(self, summary: str) -> str:
         if 'strength' in summary.lower():

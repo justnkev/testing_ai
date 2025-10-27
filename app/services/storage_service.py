@@ -17,8 +17,9 @@ class StorageService:
 
     def __init__(self) -> None:
         self._supabase: Optional[Client] = self._init_supabase()
-        self._data_dir = Path('instance/data')
-        self._data_dir.mkdir(parents=True, exist_ok=True)
+        data_dir = Path('instance/data')
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self._data_dir = data_dir.resolve()
 
     def sign_up(self, email: str, password: str, name: str) -> Dict[str, str]:
         if self._supabase:
@@ -128,7 +129,7 @@ class StorageService:
     def visualization_image_dir(self, user_id: str) -> Path:
         path = self._data_dir / 'visualizations' / user_id
         path.mkdir(parents=True, exist_ok=True)
-        return path
+        return path.resolve()
 
     # --- Private helpers -------------------------------------------------
 

@@ -7,7 +7,13 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from google import genai
+from dotenv import load_dotenv
+from google.genai import types
+from typing import Any, Dict, Mapping, Optional
+from collections.abc import Mapping as _MappingABC
 
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +110,20 @@ class AIService:
     """
 
     def __init__(self) -> None:
-        self._api_key = self._resolve_api_key()
+        self._api_key: Optional[str] = self._resolve_api_key()
         self._gemini_model = self._configure_gemini(self._api_key)
         self._image_model = self._configure_image_model(self._api_key)
+        self.client: Optional[genai.Client] = None
+        self._image_model_id = "gemini-2.5-flash-image"
+        self._image_ready: bool = False
+        if self._api_key:
+                    logger.info("GOOGLE_API_KEY detected (len=%d, prefix=%s****)",
+                                len(self._api_key), self._api_key[:4])
+        else:
+            logger.warning("GOOGLE_API_KEY missing at startup")
+
+        self._image_ready = self._configure_image_model(self._api_key)
+        logger.info("Gemini image client ready: %s", self._image_ready)
 
     def continue_onboarding(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> str:
         """Generate the assistant's next onboarding message."""
@@ -185,44 +202,69 @@ class AIService:
         updated_plan['overview']['latest_review'] = adjustments
         return updated_plan
 
-    def generate_visualization(self, image_path: Path, context: Dict[str, Any]) -> Optional[bytes]:
-        """Return generated image bytes representing the user's future self."""
+    def generate_visualization(self, image_path: Path, context: Mapping[str, Any]) -> Optional[bytes]:
+        """
+        Text+image -> image. Uses client.models.generate_content(model=..., contents=[...]).
+        """
+        if not isinstance(context, (dict, _MappingABC)):
+            logger.error("Invalid visualization context type: %r", type(context))
+            return self._safe_fallback(image_path)
+        
+        prompt: str = self._build_visualization_prompt(dict(context))  # build the context string
+        if not isinstance(prompt, str) or not prompt:
+            logger.error("Built prompt is not a non-empty string")
+            return self._safe_fallback(image_path)
+        
+        if not self.client:
+            logger.warning("Gemini client not configured")
+            return self._safe_fallback(image_path)
 
-        prompt = self._build_visualization_prompt(context)
+        try:  # pragma: no cover - external API
+            # Read image bytes and wrap as a Part with mime type.
+            mime = self._guess_mime_type(image_path)  # implement or reuse your helper
+            image_bytes = image_path.read_bytes()
+        except OSError as e:
+            logger.warning("Failed reading image: %s", e)
+            return None
+        
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime)
+        
+        try:
+            response = self.client.models.generate_content(
+                model=self._image_model_id,
+                contents=[prompt, image_part],
+            )
+        except Exception as exc:
+            logger.warning("Gemini image generation failed (request): %s", exc)
+            return self._safe_fallback(image_path)
 
-        if self._image_model:
-            try:  # pragma: no cover - depends on external API
-                with image_path.open('rb') as uploaded:
-                    input_image = {
-                        'mime_type': self._guess_mime_type(image_path),
-                        'data': uploaded.read(),
-                    }
+            # Extract first inline image
+        try:    
+            for cand in (getattr(response, "candidates", None) or []):
+                content = getattr(cand, "content", None)
+                parts = getattr(content, "parts", []) if content else []
+                for part in parts:
+                    inline = getattr(part, "inline_data", None)
+                    data = getattr(inline, "data", None) if inline else None
+                    if data:
+                        if isinstance(data, (bytes, bytearray)):
+                            return bytes(data)
+                        try:
+                            return base64.b64decode(data)  # base64 string case
+                        except Exception:
+                            pass
+        except Exception as exc:
+            logger.warning("Gemini image generation failed (parse): %s", exc)
 
-                response = self._image_model.generate_content(
-                    [prompt, input_image], stream=False
-                )
-                if response and getattr(response, 'candidates', None):
-                    for candidate in response.candidates:
-                        parts = getattr(candidate, 'content', None)
-                        if not parts:
-                            continue
-                        content_parts = getattr(parts, 'parts', [])
-                        for part in content_parts:
-                            inline_data = getattr(part, 'inline_data', None)
-                            if inline_data and getattr(inline_data, 'data', None):
-                                encoded = inline_data.data
-                                try:
-                                    return base64.b64decode(encoded)
-                                except Exception:
-                                    return encoded
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.warning('Gemini image generation failed: %s', exc)
+        return self._safe_fallback(image_path)
 
+    def _safe_fallback(self, image_path: Path) -> Optional[bytes]:
+        """Why: Guarantees a result path even if generation fails."""
         try:
             return image_path.read_bytes()
         except OSError:
             return None
-
+        
     # --- Helper methods -------------------------------------------------
 
     def _resolve_api_key(self) -> Optional[str]:
@@ -233,29 +275,28 @@ class AIService:
 
     def _configure_gemini(self, api_key: Optional[str]) -> Optional[Any]:
         if not api_key:
-            return None
-
-        try:  # pragma: no cover - depends on external SDK availability
-            import google.generativeai as genai
-
-            genai.configure(api_key=api_key)
-            return genai.GenerativeModel('gemini-2.5-flash')
+            return False
+        try:
+            self.client = genai.Client(api_key=api_key)
+            return True
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini integration disabled: %s', exc)
             return None
 
-    def _configure_image_model(self, api_key: Optional[str]) -> Optional[Any]:
+    def _configure_image_model(self, api_key: Optional[str]) -> bool:
+        """
+        Initialize the Client for the Gemini Developer API.
+        Why: In the google-genai SDK, inference goes through client.models.generate_content(...).
+        """
         if not api_key:
-            return None
-
-        try:  # pragma: no cover - depends on external SDK availability
-            import google.generativeai as genai
-
-            genai.configure(api_key=api_key)
-            return genai.GenerativeModel('gemini-2.5-flash-image')
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.warning('Gemini image model disabled: %s', exc)
-            return None
+            return False
+        try:
+            self.client = genai.Client(api_key=api_key)
+            return True
+        except Exception as exc:  # pragma: no cover - external SDK
+            logger.warning("Gemini client init failed: %s", exc)
+            self.client = None
+            return False
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:
@@ -266,30 +307,46 @@ class AIService:
         return None
 
     def _build_visualization_prompt(self, context: Dict[str, Any]) -> str:
-        goal = context.get('goal_type', 'a healthy and energised appearance')
-        intensity = context.get('intensity', 'moderate')
-        timeline = context.get('timeline', 'six months')
-        profile = context.get('profile', {})
-        profile_bits = []
-        for key in ('age', 'gender', 'height', 'weight', 'body_type'):
-            value = profile.get(key)
-            if value:
-                profile_bits.append(f"{key.replace('_', ' ')} {value}")
-        profile_text = ', '.join(profile_bits) if profile_bits else 'overall wellbeing'
-        return ("Analyze the provided image of a person. Create a hyper-realistic, encouraging future version of this person "
-            "based on the following goals. The output MUST be a high-quality PNG image file and nothing else. "
-            "Goal: {goal}. Transformation intensity: {intensity}. Timeline: {timeline}. "
-            "Keep proportions natural, honour the individual's facial features and characteristics ({profile_text}), and express vitality without unrealistic alterations."
-        ).format(goal=goal, intensity=intensity, timeline=timeline, profile_text=profile_text)
+        """
+        Build a single-string prompt for image generation from the given context.
+        Ensures we pass only a str to the SDK (no dicts/lists).
+        """
+        goal = str(context.get("goal_type", "a healthy and energised appearance")).strip() or "a healthy and energised appearance"
+        intensity = str(context.get("intensity", "moderate")).strip() or "moderate"
+        timeline = str(context.get("timeline", "six months")).strip() or "six months"
 
-    @staticmethod
-    def _guess_mime_type(path: Path) -> str:
-        suffix = path.suffix.lower()
-        if suffix in {'.png'}:
-            return 'image/png'
-        if suffix in {'.webp'}:
-            return 'image/webp'
-        return 'image/jpeg'
+        profile = context.get("profile") or {}
+        if not isinstance(profile, dict):
+            profile = {}
+
+        keys = ("age", "gender", "height", "weight", "body_type")
+        bits = []
+        for k in keys:
+            v = profile.get(k)
+            if v is None:
+                continue
+            s = str(v).strip()
+            if s:
+                bits.append(f"{k.replace('_', ' ')} {s}")
+        profile_text = ", ".join(bits) if bits else "overall wellbeing"
+
+        lines = [
+            "Analyze the provided image of a person.",
+            "Create a hyper-realistic, encouraging future version of this person.",
+            "Output must be a high-quality PNG image and nothing else.",
+            f"Goal: {goal}.",
+            f"Transformation intensity: {intensity}.",
+            f"Timeline: {timeline}.",
+            (
+                "Keep proportions natural, honor the individual's facial features and characteristics "
+                f"({profile_text}), and express vitality without unrealistic alterations."
+            ),
+        ]
+        return " ".join(lines).strip()
+
+    def _guess_mime_type(self, path: Path) -> str:
+        return "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+
 
     def _topics_state(self, conversation: List[Dict[str, str]]) -> Dict[str, List[str]]:
         transcript = ' '.join((message.get('content') or '').lower() for message in conversation)

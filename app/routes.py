@@ -254,9 +254,13 @@ def visualize() -> str | Response:
         future_name = f'{viz_id}_future{extension}'
         original_path = directory / original_name
         future_path = directory / future_name
+        original_path = directory / f'{viz_id}_original{extension}'
         temp_path.rename(original_path)
 
+        future_name = ''
         if generated_bytes:
+            future_name = f'{viz_id}_future.png'
+            future_path = directory / future_name
             future_path.write_bytes(generated_bytes)
         else:
             shutil.copyfile(original_path, future_path)
@@ -269,6 +273,7 @@ def visualize() -> str | Response:
             'timeline': context['timeline'],
             'profile': profile_data,
             'original': original_name,
+            'original': original_path.name,
             'future': future_name,
         }
         storage_service.append_visualization(user_id, entry)

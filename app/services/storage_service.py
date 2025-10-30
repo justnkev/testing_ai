@@ -2,21 +2,27 @@ from __future__ import annotations
 
 import json
 import os
+import logging 
+logger = logging.getLogger(__name__)
+
 from pathlib import Path
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+load_dotenv()
 
 try:
-    from supabase import Client, create_client
-except ImportError:  # pragma: no cover - optional dependency for local dev
-    Client = None  # type: ignore
+    from supabase import create_client, Client as SupabaseClient
+except Exception:  # pragma: no cover - optional dependency for local dev
     create_client = None  # type: ignore
+    class SupabaseClient:
+        pass
 
 
 class StorageService:
     """Persistence layer that defaults to filesystem storage for local testing."""
 
     def __init__(self) -> None:
-        self._supabase: Optional[Client] = self._init_supabase()
+        self._supabase: Optional[SupabaseClient] = self._init_supabase()
         data_dir = Path('instance/data')
         data_dir.mkdir(parents=True, exist_ok=True)
         self._data_dir = data_dir.resolve()
@@ -133,7 +139,7 @@ class StorageService:
 
     # --- Private helpers -------------------------------------------------
 
-    def _init_supabase(self) -> Optional[Client]:
+    def _init_supabase(self) -> Optional[SupabaseClient]:
         url = self._get_env_value(
             'SUPABASE_URL',
             'SUPABASE_URL_SECRET',
@@ -144,9 +150,14 @@ class StorageService:
             'SUPABASE_ANON_KEY_SECRET',
             'SUPABASE_API_KEY',
         )
-        if not url or not key or not create_client:
+        if not url or not key or create_client is None:
+            logger.info("Supabase disabled (missing package or env)")
             return None
-        return create_client(url, key)
+        try:
+            return create_client(url, key)  # returns a SupabaseClient
+        except Exception as exc:
+            logger.warning("Supabase init failed: %s", exc)
+            return None
 
     def _write_json(self, path: Path, data) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

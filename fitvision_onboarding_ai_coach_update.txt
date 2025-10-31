@@ -1,0 +1,130 @@
+# Product Requirements Document (PRD)
+
+## Product: FitVision App
+### Update: Streamlined Onboarding & Navigation to AI Coach
+### Date: October 31, 2025
+### Author: Product Team – FitVision
+
+---
+
+## 1. Overview & Goal
+
+The goal of this update is to streamline the new user onboarding experience and simplify the main app navigation. This update aims to:
+
+- Present the onboarding interview only once to new users, immediately after account creation.
+- Remove redundant or outdated menu items.
+- Introduce persistent and clear access to the AI health coach via the main navigation menu.
+
+This improves the clarity, focus, and efficiency of the user experience.
+
+---
+
+## 2. Functional Requirements
+
+### Feature A: One-Time Onboarding Flow
+
+**Description:**
+The current multi-step onboarding interview will now only be shown once, immediately after account creation for new users. This eliminates redundancy and enhances user flow.
+
+**Requirements:**
+- Onboarding interview is triggered only once post sign-up.
+- Upon completion, users are routed directly to their main dashboard (first-day experience).
+- The onboarding flow should never appear again after initial completion.
+- Existing users logging in after the update will not see the onboarding flow.
+- Remove "Onboarding Interview" access from all other parts of the app UI.
+
+**Persistence Logic:**
+- Use a flag in user profile metadata to indicate if onboarding is complete (`onboardingComplete: true/false`).
+- Check this flag at login. If `false`, show onboarding. If `true`, go to dashboard.
+
+---
+
+### Feature B: Main Navigation Menu Update
+
+**Description:**
+Update the main navigation menu by removing the "Onboarding" item and replacing it with a new item for direct access to the AI health coach.
+
+**Requirements:**
+- Permanently remove "Onboarding Interview" from navigation.
+- Add a new persistent menu item labeled:
+  - **Label:** "AI Coach" (alt: "Chat with Coach")
+  - **Icon Suggestion:** Chat bubble with sparkle or AI spark icon (symbolizing intelligence + conversation)
+- Tapping "AI Coach" opens the chat interface with the AI health and wellness coach.
+- This feature must be available to all users at all times.
+
+**Menu Placement:**
+- The new "AI Coach" item should occupy the same position previously held by "Onboarding Interview," or be prominently placed for high visibility.
+
+---
+
+## 3. User Stories & Acceptance Criteria
+
+### User Story 1: New User Onboarding
+**As a** new user,
+**I want** to be guided through the onboarding interview one time upon signing up,
+**so that** the app can personalize my health experience from the start.
+
+**Acceptance Criteria:**
+- [ ] On successful account creation, the onboarding interview starts immediately.
+- [ ] Onboarding collects user profile, goals, preferences, and habits.
+- [ ] Upon completion, user lands on the dashboard.
+- [ ] On next login, user goes directly to dashboard without onboarding.
+
+---
+
+### User Story 2: Existing User Experience
+**As an** existing user,
+**I want** to log in and not be shown the onboarding interview again,
+**so that** I can get straight to my dashboard without interruption.
+
+**Acceptance Criteria:**
+- [ ] Existing users logging in post-update bypass onboarding.
+- [ ] Users who previously completed onboarding are not prompted again.
+- [ ] The "Onboarding Interview" option is not available anywhere in the app.
+
+---
+
+### User Story 3: Accessing AI Coach
+**As any** user,
+**I want** to easily find and tap on "AI Coach" in the main menu,
+**so that** I can start a conversation with my health and wellness coach at any time.
+
+**Acceptance Criteria:**
+- [ ] The "AI Coach" button is visible in the main nav menu.
+- [ ] Tapping it launches the AI chat interface.
+- [ ] Available to both new and existing users.
+- [ ] Menu icon and label meet accessibility and design guidelines.
+
+---
+
+## 4. User Flow (Text Description)
+
+### A. New User Journey
+1. User signs up and creates a new account.
+2. Immediately routed into onboarding interview.
+3. Completes all onboarding steps.
+4. System sets `onboardingComplete: true` in user profile.
+5. User is routed to their main dashboard (first-day experience).
+6. On subsequent logins, user is taken directly to dashboard.
+7. "AI Coach" menu item is available at all times.
+
+### B. Existing User Journey
+1. Existing user opens the app and logs in.
+2. App reads `onboardingComplete: true` from user profile.
+3. User is routed directly to their dashboard.
+4. No onboarding shown or accessible.
+5. "AI Coach" is present in main menu and opens the AI chat interface.
+
+---
+
+## 5. Out-of-Scope
+
+- No changes to the sign-up screen UI or process.
+- No changes to the actual AI coach functionality or chat interface.
+- No modifications to user profile or settings menus beyond removing onboarding.
+- No localization or multi-language support changes for this release.
+
+---
+
+## End of Document
+

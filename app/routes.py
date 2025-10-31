@@ -3,7 +3,8 @@ from __future__ import annotations
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, Tuple
 from uuid import uuid4
 
 from flask import (
@@ -85,6 +86,63 @@ def logout() -> Response:
     return redirect(url_for('main.index'))
 
 
+def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Return summarized metrics and a lightweight activity trend."""
+
+    window = logs[-7:]
+    totals = {
+        'workouts': 0,
+        'meals': 0,
+        'sleep_hours': 0.0,
+        'habits': 0,
+    }
+
+    for entry in window:
+        if entry.get('workout'):
+            totals['workouts'] += 1
+        if entry.get('meals'):
+            totals['meals'] += 1
+        if entry.get('habits'):
+            totals['habits'] += 1
+        sleep_value = entry.get('sleep', '') or ''
+        if sleep_value:
+            numbers = re.findall(r"\d+(?:\.\d+)?", str(sleep_value))
+            if numbers:
+                try:
+                    totals['sleep_hours'] += float(numbers[0])
+                except ValueError:
+                    continue
+
+    trend: List[Dict[str, Any]] = []
+    for entry in window:
+        intensity = sum(1 for key in ('workout', 'meals', 'sleep', 'habits') if entry.get(key))
+        trend.append(
+            {
+                'label': entry.get('timestamp', 'Recent'),
+                'value': intensity,
+            }
+        )
+
+    workout_goal = 5
+    meal_goal = 14
+    sleep_goal = 49  # 7 nights * 7 hours
+
+    stats = {
+        'total_workouts': totals['workouts'],
+        'total_meals': totals['meals'],
+        'total_habits': totals['habits'],
+        'hours_sleep': round(totals['sleep_hours'], 1),
+        'calories_estimate': totals['meals'] * 550,
+        'calories_burned': totals['workouts'] * 320,
+        'workout_completion': min(100, int((totals['workouts'] / workout_goal) * 100)) if workout_goal else 0,
+        'meal_completion': min(100, int((totals['meals'] / meal_goal) * 100)) if meal_goal else 0,
+        'sleep_completion': min(100, int((totals['sleep_hours'] / sleep_goal) * 100)) if sleep_goal else 0,
+        'has_data': bool(window),
+    }
+
+    return stats, trend
+
+
 @main_bp.route('/dashboard')
 def dashboard() -> str | Response:
     redirect_url = _require_login()
@@ -96,11 +154,17 @@ def dashboard() -> str | Response:
     logs = storage_service.fetch_logs(user['id'])
     weekly_prompt = storage_service.get_weekly_prompt(user['id'])
 
+    stats, trend = _derive_dashboard_stats(logs)
+    recent_logs = list(reversed(logs[-3:])) if logs else []
+
     return render_template(
         'dashboard.html',
         plan=plan,
         logs=logs,
         weekly_prompt=weekly_prompt,
+        stats=stats,
+        trend=trend,
+        recent_logs=recent_logs,
     )
 
 

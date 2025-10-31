@@ -278,9 +278,10 @@ class AIService:
             return False
         try:
             self.client = genai.Client(api_key=api_key)
-            return True
+            return self.client
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini integration disabled: %s', exc)
+            self.client = None
             return None
 
     def _configure_image_model(self, api_key: Optional[str]) -> bool:

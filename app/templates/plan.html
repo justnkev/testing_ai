@@ -1,47 +1,60 @@
 {% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>Plan</small>
+  <h2 style="margin:0.4rem 0 0;">Stay anchored to a focused weekly rhythm.</h2>
+  <p style="margin:0.6rem 0 0; max-width:460px;">Your workouts, nutrition touchpoints, and habits are sequenced to support sustainable progress.</p>
+</div>
+<div class="topbar-meta">
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.dashboard') }}">Back to dashboard</a>
+  <form action="{{ url_for('main.replan') }}" method="post">
+    <button class="fv-button fv-button--primary" type="submit">Refresh plan</button>
+  </form>
+</div>
+{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-8">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h2 class="h4">Your FitVision Plan</h2>
-      <form action="{{ url_for('main.replan') }}" method="post">
-        <button class="btn btn-outline-primary btn-sm" type="submit">Refresh plan</button>
-      </form>
-    </div>
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h5 class="card-title">Overview</h5>
-        <p class="mb-1"><strong>Generated:</strong> {{ plan.overview.generated_on }}</p>
-        <p class="mb-1"><strong>Focus:</strong> {{ plan.overview.focus }}</p>
-        {% if plan.overview.latest_review %}
-        <p class="mb-0"><strong>Latest review:</strong> {{ plan.overview.latest_review }}</p>
-        {% endif %}
-      </div>
-    </div>
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h5 class="card-title">Workouts</h5>
-        <p><strong>Weekly split:</strong> {{ plan.workout.weekly_split }}</p>
-        <p class="mb-0"><strong>Sample session:</strong> {{ plan.workout.sample_session }}</p>
-      </div>
-    </div>
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h5 class="card-title">Nutrition</h5>
-        <p><strong>Daily structure:</strong> {{ plan.nutrition.daily_structure }}</p>
-        <p class="mb-0"><strong>Hydration:</strong> {{ plan.nutrition.hydration }}</p>
-      </div>
-    </div>
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Habits</h5>
-        <ul class="mb-0">
-          <li><strong>Morning:</strong> {{ plan.habits.morning }}</li>
-          <li><strong>Evening:</strong> {{ plan.habits.evening }}</li>
-          <li><strong>Weekly:</strong> {{ plan.habits.weekly }}</li>
-        </ul>
-      </div>
+<section class="surface-card">
+  <div class="section-header">
+    <div>
+      <small>FitVision plan</small>
+      <h2 style="margin:0.4rem 0 0;">Your personalized blueprint</h2>
+      <p>Review your workouts, nutrition, and habit anchors. Regenerate anytime after new progress logs.</p>
     </div>
   </div>
-</div>
+  {% if plan %}
+  <div class="plan-section" style="margin-top:1.6rem;">
+    <div class="plan-meta">
+      <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
+      <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
+      {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
+    </div>
+    <div class="data-grid">
+      <article class="plan-tile">
+        <h4>Overview</h4>
+        <p>{{ plan.overview.summary|default('Personalized focus areas curated by FitVision.') }}</p>
+      </article>
+      <article class="plan-tile">
+        <h4>Workouts</h4>
+        <p><strong>Weekly split:</strong> {{ plan.workout.weekly_split|default('Strength & mobility blend') }}</p>
+        <p class="stat-detail">Sample session: {{ plan.workout.sample_session|default('Dynamic warm-up, compound lifts, core finisher') }}</p>
+      </article>
+      <article class="plan-tile">
+        <h4>Nutrition</h4>
+        <p><strong>Daily structure:</strong> {{ plan.nutrition.daily_structure|default('3 anchor meals, 2 functional snacks') }}</p>
+        <p class="stat-detail">Hydration: {{ plan.nutrition.hydration|default('Aim for 90 oz with minerals') }}</p>
+      </article>
+      <article class="plan-tile">
+        <h4>Habits</h4>
+        <ul>
+          <li><strong>Morning:</strong> {{ plan.habits.morning|default('Grounding routine + sunlight exposure') }}</li>
+          <li><strong>Evening:</strong> {{ plan.habits.evening|default('Digital sunset, breathwork, journal') }}</li>
+          <li><strong>Weekly:</strong> {{ plan.habits.weekly|default('Meal prep, long walk check-in') }}</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+  {% else %}
+  <p class="stat-detail">Complete onboarding to receive your personalized plan.</p>
+  {% endif %}
+</section>
 {% endblock %}

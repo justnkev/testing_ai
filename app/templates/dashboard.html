@@ -1,63 +1,133 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="row g-4">
-  <div class="col-lg-8">
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h2 class="h5">Weekly Pulse</h2>
-        <p class="text-muted" data-weekly-prompt>{{ weekly_prompt }}</p>
-        <a class="btn btn-primary btn-sm" href="{{ url_for('main.progress') }}">Log progress</a>
-        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.plan') }}">View plan</a>
+<div class="section-stack">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Weekly pulse</small>
+        <h2>Guidance for this week</h2>
+      </div>
+      <div class="hero-cta">
+        <a class="fv-button fv-button--ghost" href="{{ url_for('main.progress') }}">Log something new</a>
+        <a class="fv-button fv-button--subtle" href="{{ url_for('main.plan') }}">Open plan</a>
       </div>
     </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h3 class="h6 text-uppercase text-muted">Recent Logs</h3>
-        {% if logs %}
-        <ul class="list-unstyled small mb-0">
-          {% for log in logs|reverse %}
-          {% if loop.index0 == 3 %}{% break %}{% endif %}
-          <li class="mb-3">
-            <div class="fw-semibold">{{ log.timestamp|default('Recent') }}</div>
-            {% if log.workout %}<div>🏋️‍♀️ {{ log.workout }}</div>{% endif %}
-            {% if log.meals %}<div>🍽️ {{ log.meals }}</div>{% endif %}
-            {% if log.sleep %}<div>😴 {{ log.sleep }}</div>{% endif %}
-            {% if log.habits %}<div>🌟 {{ log.habits }}</div>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted mb-0">No logs yet. Start tracking to unlock adaptive guidance.</p>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  <div class="col-12">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h3 class="h6 text-uppercase text-muted">Plan Snapshot</h3>
-        {% if plan %}
-        <div class="row">
-          <div class="col-md-4">
-            <h4 class="h6">Workouts</h4>
-            <p class="small mb-0">{{ plan.workout.weekly_split }}</p>
-          </div>
-          <div class="col-md-4">
-            <h4 class="h6">Nutrition</h4>
-            <p class="small mb-0">{{ plan.nutrition.daily_structure }}</p>
-          </div>
-          <div class="col-md-4">
-            <h4 class="h6">Habits</h4>
-            <p class="small mb-0">{{ plan.habits.morning }}</p>
-          </div>
+    <p data-weekly-prompt>{{ weekly_prompt }}</p>
+  </section>
+
+  <section class="data-grid">
+    <article class="surface-card stat-card">
+      <span class="stat-label">Workouts logged</span>
+      <div class="stat-value">{{ stats.total_workouts }}</div>
+      <div class="stat-detail">Goal: 5 per week</div>
+      <div class="progress-meter" style="--progress: {{ stats.workout_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Meals captured</span>
+      <div class="stat-value">{{ stats.total_meals }}</div>
+      <div class="stat-detail">~{{ stats.calories_estimate }} kcal recorded</div>
+      <div class="progress-meter" style="--progress: {{ stats.meal_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Calories burned</span>
+      <div class="stat-value">{{ stats.calories_burned }}</div>
+      <div class="stat-detail">Estimated from workout entries</div>
+      <div class="progress-meter" style="--progress: {{ stats.workout_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Sleep logged</span>
+      <div class="stat-value">{{ stats.hours_sleep }}<small style="margin-left:0.35rem; font-size:1rem; letter-spacing:0; text-transform:none; color:var(--color-muted);">hrs</small></div>
+      <div class="stat-detail">7-night target: 49 hours</div>
+      <div class="progress-meter" style="--progress: {{ stats.sleep_completion }}%;"></div>
+    </article>
+  </section>
+
+  <div class="grid-responsive">
+    <section class="trend-board">
+      <div class="section-header" style="margin-bottom:0;">
+        <div>
+          <small>Consistency trend</small>
+          <h3 style="margin:0.4rem 0 0;">Recent activity mix</h3>
         </div>
-        {% else %}
-        <p class="text-muted mb-0">Complete onboarding to generate your personalized plan.</p>
-        {% endif %}
+      </div>
+      {% if stats.has_data %}
+      <div class="trend-bars">
+        {% for bar in trend %}
+        <div class="trend-bar" style="--value: {{ bar.value }};">
+          <small>{{ (bar.label or 'Recent')[:10] }}</small>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="stat-detail" style="margin-top:1.8rem;">Each bar combines workouts, meals, sleep, and habit logs from your last check-ins.</p>
+      {% else %}
+      <p class="stat-detail" style="margin-top:1.2rem;">Log your first entry to unlock your activity trend visual.</p>
+      {% endif %}
+    </section>
+
+    <section class="surface-card">
+      <div class="section-header" style="margin-bottom:1rem;">
+        <div>
+          <small>Recent logs</small>
+          <h3 style="margin:0.4rem 0 0;">Snapshots</h3>
+        </div>
+      </div>
+      {% if recent_logs %}
+      <div class="timeline-rail">
+        {% for log in recent_logs %}
+        <article class="timeline-item">
+          <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
+          {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
+          {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+          {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
+          {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="stat-detail">No logs yet. Capture your first entry to begin your story.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Plan snapshot</small>
+        <h3 style="margin:0.4rem 0 0;">This week&apos;s focus</h3>
+      </div>
+      <form action="{{ url_for('main.replan') }}" method="post">
+        <button class="fv-button fv-button--ghost" type="submit">Refresh plan</button>
+      </form>
+    </div>
+    {% if plan %}
+    <div class="plan-section">
+      <div class="plan-meta">
+        <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
+        <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
+        {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
+      </div>
+      <div class="plan-tile">
+        <h4>Workouts</h4>
+        <p>{{ plan.workout.weekly_split|default('Strength & mobility blend') }}</p>
+        <p class="stat-detail">Sample session: {{ plan.workout.sample_session|default('Dynamic warm-up, compound lifts, core finisher') }}</p>
+      </div>
+      <div class="plan-tile">
+        <h4>Nutrition</h4>
+        <p>{{ plan.nutrition.daily_structure|default('3 anchor meals, 2 functional snacks') }}</p>
+        <p class="stat-detail">Hydration: {{ plan.nutrition.hydration|default('Aim for 90 oz with minerals') }}</p>
+      </div>
+      <div class="plan-tile">
+        <h4>Habits</h4>
+        <ul>
+          <li><strong>Morning:</strong> {{ plan.habits.morning|default('Grounding routine + sunlight exposure') }}</li>
+          <li><strong>Evening:</strong> {{ plan.habits.evening|default('Digital sunset, breathwork, journal') }}</li>
+          <li><strong>Weekly:</strong> {{ plan.habits.weekly|default('Meal prep, long walk check-in') }}</li>
+        </ul>
       </div>
     </div>
-  </div>
+    {% else %}
+    <p class="stat-detail">Complete onboarding to receive your personalized plan.</p>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}

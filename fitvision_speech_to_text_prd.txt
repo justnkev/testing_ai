@@ -1,0 +1,179 @@
+# Product Requirements Document (PRD)
+
+## Product: FitVision App
+### Feature Update: AI Coach Speech-to-Text (Dictation) Capability
+### Date: November 2, 2025
+### Author: Product Team – FitVision
+
+---
+
+## 1. Overview & Goal
+
+The primary goal of this feature is to enhance accessibility and user convenience by enabling hands-free communication with the AI Coach through speech-to-text (dictation). This is particularly useful during workouts or when users are otherwise unable or unwilling to type.
+
+---
+
+## 2. Current State (The Problem)
+
+Currently, the FitVision AI Coach only supports typed user input. Users must manually enter messages via the keyboard, which presents friction in contexts like active exercise, multitasking, or accessibility scenarios. There is no support for audio input, and no microphone permissions are handled.
+
+---
+
+## 3. Functional Requirements
+
+### Feature A: Chat Input UI Update
+
+**Description:**
+Add a microphone icon to the right of the AI Coach chat input bar.
+
+**Requirements:**
+- Icon: Microphone (default), changes to Stop icon during active listening.
+- Position: Inline with the "Send" button in the chat input.
+- Interaction: Tapping the icon initiates the permission/dictation flow (see Feature B and C).
+- Fallback state: If permission is denied, show a modal or tooltip with guidance.
+
+---
+
+### Feature B: Microphone Permission Flow
+
+**Description:**
+When a user taps the microphone icon for the first time, the app must request microphone access using the native OS dialog.
+
+**Requirements:**
+- **First-Time Use**:
+  - Trigger the standard OS microphone permission prompt.
+  - Show rationale string: *"To enable voice input for your AI Coach."*
+- **Permission Granted**:
+  - Start live dictation immediately (see Feature C).
+- **Permission Denied**:
+  - Show an alert or modal: *"Microphone access is required. Please enable it in your device settings."*
+  - Include a button that opens device settings (deep-link to app permissions if supported).
+- **Re-triggering Permission**:
+  - Tapping the microphone again after denial repeats the alert with the settings link.
+
+---
+
+### Feature C: Dictation & Transcription Flow
+
+**Description:**
+Once microphone access is granted, the user can speak their message to the AI Coach. Speech will be transcribed in near-real-time and populated into the chat input field, where the user can edit before sending.
+
+**Requirements:**
+- **Initiation State**:
+  - Icon changes to "Stop."
+  - Show visual feedback (e.g., pulsing microphone icon or animated waveform).
+  - Display “Listening…” indicator in UI.
+
+- **Transcription State**:
+  - Transcribed speech appears live in the chat input field.
+  - Allow multiple phrases/sentences until the user taps Stop.
+
+- **Completion State**:
+  - On Stop tap or silence timeout:
+    - End microphone capture.
+    - Final transcript remains in the chat input field.
+    - Message is NOT auto-sent.
+    - User may review and edit text manually.
+    - Send must be manually tapped.
+
+- **Cancel State**:
+  - Provide a cancel button or icon ("X") to discard the transcription and reset UI.
+
+---
+
+## 4. User Stories & Acceptance Criteria
+
+### User Story 1: Initiate Dictation
+**As a** user,
+**I want** to tap a microphone icon in the AI Coach chat,
+**so that** I can start speaking my message instead of typing it.
+
+**Acceptance Criteria:**
+- [ ] Tapping the microphone icon starts dictation (with permission flow).
+- [ ] Visual cues show that the app is listening.
+
+---
+
+### User Story 2: Permission Request
+**As a** new user of this feature,
+**I want** to be clearly prompted for microphone access the first time I use it,
+**so that** I understand why the app needs it.
+
+**Acceptance Criteria:**
+- [ ] Native OS dialog requests microphone access.
+- [ ] Explanation is shown ("To enable voice input for your AI Coach.")
+- [ ] Permission granted leads to active dictation.
+
+---
+
+### User Story 3: Denied Permission Handling
+**As a** user who previously denied permission,
+**I want** to be shown a simple way to enable microphone access in my settings,
+**so that** I can use the feature later.
+
+**Acceptance Criteria:**
+- [ ] Denial shows message with guidance and button to open settings.
+- [ ] Tapping the microphone again shows the same guidance.
+
+---
+
+### User Story 4: Transcription Review
+**As a** user,
+**I want** to see my spoken words appear as text in the input box,
+**so that** I can review them for accuracy before sending.
+
+**Acceptance Criteria:**
+- [ ] Transcription is shown in the input box as the user speaks.
+- [ ] Final result remains in input field after stopping dictation.
+
+---
+
+### User Story 5: Manual Editing & Cancel
+**As a** user,
+**I want** to be able to manually edit or cancel my dictated message,
+**so that** I can fix errors or discard the input.
+
+**Acceptance Criteria:**
+- [ ] Dictated text is editable.
+- [ ] Cancel button clears the transcription and resets UI.
+
+---
+
+## 5. Out-of-Scope
+
+- Voice commands or hands-free submission (e.g., "Send this")
+- Audio playback or storage (no voice recordings saved)
+- Changes to the AI Coach's backend or message interpretation logic
+- Accessibility-specific voice control beyond dictation
+- Cross-platform audio recording performance optimization (unless issues arise)
+
+---
+
+## 6. Technical Context & Constraints
+
+- Chat logic handled via `ai_service.py` → `continue_onboarding()` for both onboarding and coaching
+- Conversations are persisted via `storage_service.py` (see `save_coach_conversation()`)
+- UI and route for AI Coach located in `routes.py` under `/coach`
+- No current speech recognition code exists; must integrate native OS APIs or a cross-platform speech-to-text SDK (e.g., `SpeechRecognizer` on Android, `SFSpeechRecognizer` on iOS)
+- Any new code must safely handle cases where microphone hardware is unavailable, permission is revoked, or dictation fails silently
+
+Suggested UI integration layer: frontend `ai_coach.html` should contain:
+- Microphone button icon + states
+- Input field handling for text from live transcription
+- JS or native wrapper for invoking the speech recognition API and managing permission flow
+
+---
+
+## 7. Deliverables
+
+- Fully functional microphone icon + dictation experience within AI Coach chat
+- Permission request flow (first-time, denied, re-open settings)
+- UI state transitions (listening, transcribing, stop, cancel)
+- Unit test coverage for permission states and text transcription logic
+- UX microcopy and guidance strings reviewed with Design
+- Deployment readiness verified for iOS and Android separately
+
+---
+
+## End of Document
+

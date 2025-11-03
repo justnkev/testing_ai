@@ -30,7 +30,8 @@
   let currentState = composer.dataset.speechState || "idle";
   let requestInFlight = null;
   let baseValue = textarea.value || "";
-  let liveTranscript = "";
+  let sessionBaseValue = baseValue;
+  let sessionTranscript = "";
 
   const STATUS_MESSAGES = {
     idle: "",
@@ -179,18 +180,19 @@
   }
 
   function handleTranscript(event) {
-    const transcript = event && typeof event.text === "string" ? event.text : "";
-    const isFinal = Boolean(event && event.isFinal);
-    const combined = combineText(baseValue, transcript);
+    const transcriptRaw = event && typeof event.text === "string" ? event.text : "";
+    if (transcriptRaw) {
+      sessionTranscript = transcriptRaw;
+    }
+
+    const activeTranscript = transcriptRaw || sessionTranscript || "";
+    const combined = combineText(sessionBaseValue, activeTranscript);
 
     textarea.value = combined;
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    liveTranscript = transcript;
-
-    if (isFinal) {
-      baseValue = combined;
-      liveTranscript = "";
-      setState("idle");
+    try {
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    } catch (error) {
+      // Ignore environments without selection range support.
     }
   }
 
@@ -204,7 +206,10 @@
       setState(status);
       if (status === "idle") {
         baseValue = textarea.value;
-        liveTranscript = "";
+        sessionBaseValue = baseValue;
+        sessionTranscript = "";
+      } else if (status === "listening" && !sessionTranscript) {
+        sessionBaseValue = textarea.value || sessionBaseValue;
       }
     }
   }
@@ -223,7 +228,8 @@
 
   function beginDictation() {
     baseValue = textarea.value || "";
-    liveTranscript = "";
+    sessionBaseValue = baseValue;
+    sessionTranscript = "";
     setState("listening");
     textarea.focus({ preventScroll: true });
 
@@ -243,13 +249,20 @@
     bridge.cancelListening().catch(() => {
       setState("error");
     });
-    textarea.value = baseValue;
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    liveTranscript = "";
+    textarea.value = sessionBaseValue;
+    try {
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    } catch (error) {
+      // Ignore selection errors in environments without selection support.
+    }
+    baseValue = sessionBaseValue;
+    sessionTranscript = "";
+    sessionBaseValue = baseValue;
     setState("idle");
   }
 
   toggleButton.setAttribute("aria-label", "Start dictation");
+  toggleButton.setAttribute("aria-pressed", "false");
   toggleButton.title = "Start dictation";
   cancelButton.hidden = true;
   setStatusMessage();
@@ -324,9 +337,15 @@
   });
 
   bridge.on("cancel", () => {
-    textarea.value = baseValue;
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    liveTranscript = "";
+    textarea.value = sessionBaseValue;
+    try {
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    } catch (error) {
+      // Ignore selection errors in environments without selection support.
+    }
+    baseValue = sessionBaseValue;
+    sessionTranscript = "";
+    sessionBaseValue = baseValue;
     setState("idle");
   });
 })(window, document);

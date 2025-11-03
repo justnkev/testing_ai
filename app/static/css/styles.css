@@ -92,6 +92,8 @@ label {
   min-height: 100vh;
   position: relative;
   isolation: isolate;
+  overflow-x: hidden;
+  transition: background 0.35s ease;
 }
 
 .fitvision-shell::before {
@@ -114,17 +116,62 @@ label {
   flex-direction: column;
 }
 
+.fitvision-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(100%, 300px);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.35s ease;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.fitvision-shell.nav-open .fitvision-drawer,
+.fitvision-drawer.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.fitvision-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.68);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.fitvision-shell.nav-open .fitvision-drawer__backdrop,
+.fitvision-drawer.is-open .fitvision-drawer__backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .fitvision-sidebar {
-  width: 260px;
+  width: 100%;
+  max-width: 280px;
   padding: 2.4rem 1.8rem;
   background: linear-gradient(180deg, rgba(12, 16, 31, 0.8), rgba(11, 12, 20, 0.72));
   border-right: 1px solid rgba(143, 125, 255, 0.2);
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  position: sticky;
-  top: 0;
-  max-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.fitvision-shell.nav-open .fitvision-main {
+  margin-left: 0;
+}
+
+.fitvision-shell.nav-open .fitvision-sidebar {
+  box-shadow: var(--shadow-soft);
 }
 
 .brand-lockup {
@@ -223,6 +270,7 @@ label {
   flex: 1;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.35s ease;
 }
 
 .fitvision-topbar {
@@ -230,8 +278,60 @@ label {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1.5rem;
+}
+
+.fitvision-topbar > .fitvision-nav-toggle {
+  flex-shrink: 0;
+}
+
+.fitvision-nav-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(140, 123, 255, 0.32);
+  background: rgba(12, 16, 31, 0.72);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.fitvision-nav-toggle:hover,
+.fitvision-nav-toggle:focus-visible {
+  background: rgba(140, 123, 255, 0.18);
+  border-color: rgba(140, 123, 255, 0.6);
+  outline: none;
+}
+
+.fitvision-nav-toggle:active {
+  transform: translateY(1px);
+}
+
+.fitvision-nav-toggle__bar {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  margin: 0 auto;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.fitvision-shell.nav-open .fitvision-nav-toggle__bar:nth-child(2) {
+  opacity: 0;
+}
+
+.fitvision-shell.nav-open .fitvision-nav-toggle__bar:first-child {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.fitvision-shell.nav-open .fitvision-nav-toggle__bar:last-child {
+  transform: translateY(-8px) rotate(-45deg);
 }
 
 .topbar-meta {
@@ -784,36 +884,33 @@ input[type="file"] {
 }
 
 @media (max-width: 992px) {
-  .fitvision-shell {
-    flex-direction: column;
-  }
-
-  .fitvision-sidebar {
-    width: 100%;
-    position: static;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    border-right: none;
-    border-bottom: 1px solid rgba(140, 123, 255, 0.2);
-    padding: 1.4rem 2rem;
-    gap: 1.2rem;
-  }
-
-  .fitvision-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .fitvision-nav a {
-    padding: 0.6rem 0.9rem;
+  .fitvision-shell.nav-open {
+    overflow: hidden;
   }
 
   .fitvision-topbar,
   .fitvision-content {
     padding-left: 1.6rem;
     padding-right: 1.6rem;
+  }
+}
+
+@media (min-width: 992px) {
+  .fitvision-drawer {
+    width: 280px;
+  }
+
+  .fitvision-shell.nav-open .fitvision-main {
+    margin-left: 280px;
+  }
+
+  .fitvision-shell.nav-open .fitvision-sidebar {
+    box-shadow: none;
+  }
+
+  .fitvision-shell.nav-open .fitvision-drawer__backdrop {
+    opacity: 0;
+    pointer-events: none;
   }
 }
 

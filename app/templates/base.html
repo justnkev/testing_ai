@@ -13,39 +13,47 @@
     {% set user = session.get('user') %}
     {% set display_name = (user.get('name') if user else '') or (user.get('email') if user else '') %}
     {% set initial = display_name[:1]|upper if display_name else 'F' %}
-    <div class="fitvision-shell {% if not user %}fitvision-shell--public{% endif %}">
+    <div class="fitvision-shell {% if not user %}fitvision-shell--public{% endif %}" data-nav-shell>
       {% if user %}
-      <aside class="fitvision-sidebar" aria-label="Primary navigation">
-        <a class="brand-lockup" href="{{ url_for('main.dashboard') }}">
-          <span>FV</span>
-          <div>
-            FitVision
-            <div style="font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(248,249,255,0.65);">Wellness OS</div>
-          </div>
-        </a>
-        {% set active_endpoint = request.endpoint %}
-        <nav class="fitvision-nav">
-          <a href="{{ url_for('main.dashboard') }}" class="{% if active_endpoint == 'main.dashboard' %}is-active{% endif %}">Dashboard</a>
-          <a href="{{ url_for('main.ai_coach') }}" class="{% if active_endpoint == 'main.ai_coach' %}is-active{% endif %}">AI Coach ✨</a>
-          <a href="{{ url_for('main.plan') }}" class="{% if active_endpoint == 'main.plan' %}is-active{% endif %}">Plan</a>
-          <a href="{{ url_for('main.progress') }}" class="{% if active_endpoint == 'main.progress' %}is-active{% endif %}">Progress</a>
-          <a href="{{ url_for('main.visualize') }}" class="{% if active_endpoint == 'main.visualize' %}is-active{% endif %}">Visualize</a>
-        </nav>
-        <div class="sidebar-footer">
-          <div class="avatar-chip">
-            <span>{{ initial }}</span>
+      <div class="fitvision-drawer" id="fitvisionNavDrawer" data-nav-drawer aria-hidden="true">
+        <aside class="fitvision-sidebar" aria-label="Primary navigation">
+          <a class="brand-lockup" href="{{ url_for('main.dashboard') }}">
+            <span>FV</span>
             <div>
-              <div style="font-weight:600; color:var(--color-text);">{{ display_name or 'Member' }}</div>
-              <div style="font-size:0.75rem; color:var(--color-muted);">Guided mode</div>
+              FitVision
+              <div style="font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(248,249,255,0.65);">Wellness OS</div>
             </div>
+          </a>
+          {% set active_endpoint = request.endpoint %}
+          <nav class="fitvision-nav">
+            <a href="{{ url_for('main.dashboard') }}" class="{% if active_endpoint == 'main.dashboard' %}is-active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('main.ai_coach') }}" class="{% if active_endpoint == 'main.ai_coach' %}is-active{% endif %}">AI Coach ✨</a>
+            <a href="{{ url_for('main.plan') }}" class="{% if active_endpoint == 'main.plan' %}is-active{% endif %}">Plan</a>
+            <a href="{{ url_for('main.progress') }}" class="{% if active_endpoint == 'main.progress' %}is-active{% endif %}">Progress</a>
+            <a href="{{ url_for('main.visualize') }}" class="{% if active_endpoint == 'main.visualize' %}is-active{% endif %}">Visualize</a>
+          </nav>
+          <div class="sidebar-footer">
+            <div class="avatar-chip">
+              <span>{{ initial }}</span>
+              <div>
+                <div style="font-weight:600; color:var(--color-text);">{{ display_name or 'Member' }}</div>
+                <div style="font-size:0.75rem; color:var(--color-muted);">Guided mode</div>
+              </div>
+            </div>
+            <a href="{{ url_for('main.logout') }}" class="fv-button fv-button--ghost" style="justify-content:flex-start;">Log out</a>
           </div>
-          <a href="{{ url_for('main.logout') }}" class="fv-button fv-button--ghost" style="justify-content:flex-start;">Log out</a>
-        </div>
-      </aside>
+        </aside>
+        <div class="fitvision-drawer__backdrop" data-nav-backdrop hidden></div>
+      </div>
       {% endif %}
       <div class="fitvision-main">
         {% if user %}
         <header class="fitvision-topbar">
+          <button class="fitvision-nav-toggle" type="button" data-nav-toggle aria-controls="fitvisionNavDrawer" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="fitvision-nav-toggle__bar"></span>
+            <span class="fitvision-nav-toggle__bar"></span>
+            <span class="fitvision-nav-toggle__bar"></span>
+          </button>
           {% block topbar %}
           <div>
             <small>Today</small>

@@ -28,7 +28,6 @@
           <a href="{{ url_for('main.dashboard') }}" class="{% if active_endpoint == 'main.dashboard' %}is-active{% endif %}">Dashboard</a>
           <a href="{{ url_for('main.ai_coach') }}" class="{% if active_endpoint == 'main.ai_coach' %}is-active{% endif %}">AI Coach ✨</a>
           <a href="{{ url_for('main.plan') }}" class="{% if active_endpoint == 'main.plan' %}is-active{% endif %}">Plan</a>
-          <a href="{{ url_for('main.progress') }}" class="{% if active_endpoint == 'main.progress' %}is-active{% endif %}">Progress</a>
           <a href="{{ url_for('main.visualize') }}" class="{% if active_endpoint == 'main.visualize' %}is-active{% endif %}">Visualize</a>
         </nav>
         <div class="sidebar-footer">
@@ -50,11 +49,11 @@
           <div>
             <small>Today</small>
             <h2 style="margin:0.4rem 0 0; font-size:1.6rem;">Stay consistent, {{ display_name.split(' ')[0]|title if display_name else 'friend' }}.</h2>
-            <p style="margin:0.6rem 0 0; max-width:420px;">Your data, habits, and goals live in one calm space. Review your plan or log a new insight whenever you're ready.</p>
+            <p style="margin:0.6rem 0 0; max-width:420px;">Your data, habits, and goals live in one calm space. Review your plan or check in with your coach whenever you're ready.</p>
           </div>
           <div class="topbar-meta">
             <a class="fv-button fv-button--ghost" href="{{ url_for('main.plan') }}">View plan</a>
-            <a class="fv-button fv-button--primary" href="{{ url_for('main.progress') }}">Log progress</a>
+            <a class="fv-button fv-button--primary" href="{{ url_for('main.ai_coach') }}">Message coach</a>
           </div>
           {% endblock %}
         </header>

@@ -8,7 +8,7 @@
         <h2>Guidance for this week</h2>
       </div>
       <div class="hero-cta">
-        <a class="fv-button fv-button--ghost" href="{{ url_for('main.progress') }}">Log something new</a>
+        <a class="fv-button fv-button--ghost" href="{{ url_for('main.ai_coach') }}">Message your coach</a>
         <a class="fv-button fv-button--subtle" href="{{ url_for('main.plan') }}">Open plan</a>
       </div>
     </div>
@@ -60,7 +60,7 @@
       </div>
       <p class="stat-detail" style="margin-top:1.8rem;">Each bar combines workouts, meals, sleep, and habit logs from your last check-ins.</p>
       {% else %}
-      <p class="stat-detail" style="margin-top:1.2rem;">Log your first entry to unlock your activity trend visual.</p>
+      <p class="stat-detail" style="margin-top:1.2rem;">Once new activity syncs in, your trend visual will come to life.</p>
       {% endif %}
     </section>
 
@@ -84,7 +84,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="stat-detail">No logs yet. Capture your first entry to begin your story.</p>
+      <p class="stat-detail">No activity captured yet. Check back after your next coach sync.</p>
       {% endif %}
     </section>
   </div>

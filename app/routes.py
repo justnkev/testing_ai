@@ -62,6 +62,16 @@ def _ensure_onboarding_complete() -> Optional[Response]:
     return None
 
 
+def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        normalized = value.replace('Z', '+00:00') if isinstance(value, str) else value
+        return datetime.fromisoformat(normalized)
+    except (TypeError, ValueError):
+        return None
+
+
 @main_bp.route('/')
 def index() -> str:
     return render_template('index.html')
@@ -264,17 +274,43 @@ def ai_coach() -> str | Response:
         session['coach_conversation'] = conversation
         session.modified = True
 
+    baseline_marker = session.get('coach_session_reference')
+    if baseline_marker is None:
+        raw_baseline = user.get('last_coach_session') or storage_service.get_last_coach_session(user_id)
+        baseline_marker = raw_baseline if raw_baseline else '__none__'
+        session['coach_session_reference'] = baseline_marker
+        session.modified = True
+
+    baseline_iso = None if baseline_marker == '__none__' else baseline_marker
+
+    logs_since = storage_service.fetch_logs_since(user_id, baseline_iso)
+    last_session_dt = _parse_timestamp(baseline_iso)
+
+    if not conversation:
+        ai_message = ai_service.generate_check_in_reply([], user, logs_since, last_session_dt)
+        conversation.append({'role': 'assistant', 'content': ai_message})
+        session['coach_conversation'] = conversation
+        session.modified = True
+        storage_service.save_coach_conversation(user_id, conversation)
+        new_iso = storage_service.update_last_coach_session(user_id, datetime.now(timezone.utc))
+        session['coach_session_latest'] = new_iso
+        session['user']['last_coach_session'] = new_iso
+        session.modified = True
+
     if request.method == 'POST':
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
-        # Reuse the onboarding chat cadence for ongoing coaching prompts.
-        ai_message = ai_service.continue_onboarding(conversation, user)
+        ai_message = ai_service.generate_check_in_reply(conversation, user, logs_since, last_session_dt)
         conversation.append({'role': 'assistant', 'content': ai_message})
         session['coach_conversation'] = conversation
         session.modified = True
 
         storage_service.save_coach_conversation(user_id, conversation)
+        new_iso = storage_service.update_last_coach_session(user_id, datetime.now(timezone.utc))
+        session['coach_session_latest'] = new_iso
+        session['user']['last_coach_session'] = new_iso
+        session.modified = True
 
     return render_template('ai_coach.html', conversation=conversation)
 

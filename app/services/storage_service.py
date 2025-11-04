@@ -5,6 +5,7 @@ import os
 import logging 
 logger = logging.getLogger(__name__)
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
@@ -33,7 +34,11 @@ class StorageService:
                 {
                     'email': email,
                     'password': password,
-                    'data': {'name': name, 'onboardingComplete': False},
+                    'data': {
+                        'name': name,
+                        'onboardingComplete': False,
+                        'lastCoachSession': None,
+                    },
                 }
             )
             user = response.user
@@ -44,6 +49,7 @@ class StorageService:
                 'email': email,
                 'name': name,
                 'onboarding_complete': False,
+                'last_coach_session': None,
             }
 
         # Fallback: store in a local JSON file
@@ -56,9 +62,16 @@ class StorageService:
             'name': name,
             'password': password,
             'onboarding_complete': False,
+            'last_coach_session': None,
         }
         self._write_json(self._profile_path(user_id), profile)
-        return {'id': user_id, 'email': email, 'name': name, 'onboarding_complete': False}
+        return {
+            'id': user_id,
+            'email': email,
+            'name': name,
+            'onboarding_complete': False,
+            'last_coach_session': None,
+        }
 
     def sign_in(self, email: str, password: str) -> Dict[str, str]:
         if self._supabase:
@@ -69,11 +82,13 @@ class StorageService:
             metadata = user.user_metadata or {}
             name = metadata.get('name', '') if metadata else ''
             onboarding_complete = bool(metadata.get('onboardingComplete'))
+            last_session = metadata.get('lastCoachSession') if metadata else None
             return {
                 'id': user.id,
                 'email': email,
                 'name': name,
                 'onboarding_complete': onboarding_complete,
+                'last_coach_session': last_session,
             }
 
         profile = self._read_json(self._profile_path(email.lower()))
@@ -84,6 +99,7 @@ class StorageService:
             'email': profile['email'],
             'name': profile.get('name', ''),
             'onboarding_complete': bool(profile.get('onboarding_complete')),
+            'last_coach_session': profile.get('last_coach_session'),
         }
 
     def save_plan(self, user_id: str, plan: Dict) -> None:
@@ -161,6 +177,63 @@ class StorageService:
         if isinstance(profile, dict):
             return bool(profile.get('onboarding_complete'))
         return None
+
+    def get_last_coach_session(self, user_id: str) -> Optional[str]:
+        """Return the stored ISO timestamp of the last AI coach session."""
+
+        if self._supabase:
+            # Supabase metadata is surfaced during sign-in and stored on the session user.
+            # When running without Supabase, fall back to the local profile record.
+            return None
+
+        profile = self._read_json(self._profile_path(user_id)) or {}
+        value = profile.get('last_coach_session')
+        return str(value) if value else None
+
+    def update_last_coach_session(self, user_id: str, timestamp: datetime) -> str:
+        """Persist the latest AI coach session timestamp and return the stored value."""
+
+        iso_value = timestamp.astimezone(timezone.utc).isoformat()
+
+        if self._supabase:
+            try:  # pragma: no cover - depends on Supabase configuration
+                auth_admin = getattr(self._supabase.auth, 'admin', None)
+                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                    auth_admin.update_user_by_id(
+                        user_id,
+                        user_metadata={'lastCoachSession': iso_value},
+                    )
+                    return iso_value
+                self._supabase.auth.update_user({'data': {'lastCoachSession': iso_value}})
+                return iso_value
+            except Exception:  # pragma: no cover - defensive logging
+                logger.warning('Supabase last coach session update failed', exc_info=True)
+                return iso_value
+
+        profile = self._read_json(self._profile_path(user_id)) or {}
+        profile['last_coach_session'] = iso_value
+        self._write_json(self._profile_path(user_id), profile)
+        return iso_value
+
+    def fetch_logs_since(self, user_id: str, since_iso: Optional[str]) -> List[Dict]:
+        """Return wellness logs filtered to entries after the provided timestamp."""
+
+        logs = self.fetch_logs(user_id)
+        if not since_iso:
+            return logs
+
+        since_dt = self._parse_timestamp(since_iso)
+        if since_dt is None:
+            return logs
+
+        filtered: List[Dict] = []
+        for entry in logs:
+            ts = entry.get('timestamp')
+            entry_dt = self._parse_timestamp(ts)
+            if entry_dt and entry_dt > since_dt:
+                filtered.append(entry)
+
+        return filtered
 
     def append_log(self, user_id: str, log_entry: Dict) -> None:
         logs = self.fetch_logs(user_id)
@@ -275,3 +348,13 @@ class StorageService:
             if value:
                 return value
         return None
+
+    @staticmethod
+    def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            normalized = value.replace('Z', '+00:00') if isinstance(value, str) else value
+            return datetime.fromisoformat(normalized)
+        except (TypeError, ValueError):
+            return None

@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -139,6 +140,36 @@ class AIService:
 
         # Heuristic fallback keeps the experience running without an API key.
         return self._fallback_onboarding_question(conversation, topics_state)
+
+    def generate_check_in_reply(
+        self,
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+        logs_since_last: List[Dict[str, Any]],
+        last_session: Optional[datetime],
+    ) -> str:
+        """Return the next adaptive coaching response for returning users."""
+
+        wellness_summary = self._summarize_wellness_logs(logs_since_last)
+
+        if self._gemini_model:
+            prompt = self._build_check_in_prompt(
+                conversation,
+                user,
+                logs_since_last,
+                wellness_summary,
+                last_session,
+            )
+            ai_reply = self._call_gemini(prompt)
+            if ai_reply:
+                return ai_reply
+
+        return self._fallback_check_in_response(
+            conversation,
+            user,
+            wellness_summary,
+            last_session,
+        )
 
     def generate_plan(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> Dict[str, Dict[str, str]]:
         """Return a personalized plan summary based on the conversation."""
@@ -477,6 +508,48 @@ class AIService:
             "Provide the next assistant reply to continue the intake."
         )
 
+    def _build_check_in_prompt(
+        self,
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+        logs: List[Dict[str, Any]],
+        wellness_summary: Dict[str, Any],
+        last_session: Optional[datetime],
+    ) -> str:
+        transcript = self._format_conversation(conversation)
+        user_name = user.get('name') or 'the user'
+        last_session_text = (
+            last_session.astimezone(timezone.utc).strftime('%B %d, %Y at %H:%M %Z')
+            if isinstance(last_session, datetime)
+            else 'No previous session recorded'
+        )
+
+        highlight_lines = self._format_wellness_highlights(wellness_summary)
+        highlights = '\n'.join(f"- {line}" for line in highlight_lines) if highlight_lines else '- No new logs were captured.'
+        logs_text = self._format_logs(logs)
+
+        return (
+            "You are FitVision's returning-user health coach. The user has completed onboarding and is"
+            " coming back for an adaptive check-in."
+            "\nTone: upbeat, casual, encouraging, and concise—like a trusted friend who happens to be a coach."
+            " Always acknowledge their progress, reference the latest data provided, and ask an open-ended"
+            " follow-up question that keeps the conversation collaborative."
+            "\nDo not repeat onboarding questions. Focus on supporting their ongoing habits and adjustments."
+            "\nUser name: {user_name}."
+            "\nLast recorded session: {last_session_text}."
+            "\nRecent wellness highlights:\n{highlights}\n"
+            "Recent log details:\n{logs_text}\n"
+            "Conversation transcript so far:\n{transcript}\n"
+            "Produce the next assistant reply that references at least one highlight when available and"
+            " ends with an inviting question or suggested next step."
+        ).format(
+            user_name=user_name,
+            last_session_text=last_session_text,
+            highlights=highlights,
+            logs_text=logs_text,
+            transcript=transcript,
+        )
+
     def _build_plan_prompt(
         self, conversation: List[Dict[str, str]], user: Dict[str, str]
     ) -> str:
@@ -692,6 +765,174 @@ class AIService:
             if details:
                 lines.append(f"- On {ts}: " + "; ".join(details))
         return "\n".join(lines)
+
+    def _summarize_wellness_logs(self, logs: List[Dict[str, Any]]) -> Dict[str, Any]:
+        summary: Dict[str, Any] = {
+            'count': len(logs),
+            'workouts': 0,
+            'meals': 0,
+            'habits': 0,
+            'sleep_samples': [],
+            'latest_log': None,
+            'recent_notes': [],
+        }
+
+        latest_ts: Optional[datetime] = None
+
+        for entry in logs:
+            timestamp = entry.get('timestamp')
+            entry_dt = self._parse_timestamp(timestamp)
+            if entry_dt and (latest_ts is None or entry_dt > latest_ts):
+                latest_ts = entry_dt
+
+            workout = entry.get('workout')
+            if workout:
+                summary['workouts'] += 1
+                summary['recent_notes'].append(f"Workout: {workout}")
+
+            meals = entry.get('meals')
+            if meals:
+                summary['meals'] += 1
+                summary['recent_notes'].append(f"Meals: {meals}")
+
+            habits = entry.get('habits')
+            if habits:
+                summary['habits'] += 1
+                summary['recent_notes'].append(f"Habits: {habits}")
+
+            sleep_value = entry.get('sleep')
+            if sleep_value:
+                numbers = re.findall(r"\d+(?:\.\d+)?", str(sleep_value))
+                if numbers:
+                    try:
+                        summary['sleep_samples'].append(float(numbers[0]))
+                    except ValueError:
+                        continue
+
+        summary['latest_log'] = latest_ts
+        if summary['sleep_samples']:
+            average = sum(summary['sleep_samples']) / len(summary['sleep_samples'])
+            summary['sleep_average'] = round(average, 1)
+        else:
+            summary['sleep_average'] = None
+
+        return summary
+
+    def _format_wellness_highlights(self, summary: Dict[str, Any]) -> List[str]:
+        parts: List[str] = []
+
+        workouts = summary.get('workouts', 0)
+        meals = summary.get('meals', 0)
+        habits = summary.get('habits', 0)
+        sleep_average = summary.get('sleep_average')
+
+        if workouts:
+            suffix = 's' if workouts != 1 else ''
+            parts.append(f"{workouts} workout{suffix} logged")
+        if meals:
+            suffix = 's' if meals != 1 else ''
+            parts.append(f"nutrition check-ins on {meals} day{suffix}")
+        if sleep_average:
+            parts.append(f"about {sleep_average} hours of sleep per night")
+        if habits:
+            suffix = 's' if habits != 1 else ''
+            parts.append(f"habit wins noted {habits} time{suffix}")
+
+        if not parts and summary.get('count'):
+            parts.append('A few reflections were logged without detailed metrics.')
+
+        return parts
+
+    def _fallback_check_in_response(
+        self,
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+        summary: Dict[str, Any],
+        last_session: Optional[datetime],
+    ) -> str:
+        name = (user.get('name') or '').strip()
+        first_name = name.split()[0] if name else 'friend'
+
+        last_session_phrase = self._format_last_session_phrase(last_session)
+        highlight_sentence = self._compose_highlight_sentence(summary, last_session)
+
+        if not conversation or conversation[-1].get('role') != 'user':
+            greeting = f"Hey {first_name}! Welcome back"
+            if last_session_phrase:
+                greeting += f" — we last caught up {last_session_phrase}."
+            else:
+                greeting += '!'
+
+            if highlight_sentence:
+                body = f" {highlight_sentence}"
+            elif summary.get('count'):
+                body = " I saw a couple of notes roll in, so let's unpack what stands out."
+            else:
+                body = " I haven't seen new logs yet, so tell me how things have felt lately."
+
+            return (
+                greeting
+                + body
+                + " What's feeling like the biggest win or friction point that we should focus on together?"
+            )
+
+        user_message = (conversation[-1].get('content') or '').strip()
+        acknowledgement = "Thanks for sharing"
+        if user_message:
+            acknowledgement += f" that, {first_name}."
+        else:
+            acknowledgement += ", let's keep things rolling."
+
+        if highlight_sentence:
+            context = f" {highlight_sentence}"
+        elif summary.get('count'):
+            context = " I'm seeing a few notes in the logs, so we can use those as a starting point."
+        else:
+            context = " I'm not spotting new data yet, so your real-time update is clutch."
+
+        next_step = " What adjustment or support would make the next few days feel smoother?"
+        return acknowledgement + context + next_step
+
+    def _compose_highlight_sentence(
+        self, summary: Dict[str, Any], last_session: Optional[datetime]
+    ) -> str:
+        parts = self._format_wellness_highlights(summary)
+        if not parts:
+            return ''
+
+        if len(parts) == 1:
+            highlight_body = parts[0]
+        else:
+            highlight_body = ', '.join(parts[:-1]) + f", and {parts[-1]}"
+
+        timeframe = self._format_last_session_phrase(last_session)
+        if timeframe:
+            return f"Since we last connected {timeframe}, I noticed {highlight_body}."
+        return f"I noticed {highlight_body} in your latest logs."
+
+    @staticmethod
+    def _format_last_session_phrase(last_session: Optional[datetime]) -> str:
+        if not isinstance(last_session, datetime):
+            return ''
+
+        try:
+            normalized = last_session.astimezone(timezone.utc)
+        except ValueError:
+            normalized = last_session
+
+        day = normalized.strftime('%A')
+        date = normalized.strftime('%B %d').replace(' 0', ' ')
+        return f'on {day} ({date})'
+
+    @staticmethod
+    def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            normalized = value.replace('Z', '+00:00') if isinstance(value, str) else value
+            return datetime.fromisoformat(normalized)
+        except (TypeError, ValueError):
+            return None
 
     def _summarize_conversation(self, conversation: List[Dict[str, str]]) -> str:
         """Create a summary of the conversation, using Gemini if available."""

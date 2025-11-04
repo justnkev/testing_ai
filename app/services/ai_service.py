@@ -59,12 +59,12 @@ class AIService:
             'condition',
             'medical history',
         ],
-        'stress': ['stress', 'stressed', 'burnout', 'anxiety'],
-        'sleep': ['sleep', 'bedtime', 'insomnia', 'rest'],
-        'activity': ['activity', 'active', 'movement', 'lifestyle'],
-        'exercise': ['exercise', 'workout', 'training', 'fitness'],
-        'diet': ['diet', 'nutrition', 'meal', 'food', 'eat'],
-        'socialization': ['social', 'friends', 'community', 'family', 'support network'],
+        'stress': ['stress', 'stressed', 'burnout', 'anxiety', 'pressure', 'overwhelm', 'relax', 'calm','panic'],
+        'sleep': ['sleep', 'bedtime', 'insomnia', 'rest', 'slept', 'wakeup', 'tired', 'tiredness'],
+        'activity': ['activity', 'active', 'movement', 'lifestyle', 'sedentary', 'steps', 'exercise', 'workout'],
+        'exercise': ['exercise', 'workout', 'training', 'fitness', 'gym', 'run', 'yoga', 'cycling', 'swim', 'cardio', 'lift', 'strength', 'HIIT', 'pilates', 'crossfit'],
+        'diet': ['diet', 'nutrition', 'meal', 'food', 'eat', 'eating', 'calorie', 'protein', 'carb', 'fat', 'vegetarian', 'vegan', 'gluten'],
+        'socialization': ['social', 'friends', 'community', 'family', 'support network', 'team', 'teammates', 'connected' ,'lonely', 'isolation', 'relationship'],
     }
 
     _FALLBACK_TOPIC_QUESTIONS = {
@@ -399,7 +399,7 @@ class AIService:
         user: Dict[str, str],
         topics_state: Dict[str, List[str]],
     ) -> str:
-        transcript = self._format_conversation(conversation)
+        summary = self._summarize_conversation(conversation)
         user_name = user.get('name') or 'the user'
 
         remaining_topics = topics_state['remaining']
@@ -428,16 +428,50 @@ class AIService:
                 "All priority pillars have been discussed. Offer a concise reflection summarising"
                 " the user's overall picture (strengths, friction points, aspirations) and invite"
                 " them to add any final context about readiness, boundaries, medical notes, or support"
-                " they want before the plan is drafted. End with an open invitation question."
+                " they want before the plan is drafted. End with guidance to checkout your Plan page and click the replan button."
             )
 
         return (
-            "You are FitVision, a compassionate and motivational AI health and wellness companion guiding a user "
-            "through an onboarding conversation. Keep responses concise (2-3 "
-            "sentences), encouraging, and end with a clear follow-up question.\n"
+            "You are a professional health and wellness coach, and the user’s close friend. Every"
+            "response should feel like a casual chat with someone who genuinely cares about their wins,"
+            "setbacks, and goals."
+
+            "Core vibe:"
+            "  - Warm, casual, and conversational. Open with natural greetings (“Hey! What’s up?”) and"
+            " use everyday language that feels like a close friend cheering them on."
+            "  - Be concise: favor tight paragraphs or short lists. Deliver the key point quickly,"
+            " then add just enough detail to make it useful."
+            "  - Always be supportive and empathetic. Recognize their feelings, celebrate progress,"
+            " and offer encouragement without sounding scripted or formal."
+            "  - Bring expert-level health and wellness knowledge. Give practical, actionable"
+            " suggestions rooted in sound guidance. Explain the “why” in simple terms when it helps."
+            "  - Stay collaborative. Ask questions that invite reflection and make it clear you’re in" 
+            " their corner (“Want to try that together?”)."
+            "  - Maintain psychological safety. Avoid judgment, keep confidentiality, and never push"
+            " extreme behaviors. If you’re unsure or something is outside your scope, acknowledge"
+            " it and suggest consulting a qualified professional."
+
+            "Conversation style:"
+            "  - Use first-person (“I”) and second-person (“you”) to build rapport."
+            "  - Mirror the user’s energy while staying positive and motivating."
+            "  - Keep answers upbeat but honest—no toxic positivity or empty cheerleading."
+            "  - When giving steps or plans, outline them clearly (e.g., short numbered lists or bullet"
+            " points)."
+            "  - End with a friendly nudge, question, or next step to keep the dialogue going, unless"
+            " all the topics have been covered and the user has signaled they have no more to update."
+            " Then, guide the user to the replan page."
+
+            "General constraints:"
+            "  - No lengthy essays, lectures, or formal tone."
+            "  - No medical diagnoses, prescriptions, or misinformation."
+            "  - Always tailor advice to the user’s context, goals, and preferences mentioned in the "
+            " conversation."
+
+            "Your mission: help the user feel seen, supported, and equipped with concise expert wellness"
+            "guidance—just like a trusted friend who happens to know their stuff.\n"
             f"User name: {user_name}.\n"
-            "Conversation so far:\n"
-            f"{transcript}\n"
+            "Conversation summary so far:\n"
+            f"{summary}\n"
             f"{wellbeing_dimensions}\n"
             f"{topics_guidance}\n"
             "Provide the next assistant reply to continue the intake."
@@ -475,7 +509,7 @@ class AIService:
 
         return (
             "You are a professional health and wellness companion who crafts detailed yet "
-            "approachable wellness plans. Based on the onboarding transcript "
+            "approachable and concise wellness plans. Based on the onboarding transcript "
             "create a custom personalised plan for the user.\n"
             f"User name: {user_name}.\n"
             f"Today's date: {today}.\n"
@@ -516,7 +550,8 @@ class AIService:
             "--- Your Task ---\n"
             "1. Analyze the logs to identify successes (e.g., consistent workouts) and challenges (e.g., poor sleep).\n"
             "2. Reflect these insights in the 'focus' of the new plan's overview.\n"
-            "3. Adjust the workout, nutrition, or habits sections to better support the user. For example, if sleep is a challenge, suggest a more robust evening habit. If workouts are consistent, suggest a progression.\n"
+            "3. Adjust the workout, nutrition, or habits sections to better support the user. For example, if sleep is a "
+            "   challenge, suggest a more robust evening habit. If workouts are consistent, suggest a progression.\n"
             "4. Return ONLY a valid JSON object for the new plan, strictly following this schema:\n"
             f"{schema}"
         )

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>AI Coach</small>
+  <h2 style="margin:0.4rem 0 0;">Stay in conversation with your coach.</h2>
+  <p style="margin:0.6rem 0 0; max-width:460px;">Share wins, ask questions, or request adjustments anytime. Your coach keeps
+  your plan responsive to your life.</p>
+</div>
+<div class="topbar-meta">
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.plan') }}">View plan</a>
+  <a class="fv-button fv-button--primary" href="{{ url_for('main.progress') }}">Log progress</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="grid-responsive">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Conversation</small>
+        <h2 style="margin:0.3rem 0 0;">Check in with your FitVision coach</h2>
+      </div>
+    </div>
+    <div class="message-feed">
+      {% if not conversation %}
+      <div class="message-bubble message-bubble--assistant">Welcome back! Share how the week is going or what you\'d like to refine,
+      and I\'ll support the next steps.</div>
+      {% else %}
+        {% for message in conversation %}
+        <div>
+          <div class="message-meta">{{ message.role }}</div>
+          <div class="message-bubble message-bubble--{{ message.role }}">{{ message.content }}</div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </section>
+  <section class="surface-card compact">
+    <h3 style="margin:0 0 1rem;">Send a note</h3>
+    <form method="post" class="composer" data-speech-state="idle">
+      <div>
+        <label for="message">Your message</label>
+        <textarea id="message" name="message" rows="4" placeholder="Example: I crushed my workouts but need help keeping meals on track." required data-role="speech-target"></textarea>
+      </div>
+      <div class="speech-status" role="status" aria-live="polite" data-role="speech-status"></div>
+      <div class="hero-cta composer-actions" style="justify-content:flex-start;">
+        <button class="fv-button fv-button--primary" type="submit" name="continue" value="1">Send</button>
+        <button class="fv-button speech-control" type="button" data-role="speech-toggle" aria-pressed="false">
+          <span class="speech-control__icon" aria-hidden="true">
+            <span class="icon icon--mic"></span>
+            <span class="icon icon--stop"></span>
+            <span class="icon icon--pulse"></span>
+          </span>
+          <span class="speech-control__label" data-role="speech-label">Dictate</span>
+        </button>
+        <button class="fv-button fv-button--ghost speech-cancel" type="button" data-role="speech-cancel">Cancel</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="speech-permission-modal" id="speech-permission-modal" role="dialog" aria-modal="true" aria-labelledby="speech-permission-title" aria-describedby="speech-permission-copy" hidden>
+  <div class="speech-permission-modal__backdrop" data-role="modal-dismiss"></div>
+  <div class="speech-permission-modal__dialog">
+    <h3 id="speech-permission-title">Microphone access needed</h3>
+    <p id="speech-permission-copy">To enable voice input for your AI Coach, please allow microphone access in your device settings.</p>
+    <div class="speech-permission-modal__actions">
+      <button class="fv-button fv-button--ghost" type="button" data-role="modal-dismiss">Not now</button>
+      <button class="fv-button fv-button--primary" type="button" data-role="open-settings">Open settings</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ai_coach_speech_bridge.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_coach_speech.js') }}"></script>
+{% endblock %}

@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from flask import (
@@ -37,6 +37,31 @@ def _require_login() -> str | None:
     return None
 
 
+def _onboarding_complete() -> bool:
+    user: Optional[Dict[str, Any]] = session.get('user')
+    if not user:
+        return False
+
+    status = user.get('onboarding_complete')
+    if status is None:
+        stored = storage_service.get_onboarding_status(user['id'])
+        if stored is not None:
+            user['onboarding_complete'] = stored
+            session['user'] = user
+            session.modified = True
+            status = stored
+        else:
+            status = False
+    return bool(status)
+
+
+def _ensure_onboarding_complete() -> Optional[Response]:
+    if not _onboarding_complete():
+        flash('Complete onboarding to unlock your personalized dashboard.', 'info')
+        return redirect(url_for('main.onboarding'))
+    return None
+
+
 @main_bp.route('/')
 def index() -> str:
     return render_template('index.html')
@@ -55,6 +80,7 @@ def signup() -> str | Response:
             return render_template('signup.html')
 
         session['user'] = user
+        session.modified = True
         flash('Welcome to FitVision! Let\'s get started with your onboarding.', 'success')
         return redirect(url_for('main.onboarding'))
 
@@ -73,8 +99,13 @@ def login() -> str | Response:
             return render_template('login.html')
 
         session['user'] = user
-        flash('Welcome back! Ready to continue your journey?', 'success')
-        return redirect(url_for('main.dashboard'))
+        session.modified = True
+        if _onboarding_complete():
+            flash('Welcome back! Ready to continue your journey?', 'success')
+            return redirect(url_for('main.dashboard'))
+
+        flash('Welcome back! Let\'s pick up your onboarding to tailor your plan.', 'info')
+        return redirect(url_for('main.onboarding'))
 
     return render_template('login.html')
 
@@ -149,6 +180,10 @@ def dashboard() -> str | Response:
     if redirect_url:
         return redirect(redirect_url)
 
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
+
     user = session['user']
     plan = storage_service.fetch_plan(user['id'])
     logs = storage_service.fetch_logs(user['id'])
@@ -174,11 +209,16 @@ def onboarding() -> str | Response:
     if redirect_url:
         return redirect(redirect_url)
 
+    if _onboarding_complete():
+        flash('Onboarding is complete. Jump into your AI coach anytime.', 'info')
+        return redirect(url_for('main.ai_coach'))
+
     user_id = session['user']['id']
     conversation: List[Dict[str, str]] = session.get('onboarding_conversation')
     if conversation is None:
         conversation = storage_service.fetch_conversation(user_id)
         session['onboarding_conversation'] = conversation
+        session.modified = True
 
     if request.method == 'POST':
         user_message = request.form['message']
@@ -197,10 +237,46 @@ def onboarding() -> str | Response:
             session.pop('onboarding_conversation', None)
             session.modified = True
             storage_service.clear_conversation(user_id)
+            storage_service.set_onboarding_complete(user_id, True)
+            session['user']['onboarding_complete'] = True
+            session.modified = True
             flash('Your personalized plan is ready!', 'success')
-            return redirect(url_for('main.plan'))
+            return redirect(url_for('main.dashboard'))
 
     return render_template('onboarding.html', conversation=conversation)
+
+
+@main_bp.route('/coach', methods=['GET', 'POST'])
+def ai_coach() -> str | Response:
+    redirect_url = _require_login()
+    if redirect_url:
+        return redirect(redirect_url)
+
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
+
+    user = session['user']
+    user_id = user['id']
+    conversation: List[Dict[str, str]] = session.get('coach_conversation')
+    if conversation is None:
+        conversation = storage_service.fetch_coach_conversation(user_id)
+        session['coach_conversation'] = conversation
+        session.modified = True
+
+    if request.method == 'POST':
+        user_message = request.form['message']
+        conversation.append({'role': 'user', 'content': user_message})
+
+        # Reuse the onboarding chat cadence for ongoing coaching prompts.
+        ai_message = ai_service.continue_onboarding(conversation, user)
+        conversation.append({'role': 'assistant', 'content': ai_message})
+        session['coach_conversation'] = conversation
+        session.modified = True
+
+        storage_service.save_coach_conversation(user_id, conversation)
+
+    return render_template('ai_coach.html', conversation=conversation)
 
 
 @main_bp.route('/plan')
@@ -209,9 +285,15 @@ def plan() -> str | Response:
     if redirect_url:
         return redirect(redirect_url)
 
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
+
     plan = storage_service.fetch_plan(session['user']['id'])
     if not plan:
         flash('Complete onboarding to receive your plan.', 'info')
+        if _onboarding_complete():
+            return redirect(url_for('main.ai_coach'))
         return redirect(url_for('main.onboarding'))
 
     return render_template('plan.html', plan=plan)
@@ -222,6 +304,10 @@ def progress() -> str | Response:
     redirect_url = _require_login()
     if redirect_url:
         return redirect(redirect_url)
+
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
 
     user_id = session['user']['id']
 
@@ -247,6 +333,10 @@ def replan() -> Response:
     if redirect_url:
         return redirect(redirect_url)
 
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
+
     user = session['user']
     user_id = user['id']
     plan = storage_service.fetch_plan(user_id)
@@ -265,6 +355,9 @@ def weekly_prompt() -> Dict[str, Any]:
     if redirect_url:
         return {'error': 'Unauthorized'}, 401
 
+    if not _onboarding_complete():
+        return {'error': 'Onboarding incomplete'}, 403
+
     prompt = storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
 
@@ -274,6 +367,10 @@ def visualize() -> str | Response:
     redirect_url = _require_login()
     if redirect_url:
         return redirect(redirect_url)
+
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
 
     user = session['user']
     user_id = user['id']
@@ -367,6 +464,10 @@ def visualize_image(visualization_id: str, variant: str):
     if redirect_url:
         return redirect(redirect_url)
 
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
+
     if variant not in {'original', 'future'}:
         abort(404)
 
@@ -388,6 +489,10 @@ def delete_visualization(visualization_id: str) -> Response:
     redirect_url = _require_login()
     if redirect_url:
         return redirect(redirect_url)
+
+    onboarding_redirect = _ensure_onboarding_complete()
+    if onboarding_redirect:
+        return onboarding_redirect
 
     user_id = session['user']['id']
     removed = storage_service.remove_visualization(user_id, visualization_id)

@@ -26,7 +26,7 @@
         {% set active_endpoint = request.endpoint %}
         <nav class="fitvision-nav">
           <a href="{{ url_for('main.dashboard') }}" class="{% if active_endpoint == 'main.dashboard' %}is-active{% endif %}">Dashboard</a>
-          <a href="{{ url_for('main.onboarding') }}" class="{% if active_endpoint == 'main.onboarding' %}is-active{% endif %}">Onboarding</a>
+          <a href="{{ url_for('main.ai_coach') }}" class="{% if active_endpoint == 'main.ai_coach' %}is-active{% endif %}">AI Coach ✨</a>
           <a href="{{ url_for('main.plan') }}" class="{% if active_endpoint == 'main.plan' %}is-active{% endif %}">Plan</a>
           <a href="{{ url_for('main.progress') }}" class="{% if active_endpoint == 'main.progress' %}is-active{% endif %}">Progress</a>
           <a href="{{ url_for('main.visualize') }}" class="{% if active_endpoint == 'main.visualize' %}is-active{% endif %}">Visualize</a>

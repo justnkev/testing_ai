@@ -29,19 +29,36 @@ class StorageService:
 
     def sign_up(self, email: str, password: str, name: str) -> Dict[str, str]:
         if self._supabase:
-            response = self._supabase.auth.sign_up({'email': email, 'password': password, 'data': {'name': name}})
+            response = self._supabase.auth.sign_up(
+                {
+                    'email': email,
+                    'password': password,
+                    'data': {'name': name, 'onboardingComplete': False},
+                }
+            )
             user = response.user
             if not user:  # pragma: no cover - network dependent
                 raise ValueError('Supabase sign up failed.')
-            return {'id': user.id, 'email': email, 'name': name}
+            return {
+                'id': user.id,
+                'email': email,
+                'name': name,
+                'onboarding_complete': False,
+            }
 
         # Fallback: store in a local JSON file
         user_id = email.lower()
         if self._profile_path(user_id).exists():
             raise ValueError('Account already exists. Please log in.')
-        profile = {'id': user_id, 'email': email, 'name': name, 'password': password}
+        profile = {
+            'id': user_id,
+            'email': email,
+            'name': name,
+            'password': password,
+            'onboarding_complete': False,
+        }
         self._write_json(self._profile_path(user_id), profile)
-        return {'id': user_id, 'email': email, 'name': name}
+        return {'id': user_id, 'email': email, 'name': name, 'onboarding_complete': False}
 
     def sign_in(self, email: str, password: str) -> Dict[str, str]:
         if self._supabase:
@@ -49,13 +66,25 @@ class StorageService:
             user = response.user
             if not user:  # pragma: no cover - network dependent
                 raise ValueError('Invalid credentials.')
-            name = user.user_metadata.get('name', '') if user.user_metadata else ''
-            return {'id': user.id, 'email': email, 'name': name}
+            metadata = user.user_metadata or {}
+            name = metadata.get('name', '') if metadata else ''
+            onboarding_complete = bool(metadata.get('onboardingComplete'))
+            return {
+                'id': user.id,
+                'email': email,
+                'name': name,
+                'onboarding_complete': onboarding_complete,
+            }
 
         profile = self._read_json(self._profile_path(email.lower()))
         if not profile or profile.get('password') != password:
             raise ValueError('Invalid credentials. For Supabase, verify environment configuration.')
-        return {'id': profile['id'], 'email': profile['email'], 'name': profile.get('name', '')}
+        return {
+            'id': profile['id'],
+            'email': profile['email'],
+            'name': profile.get('name', ''),
+            'onboarding_complete': bool(profile.get('onboarding_complete')),
+        }
 
     def save_plan(self, user_id: str, plan: Dict) -> None:
         self._write_json(self._plan_path(user_id), plan)
@@ -82,6 +111,56 @@ class StorageService:
         path = self._conversation_path(user_id)
         if path.exists():
             path.unlink()
+
+    def fetch_coach_conversation(self, user_id: str) -> List[Dict[str, str]]:
+        """Return the stored AI coach conversation for a user."""
+
+        data = self._read_json(self._coach_conversation_path(user_id))
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def save_coach_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
+        """Persist the ongoing AI coach chat history."""
+
+        self._write_json(self._coach_conversation_path(user_id), conversation)
+
+    def clear_coach_conversation(self, user_id: str) -> None:
+        path = self._coach_conversation_path(user_id)
+        if path.exists():
+            path.unlink()
+
+    def set_onboarding_complete(self, user_id: str, completed: bool = True) -> None:
+        """Persist onboarding completion metadata for the user."""
+
+        if self._supabase:
+            try:
+                auth_admin = getattr(self._supabase.auth, 'admin', None)
+                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                    auth_admin.update_user_by_id(
+                        user_id,
+                        user_metadata={'onboardingComplete': completed},
+                    )
+                    return
+                self._supabase.auth.update_user({'data': {'onboardingComplete': completed}})
+                return
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Supabase onboarding metadata update failed', exc_info=True)
+                return
+
+        profile = self._read_json(self._profile_path(user_id)) or {}
+        profile['onboarding_complete'] = completed
+        self._write_json(self._profile_path(user_id), profile)
+
+    def get_onboarding_status(self, user_id: str) -> Optional[bool]:
+        """Return onboarding completion when available from local storage."""
+
+        if self._supabase:
+            return None
+        profile = self._read_json(self._profile_path(user_id))
+        if isinstance(profile, dict):
+            return bool(profile.get('onboarding_complete'))
+        return None
 
     def append_log(self, user_id: str, log_entry: Dict) -> None:
         logs = self.fetch_logs(user_id)
@@ -185,6 +264,9 @@ class StorageService:
 
     def _visualizations_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_visualizations.json'
+
+    def _coach_conversation_path(self, user_id: str) -> Path:
+        return self._data_dir / f'{user_id}_coach_conversation.json'
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:

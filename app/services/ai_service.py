@@ -115,6 +115,7 @@ class AIService:
         self._image_model = self._configure_image_model(self._api_key)
         self.client: Optional[genai.Client] = None
         self._image_model_id = "gemini-2.5-flash-image"
+        self._text_model_id = "gemini-2.5-flash"
         self._image_ready: bool = False
         if self._api_key:
                     logger.info("GOOGLE_API_KEY detected (len=%d, prefix=%s****)",
@@ -278,9 +279,10 @@ class AIService:
             return False
         try:
             self.client = genai.Client(api_key=api_key)
-            return True
+            return self.client
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini integration disabled: %s', exc)
+            self.client = None
             return None
 
     def _configure_image_model(self, api_key: Optional[str]) -> bool:
@@ -472,9 +474,9 @@ class AIService:
         )
 
         return (
-            "You are a health and wellness companion who crafts detailed yet "
+            "You are a professional health and wellness companion who crafts detailed yet "
             "approachable wellness plans. Based on the onboarding transcript "
-            "create a personalised plan for the user.\n"
+            "create a custom personalised plan for the user.\n"
             f"User name: {user_name}.\n"
             f"Today's date: {today}.\n"
             f"Conversation summary: {summary}.\n"
@@ -500,7 +502,7 @@ class AIService:
         schema = self._get_plan_schema()
 
         return (
-            "You are FitVision, an AI health companion who adapts a user's wellness plan based on their progress. "
+            "You are a professional health and wellness coach who adapts a user's wellness plan based on their progress. "
             "You will be given their original onboarding conversation, their current plan, and their recent progress logs. "
             "Your task is to generate a *new, updated* plan that acknowledges their progress and adjusts for challenges.\n\n"
             f"User name: {user_name}.\n"
@@ -606,7 +608,10 @@ class AIService:
             return ''
 
         try:  # pragma: no cover - external service call
-            response = self._gemini_model.generate_content(prompt)
+             response = self.client.models.generate_content(
+                model=self._text_model_id,
+                contents=[prompt],
+            )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini request failed: %s', exc)
             return ''

@@ -667,6 +667,222 @@ label {
   color: var(--color-muted-soft);
 }
 
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.speech-status {
+  min-height: 1rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  transition: color 0.25s ease;
+}
+
+.speech-control {
+  position: relative;
+  gap: 0.5rem;
+  padding-right: 1.1rem;
+  padding-left: 0.9rem;
+  background: rgba(140, 123, 255, 0.2);
+  border-color: rgba(140, 123, 255, 0.45);
+  color: var(--color-text);
+}
+
+.speech-control:hover,
+.speech-control:focus {
+  background: rgba(140, 123, 255, 0.28);
+  border-color: rgba(140, 123, 255, 0.6);
+}
+
+.speech-control__icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+}
+
+.speech-control__icon .icon {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.speech-control__icon .icon::before,
+.speech-control__icon .icon::after {
+  content: "";
+  display: block;
+}
+
+.speech-control__icon .icon--mic::before {
+  width: 0.55rem;
+  height: 0.78rem;
+  border-radius: 0.3rem 0.3rem 0.28rem 0.28rem;
+  background: currentColor;
+}
+
+.speech-control__icon .icon--mic::after {
+  position: absolute;
+  bottom: -0.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0.9rem;
+  height: 0.45rem;
+  border: 2px solid currentColor;
+  border-top: none;
+  border-radius: 0 0 0.9rem 0.9rem;
+}
+
+.speech-control__icon .icon--stop::before {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0.2rem;
+  background: currentColor;
+}
+
+.speech-control__icon .icon--pulse::before {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  border: 2px solid rgba(61, 214, 208, 0.65);
+}
+
+.speech-control__icon .icon--stop,
+.speech-control__icon .icon--pulse {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.speech-control__icon .icon--mic {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.speech-control__label {
+  font-weight: 500;
+}
+
+.speech-cancel {
+  display: none;
+}
+
+.composer[data-speech-state="listening"] .speech-control {
+  background: rgba(61, 214, 208, 0.25);
+  border-color: rgba(61, 214, 208, 0.6);
+  color: var(--color-secondary);
+}
+
+.composer[data-speech-state="listening"] .speech-control__icon .icon--mic {
+  opacity: 0;
+}
+
+.composer[data-speech-state="listening"] .speech-control__icon .icon--stop,
+.composer[data-speech-state="listening"] .speech-control__icon .icon--pulse {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.composer[data-speech-state="listening"] .speech-control__icon .icon--pulse {
+  animation: speechPulse 1.4s ease-in-out infinite;
+}
+
+.composer[data-speech-state="listening"] .speech-status {
+  color: var(--color-secondary);
+}
+
+.composer[data-speech-state="processing"] .speech-control {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.composer[data-speech-state="processing"] .speech-status {
+  color: var(--color-primary-strong);
+}
+
+.composer[data-speech-state="listening"] .speech-cancel,
+.composer[data-speech-state="processing"] .speech-cancel {
+  display: inline-flex;
+}
+
+.composer[data-speech-state="processing"] .speech-control__icon .icon--pulse {
+  opacity: 1;
+  transform: scale(1);
+  animation: speechPulse 0.9s ease-in-out infinite;
+}
+
+.composer[data-speech-state="error"] .speech-status {
+  color: var(--color-accent);
+}
+
+@keyframes speechPulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.75;
+  }
+}
+
+.speech-permission-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 999;
+}
+
+.speech-permission-modal[hidden] {
+  display: none;
+}
+
+.speech-permission-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.6);
+}
+
+.speech-permission-modal__dialog {
+  position: relative;
+  background: rgba(14, 18, 34, 0.95);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(140, 123, 255, 0.3);
+  padding: 2rem;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 1.2rem;
+  text-align: left;
+}
+
+.speech-permission-modal__dialog h3 {
+  margin: 0;
+}
+
+.speech-permission-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
 textarea,
 input,
 select,

@@ -299,34 +299,6 @@ def plan() -> str | Response:
     return render_template('plan.html', plan=plan)
 
 
-@main_bp.route('/progress', methods=['GET', 'POST'])
-def progress() -> str | Response:
-    redirect_url = _require_login()
-    if redirect_url:
-        return redirect(redirect_url)
-
-    onboarding_redirect = _ensure_onboarding_complete()
-    if onboarding_redirect:
-        return onboarding_redirect
-
-    user_id = session['user']['id']
-
-    if request.method == 'POST':
-        log_entry = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'workout': request.form.get('workout'),
-            'meals': request.form.get('meals'),
-            'sleep': request.form.get('sleep'),
-            'habits': request.form.get('habits'),
-        }
-        storage_service.append_log(user_id, log_entry)
-        flash('Progress saved. Keep up the great work!', 'success')
-        return redirect(url_for('main.progress'))
-
-    logs = storage_service.fetch_logs(user_id)
-    return render_template('progress.html', logs=logs)
-
-
 @main_bp.route('/replan', methods=['POST'])
 def replan() -> Response:
     redirect_url = _require_login()

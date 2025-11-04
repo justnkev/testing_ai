@@ -7,7 +7,7 @@
 </div>
 <div class="topbar-meta">
   <a class="fv-button fv-button--ghost" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-  <a class="fv-button fv-button--ghost" href="{{ url_for('main.progress') }}">Log entry</a>
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.ai_coach') }}">Talk to coach</a>
 </div>
 {% endblock %}
 {% block content %}
@@ -109,7 +109,7 @@
         </div>
         <div class="gallery-actions">
           <a class="fv-button fv-button--ghost" href="{{ url_for('main.visualize_image', visualization_id=viz.id, variant='future') }}" download>Save to device</a>
-          <a class="fv-button fv-button--subtle" href="{{ url_for('main.progress') }}">Set reminder</a>
+          <a class="fv-button fv-button--subtle" href="{{ url_for('main.ai_coach') }}">Share with coach</a>
           <a class="fv-button fv-button--primary" href="{{ url_for('main.plan') }}">View plan</a>
         </div>
         <form method="post" action="{{ url_for('main.delete_visualization', visualization_id=viz.id) }}" style="text-align:right; margin-top:0.6rem;">

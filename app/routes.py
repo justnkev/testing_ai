@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -59,6 +59,26 @@ def _ensure_onboarding_complete() -> Optional[Response]:
     if not _onboarding_complete():
         flash('Complete onboarding to unlock your personalized dashboard.', 'info')
         return redirect(url_for('main.onboarding'))
+    return None
+
+
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value)
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def _latest_log_timestamp(logs: List[Dict[str, Any]]) -> Optional[datetime]:
+    for entry in reversed(logs):
+        timestamp = _parse_timestamp(entry.get('timestamp'))
+        if timestamp:
+            return timestamp
     return None
 
 
@@ -264,12 +284,21 @@ def ai_coach() -> str | Response:
         session['coach_conversation'] = conversation
         session.modified = True
 
+    logs = storage_service.fetch_logs(user_id)
+    last_log_timestamp = _latest_log_timestamp(logs)
+    now = datetime.now(timezone.utc)
+    needs_progress_prompt = not last_log_timestamp or (now - last_log_timestamp) >= timedelta(days=1)
+
     if request.method == 'POST':
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
-        # Reuse the onboarding chat cadence for ongoing coaching prompts.
-        ai_message = ai_service.continue_onboarding(conversation, user)
+        ai_message = ai_service.continue_coach(
+            conversation,
+            user,
+            needs_progress_prompt=needs_progress_prompt,
+            last_log_timestamp=last_log_timestamp,
+        )
         conversation.append({'role': 'assistant', 'content': ai_message})
         session['coach_conversation'] = conversation
         session.modified = True

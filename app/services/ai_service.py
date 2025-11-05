@@ -140,6 +140,28 @@ class AIService:
         # Heuristic fallback keeps the experience running without an API key.
         return self._fallback_onboarding_question(conversation, topics_state)
 
+    def continue_coach(
+        self,
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+        *,
+        needs_progress_prompt: bool = False,
+        last_log_timestamp: Optional[datetime] = None,
+    ) -> str:
+        """Generate the assistant's next ongoing coaching message."""
+
+        system_prompt = None
+        if needs_progress_prompt:
+            system_prompt = self._build_progress_followup_system_prompt(user, last_log_timestamp)
+
+        if self._gemini_model:
+            prompt = self._build_coach_prompt(conversation, user)
+            ai_reply = self._call_gemini(prompt, system_prompt=system_prompt)
+            if ai_reply:
+                return ai_reply
+
+        return self._fallback_coach_reply(conversation, needs_progress_prompt)
+
     def generate_plan(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> Dict[str, Dict[str, str]]:
         """Return a personalized plan summary based on the conversation."""
 
@@ -393,6 +415,91 @@ class AIService:
             "system you'd like me to understand before I build your plan?"
         )
 
+    def _build_coach_prompt(
+        self,
+        conversation: List[Dict[str, str]],
+        user: Dict[str, str],
+    ) -> str:
+        summary = self._summarize_conversation(conversation)
+        user_name = user.get('name') or 'the user'
+        last_user_message = ''
+        for message in reversed(conversation):
+            if message.get('role') == 'user':
+                last_user_message = message.get('content', '').strip()
+                break
+
+        return (
+            "You are FitVision's ongoing AI coach chatting with a returning member."
+            " Reply in a warm, human tone that feels like a trusted friend."
+            " Keep responses to one or two short sentences—tight, conversational, and specific."
+            " Reflect what the user just shared, acknowledge their effort, and offer one next step,"
+            " nudge, or tip that keeps momentum going."
+            " If they ask for help, answer directly with practical guidance."
+            " Avoid scripted closings, emojis, or long lists."
+            f"\nUser name: {user_name}."
+            "\nConversation summary so far:\n"
+            f"{summary}\n"
+            "Most recent user message:\n"
+            f"{last_user_message}\n"
+            "Provide the next assistant message."
+        )
+
+    def _build_progress_followup_system_prompt(
+        self,
+        user: Dict[str, str],
+        last_log_timestamp: Optional[datetime],
+    ) -> str:
+        user_name = user.get('name') or 'the member'
+        if last_log_timestamp:
+            last_log = last_log_timestamp.astimezone(timezone.utc)
+            last_log_text = last_log.strftime('%B %d, %Y at %H:%M %Z')
+        else:
+            last_log_text = 'No prior logs recorded'
+
+        return (
+            "The member has not submitted a progress log in over 24 hours. "
+            f"User name: {user_name}. Last recorded log: {last_log_text}. "
+            "Open the conversation by briefly acknowledging the gap and inviting them to share a quick update. "
+            "Ask for progress one area at a time—start with workouts, then meals/nutrition, sleep, and habits or routines. "
+            "Keep replies casual and human, sticking to one or two short sentences. Reflect what they share and naturally transition to the next area until you have updates for all items or they indicate they're done."
+        )
+
+    def _fallback_coach_reply(
+        self,
+        conversation: List[Dict[str, str]],
+        needs_progress_prompt: bool = False,
+    ) -> str:
+        if not conversation:
+            if needs_progress_prompt:
+                return "Hey! It's been a bit since your last check-in—want to start with how workouts have been going?"
+            return "Hey! What's one win or snag you want to check in on today?"
+
+        last_user_message = next(
+            (message for message in reversed(conversation) if message.get('role') == 'user'),
+            None,
+        )
+        if not last_user_message:
+            return "Hey there! How's everything feeling right now?"
+
+        text = (last_user_message.get('content') or '').strip()
+        if not text:
+            return "Happy to see you back. What's the latest you'd like to log or adjust?"
+
+        lower_text = text.lower()
+        if needs_progress_prompt:
+            return "Thanks for hopping back in! Give me the quick rundown on workouts since we last logged together?"
+
+        if any(keyword in lower_text for keyword in ('meal', 'food', 'eat', 'snack', 'nutrition')):
+            return "Thanks for the nutrition update. Want a quick tweak or just accountability this week?"
+        if any(keyword in lower_text for keyword in ('sleep', 'rest', 'tired', 'bed', 'wake')):
+            return "Sleep can be tricky—I appreciate the share. Want to try a small routine shift together?"
+        if any(keyword in lower_text for keyword in ('workout', 'training', 'exercise', 'gym', 'run', 'lift')):
+            return "Love the training focus. Want a fresh idea or just some encouragement to keep it rolling?"
+        if '?' in text:
+            return "Great question! Here's my quick take—keep it simple and stay consistent."
+
+        return "Appreciate the update. What's the next move you'd like us to tackle together?"
+
     def _build_onboarding_prompt(
         self,
         conversation: List[Dict[str, str]],
@@ -638,14 +745,30 @@ class AIService:
             return {'summary': str(section)}
         return {}
 
-    def _call_gemini(self, prompt: str) -> str:
+    def _call_gemini(self, prompt: str, *, system_prompt: Optional[str] = None) -> str:
         if not self._gemini_model:
             return ''
 
+        contents: List[Any] = []
+        if system_prompt:
+            contents.append(
+                types.Content(
+                    role='system',
+                    parts=[types.Part(text=system_prompt)],
+                )
+            )
+
+        contents.append(
+            types.Content(
+                role='user',
+                parts=[types.Part(text=prompt)],
+            )
+        )
+
         try:  # pragma: no cover - external service call
-             response = self.client.models.generate_content(
+            response = self.client.models.generate_content(
                 model=self._text_model_id,
-                contents=[prompt],
+                contents=contents,
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning('Gemini request failed: %s', exc)

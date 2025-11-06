@@ -287,16 +287,48 @@ def ai_coach() -> str | Response:
     logs = storage_service.fetch_logs(user_id)
     last_log_timestamp = _latest_log_timestamp(logs)
     now = datetime.now(timezone.utc)
-    needs_progress_prompt = not last_log_timestamp or (now - last_log_timestamp) >= timedelta(days=1)
+    inactivity_triggered = not last_log_timestamp or (now - last_log_timestamp) >= timedelta(days=1)
+
+    progress_prompt_state = session.get('coach_progress_prompt_state') or {}
+    stored_log_timestamp = progress_prompt_state.get('last_log_timestamp')
+    current_log_marker = last_log_timestamp.isoformat() if last_log_timestamp else None
+    if stored_log_timestamp != current_log_marker:
+        progress_prompt_state = {
+            'last_log_timestamp': current_log_marker,
+            'awaiting_user_response': False,
+            'cooldown_until': None,
+        }
+    else:
+        progress_prompt_state.setdefault('last_log_timestamp', current_log_marker)
+        progress_prompt_state.setdefault('awaiting_user_response', False)
+        progress_prompt_state.setdefault('cooldown_until', None)
+
+
+    should_prompt_now = False
 
     if request.method == 'POST':
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
+        if progress_prompt_state.get('awaiting_user_response'):
+            progress_prompt_state['awaiting_user_response'] = False
+            progress_prompt_state['cooldown_until'] = (now + timedelta(days=1)).isoformat()
+
+        cooldown_until = _parse_timestamp(progress_prompt_state.get('cooldown_until'))
+        cooldown_active = bool(cooldown_until and cooldown_until > now)
+        should_prompt_now = (
+            inactivity_triggered
+            and not cooldown_active
+            and not progress_prompt_state.get('awaiting_user_response', False)
+        )
+
+        if should_prompt_now:
+            progress_prompt_state['awaiting_user_response'] = True
+
         ai_message = ai_service.continue_coach(
             conversation,
             user,
-            needs_progress_prompt=needs_progress_prompt,
+            needs_progress_prompt=should_prompt_now,
             last_log_timestamp=last_log_timestamp,
         )
         conversation.append({'role': 'assistant', 'content': ai_message})
@@ -304,6 +336,9 @@ def ai_coach() -> str | Response:
         session.modified = True
 
         storage_service.save_coach_conversation(user_id, conversation)
+
+    session['coach_progress_prompt_state'] = progress_prompt_state
+    session.modified = True
 
     return render_template('ai_coach.html', conversation=conversation)
 

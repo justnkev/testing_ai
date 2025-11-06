@@ -268,8 +268,10 @@ def ai_coach() -> str | Response:
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
-        # Reuse the onboarding chat cadence for ongoing coaching prompts.
-        ai_message = ai_service.continue_onboarding(conversation, user)
+        if _onboarding_complete():
+            ai_message = ai_service.check_in(conversation, user)
+        else:
+            ai_message = ai_service.continue_onboarding(conversation, user)
         conversation.append({'role': 'assistant', 'content': ai_message})
         session['coach_conversation'] = conversation
         session.modified = True

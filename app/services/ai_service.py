@@ -140,6 +140,17 @@ class AIService:
         # Heuristic fallback keeps the experience running without an API key.
         return self._fallback_onboarding_question(conversation, topics_state)
 
+    def check_in(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> str:
+        """Generate a friendly check-in reply for returning users."""
+
+        if self._gemini_model:
+            prompt = self._build_check_in_prompt(conversation, user)
+            ai_reply = self._call_gemini(prompt)
+            if ai_reply:
+                return ai_reply
+
+        return self._fallback_check_in(conversation, user)
+
     def generate_plan(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> Dict[str, Dict[str, str]]:
         """Return a personalized plan summary based on the conversation."""
 
@@ -475,6 +486,67 @@ class AIService:
             f"{wellbeing_dimensions}\n"
             f"{topics_guidance}\n"
             "Provide the next assistant reply to continue the intake."
+        )
+
+    def _build_check_in_prompt(
+        self, conversation: List[Dict[str, str]], user: Dict[str, str]
+    ) -> str:
+        transcript = self._format_conversation(conversation)
+        summary = self._summarize_conversation(conversation)
+        user_name = user.get('name') or 'friend'
+
+        tone = (
+            "You are FitVision, the user's upbeat AI health coach and close friend. "
+            "Respond with one warm, conversational message that feels like a quick check-in."
+        )
+        vibe = (
+            "Tone and style:\n"
+            "  - Keep things casual, encouraging, and authentic—think voice memo from a friend.\n"
+            "  - Lead with a short greeting that uses the user's name when available.\n"
+            "  - Celebrate wins, empathize with challenges, and offer one concrete, immediately usable tip or reflection.\n"
+            "  - Ask one open question or next step invitation so the chat keeps flowing.\n"
+            "  - Stay supportive and avoid creating structured plans or long lists."
+        )
+        guardrails = (
+            "Constraints:\n"
+            "  - Stay within health and wellness coaching guidance—no medical diagnoses or prescriptions.\n"
+            "  - Reply as a single paragraph or two short paragraphs (no bullet lists unless the user explicitly requested them).\n"
+            "  - Do not mention being an AI model or referencing prompts."
+        )
+
+        return (
+            f"{tone}\n"
+            f"{vibe}\n"
+            f"{guardrails}\n"
+            f"User name: {user_name}.\n"
+            "Conversation summary so far:\n"
+            f"{summary}\n"
+            "Full conversation transcript:\n"
+            f"{transcript}\n"
+            "Craft the next assistant reply following the tone and constraints."
+        )
+
+    def _fallback_check_in(
+        self, conversation: List[Dict[str, str]], user: Dict[str, str]
+    ) -> str:
+        friendly_name = (user.get('name') or 'friend').split()[0]
+        latest_user_note = ''
+        for message in reversed(conversation):
+            if message.get('role') == 'user':
+                latest_user_note = (message.get('content') or '').strip()
+                if latest_user_note:
+                    break
+
+        if latest_user_note:
+            return (
+                f"Hey {friendly_name}! I love hearing how things are going. "
+                f"Thanks for sharing: {latest_user_note}. "
+                "Keep leaning into the habits that feel good, and let me know if you want to tweak anything this week."
+            )
+
+        return (
+            f"Hey {friendly_name}! Checking in—how are you feeling today? "
+            "Share one win and one thing you'd like a little support with, and we'll map out the next move together."
         )
 
     def _build_plan_prompt(

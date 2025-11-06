@@ -31,7 +31,9 @@
           <p><strong>Focus:</strong> {{ plan.overview.focus|default('Balanced performance') }}</p>
           {% if plan.overview.latest_review %}<p><strong>Latest review:</strong> {{ plan.overview.latest_review }}</p>{% endif %}
         </div>
-        <p class="plan-overview-summary">{{ plan.overview.summary|default('Personalized focus areas curated by FitVision.') }}</p>
+        {% if plan.overview.summary %}
+        <p class="plan-overview-summary">{{ plan.overview.summary }}</p>
+        {% endif %}
       </article>
       <article class="plan-tile">
         <h4>Workouts</h4>

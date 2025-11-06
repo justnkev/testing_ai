@@ -27,11 +27,11 @@
       <article class="plan-tile plan-tile--overview">
         <h4>Overview</h4>
         <div class="plan-overview-meta">
-          <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
-          <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
-          {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
+          <p><strong>Generated:</strong> {{ plan.overview.generated_on|default('Recently') }}</p>
+          <p><strong>Focus:</strong> {{ plan.overview.focus|default('Balanced performance') }}</p>
+          {% if plan.overview.latest_review %}<p><strong>Latest review:</strong> {{ plan.overview.latest_review }}</p>{% endif %}
         </div>
-        <p>{{ plan.overview.summary|default('Personalized focus areas curated by FitVision.') }}</p>
+        <p class="plan-overview-summary">{{ plan.overview.summary|default('Personalized focus areas curated by FitVision.') }}</p>
       </article>
       <article class="plan-tile">
         <h4>Workouts</h4>

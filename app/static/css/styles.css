@@ -606,10 +606,6 @@ label {
   color: var(--color-muted);
 }
 
-.plan-tile--overview {
-  gap: 0.6rem;
-}
-
 .plan-meta {
   display: flex;
   flex-wrap: wrap;
@@ -619,11 +615,18 @@ label {
 }
 
 .plan-overview-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  font-size: 0.85rem;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
   color: var(--color-muted);
+}
+
+.plan-overview-meta p {
+  margin: 0;
+}
+
+.plan-overview-summary {
+  margin: 0;
 }
 
 .composer {

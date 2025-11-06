@@ -23,14 +23,14 @@
   </div>
   {% if plan %}
   <div class="plan-section" style="margin-top:1.6rem;">
-    <div class="plan-meta">
-      <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
-      <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
-      {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
-    </div>
     <div class="data-grid">
-      <article class="plan-tile">
+      <article class="plan-tile plan-tile--overview">
         <h4>Overview</h4>
+        <div class="plan-overview-meta">
+          <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
+          <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
+          {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
+        </div>
         <p>{{ plan.overview.summary|default('Personalized focus areas curated by FitVision.') }}</p>
       </article>
       <article class="plan-tile">

@@ -72,7 +72,7 @@ app.py                  # Flask entry point
 
 ## Data Storage
 
-`StorageService` automatically writes JSON files to `instance/data` during local development. In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls.
+`StorageService` automatically writes JSON files to `/tmp/fitvision-data` during local development (or any directory defined by the `STORAGE_DATA_DIR` environment variable). In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls.
 
 ## Disclaimer
 

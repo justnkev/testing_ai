@@ -23,7 +23,11 @@ class StorageService:
 
     def __init__(self) -> None:
         self._supabase: Optional[SupabaseClient] = self._init_supabase()
-        data_dir = Path('instance/data')
+        env_data_dir = os.getenv('STORAGE_DATA_DIR')
+        if env_data_dir:
+            data_dir = Path(env_data_dir).expanduser()
+        else:
+            data_dir = Path('/tmp/fitvision-data')
         data_dir.mkdir(parents=True, exist_ok=True)
         self._data_dir = data_dir.resolve()
 

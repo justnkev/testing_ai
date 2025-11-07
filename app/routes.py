@@ -18,16 +18,17 @@ from flask import (
     session,
     send_from_directory,
     url_for,
+    current_app
 )
 from werkzeug.utils import secure_filename
 
-from .services.ai_service import AIService
-from .services.storage_service import StorageService
+#from .services.ai_service import AIService
+#from .services.storage_service import StorageService
 
 main_bp = Blueprint('main', __name__)
 
-ai_service = AIService()
-storage_service = StorageService()
+#ai_service = AIService()
+#storage_service = StorageService()
 
 
 def _require_login() -> str | None:
@@ -44,7 +45,7 @@ def _onboarding_complete() -> bool:
 
     status = user.get('onboarding_complete')
     if status is None:
-        stored = storage_service.get_onboarding_status(user['id'])
+        stored = current_app.storage_service.get_onboarding_status(user['id'])
         if stored is not None:
             user['onboarding_complete'] = stored
             session['user'] = user
@@ -74,7 +75,7 @@ def signup() -> str | Response:
         password = request.form['password']
         name = request.form['name']
         try:
-            user = storage_service.sign_up(email=email, password=password, name=name)
+            user = current_app.storage_service.sign_up(email=email, password=password, name=name)
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('signup.html')
@@ -93,7 +94,7 @@ def login() -> str | Response:
         email = request.form['email']
         password = request.form['password']
         try:
-            user = storage_service.sign_in(email=email, password=password)
+            user = current_app.storage_service.sign_in(email=email, password=password)
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('login.html')
@@ -185,9 +186,9 @@ def dashboard() -> str | Response:
         return onboarding_redirect
 
     user = session['user']
-    plan = storage_service.fetch_plan(user['id'])
-    logs = storage_service.fetch_logs(user['id'])
-    weekly_prompt = storage_service.get_weekly_prompt(user['id'])
+    plan = current_app.storage_service.fetch_plan(user['id'])
+    logs = current_app.storage_service.fetch_logs(user['id'])
+    weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
     stats, trend = _derive_dashboard_stats(logs)
     recent_logs = list(reversed(logs[-3:])) if logs else []
@@ -216,7 +217,7 @@ def onboarding() -> str | Response:
     user_id = session['user']['id']
     conversation: List[Dict[str, str]] = session.get('onboarding_conversation')
     if conversation is None:
-        conversation = storage_service.fetch_conversation(user_id)
+        conversation = current_app.storage_service.fetch_conversation(user_id)
         session['onboarding_conversation'] = conversation
         session.modified = True
 
@@ -224,20 +225,20 @@ def onboarding() -> str | Response:
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
-        ai_message = ai_service.continue_onboarding(conversation, session['user'])
+        ai_message = current_app.ai_service.continue_onboarding(conversation, session['user'])
         conversation.append({'role': 'assistant', 'content': ai_message})
         session['onboarding_conversation'] = conversation
         session.modified = True
 
-        storage_service.save_conversation(user_id, conversation)
+        current_app.storage_service.save_conversation(user_id, conversation)
 
         if request.form.get('complete'):
-            plan = ai_service.generate_plan(conversation, session['user'])
-            storage_service.save_plan(session['user']['id'], plan)
+            plan = current_app.ai_service.generate_plan(conversation, session['user'])
+            current_app.storage_service.save_plan(session['user']['id'], plan)
             session.pop('onboarding_conversation', None)
             session.modified = True
-            storage_service.clear_conversation(user_id)
-            storage_service.set_onboarding_complete(user_id, True)
+            current_app.storage_service.clear_conversation(user_id)
+            current_app.storage_service.set_onboarding_complete(user_id, True)
             session['user']['onboarding_complete'] = True
             session.modified = True
             flash('Your personalized plan is ready!', 'success')
@@ -260,7 +261,7 @@ def ai_coach() -> str | Response:
     user_id = user['id']
     conversation: List[Dict[str, str]] = session.get('coach_conversation')
     if conversation is None:
-        conversation = storage_service.fetch_coach_conversation(user_id)
+        conversation = current_app.storage_service.fetch_coach_conversation(user_id)
         session['coach_conversation'] = conversation
         session.modified = True
 
@@ -268,13 +269,15 @@ def ai_coach() -> str | Response:
         user_message = request.form['message']
         conversation.append({'role': 'user', 'content': user_message})
 
-        # Reuse the onboarding chat cadence for ongoing coaching prompts.
-        ai_message = ai_service.continue_onboarding(conversation, user)
+        if _onboarding_complete():
+            ai_message = current_app.ai_service.check_in(conversation, user)
+        else:
+            ai_message = current_app.ai_service.continue_onboarding(conversation, user)
         conversation.append({'role': 'assistant', 'content': ai_message})
         session['coach_conversation'] = conversation
         session.modified = True
 
-        storage_service.save_coach_conversation(user_id, conversation)
+        current_app.storage_service.save_coach_conversation(user_id, conversation)
 
     return render_template('ai_coach.html', conversation=conversation)
 
@@ -289,7 +292,7 @@ def plan() -> str | Response:
     if onboarding_redirect:
         return onboarding_redirect
 
-    plan = storage_service.fetch_plan(session['user']['id'])
+    plan = current_app.storage_service.fetch_plan(session['user']['id'])
     if not plan:
         flash('Complete onboarding to receive your plan.', 'info')
         if _onboarding_complete():
@@ -319,11 +322,11 @@ def progress() -> str | Response:
             'sleep': request.form.get('sleep'),
             'habits': request.form.get('habits'),
         }
-        storage_service.append_log(user_id, log_entry)
+        current_app.storage_service.append_log(user_id, log_entry)
         flash('Progress saved. Keep up the great work!', 'success')
         return redirect(url_for('main.progress'))
 
-    logs = storage_service.fetch_logs(user_id)
+    logs = current_app.storage_service.fetch_logs(user_id)
     return render_template('progress.html', logs=logs)
 
 
@@ -339,12 +342,12 @@ def replan() -> Response:
 
     user = session['user']
     user_id = user['id']
-    plan = storage_service.fetch_plan(user_id)
-    logs = storage_service.fetch_logs(user_id)
-    conversation = storage_service.fetch_conversation(user_id)
+    plan = current_app.storage_service.fetch_plan(user_id)
+    logs = current_app.storage_service.fetch_logs(user_id)
+    conversation = current_app.storage_service.fetch_conversation(user_id)
 
-    updated_plan = ai_service.regenerate_plan(plan, logs, conversation, user)
-    storage_service.save_plan(user_id, updated_plan)
+    updated_plan = current_app.ai_service.regenerate_plan(plan, logs, conversation, user)
+    current_app.storage_service.save_plan(user_id, updated_plan)
     flash('Your plan has been refreshed based on your latest updates.', 'success')
     return redirect(url_for('main.plan'))
 
@@ -358,7 +361,7 @@ def weekly_prompt() -> Dict[str, Any]:
     if not _onboarding_complete():
         return {'error': 'Onboarding incomplete'}, 403
 
-    prompt = storage_service.get_weekly_prompt(session['user']['id'])
+    prompt = current_app.storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
 
 
@@ -374,7 +377,7 @@ def visualize() -> str | Response:
 
     user = session['user']
     user_id = user['id']
-    visualizations = storage_service.fetch_visualizations(user_id)
+    visualizations = current_app.storage_service.fetch_visualizations(user_id)
 
     if request.method == 'POST':
         file = request.files.get('photo')
@@ -389,7 +392,7 @@ def visualize() -> str | Response:
         if extension not in {'.jpg', '.jpeg', '.png', '.webp'}:
             extension = '.jpg'
         viz_id = uuid4().hex
-        directory = storage_service.visualization_image_dir(user_id)
+        directory = current_app.storage_service.visualization_image_dir(user_id)
         temp_path = directory / f'{viz_id}_source{extension}'
         file.save(temp_path)
 
@@ -409,7 +412,7 @@ def visualize() -> str | Response:
             'user_name': user.get('name', ''),
         }
 
-        generated_bytes = ai_service.generate_visualization(temp_path, context)
+        generated_bytes = current_app.ai_service.generate_visualization(temp_path, context)
 
         original_name = f'{viz_id}_original{extension}'
         future_name = f'{viz_id}_future{extension}'
@@ -437,7 +440,7 @@ def visualize() -> str | Response:
             'original': original_path.name,
             'future': future_name,
         }
-        storage_service.append_visualization(user_id, entry)
+        current_app.storage_service.append_visualization(user_id, entry)
 
         flash('Your future self visualization is ready! Explore it below.', 'success')
         return redirect(url_for('main.visualize'))
@@ -472,7 +475,7 @@ def visualize_image(visualization_id: str, variant: str):
         abort(404)
 
     user_id = session['user']['id']
-    entry = storage_service.get_visualization(user_id, visualization_id)
+    entry = current_app.storage_service.get_visualization(user_id, visualization_id)
     if not entry:
         abort(404)
 
@@ -480,7 +483,7 @@ def visualize_image(visualization_id: str, variant: str):
     if not filename:
         abort(404)
 
-    directory = storage_service.visualization_image_dir(user_id)
+    directory = current_app.storage_service.visualization_image_dir(user_id)
     return send_from_directory(directory, filename)
 
 
@@ -495,12 +498,12 @@ def delete_visualization(visualization_id: str) -> Response:
         return onboarding_redirect
 
     user_id = session['user']['id']
-    removed = storage_service.remove_visualization(user_id, visualization_id)
+    removed = current_app.storage_service.remove_visualization(user_id, visualization_id)
     if not removed:
         flash('Visualization not found.', 'warning')
         return redirect(url_for('main.visualize'))
 
-    directory = storage_service.visualization_image_dir(user_id)
+    directory = current_app.storage_service.visualization_image_dir(user_id)
     for key in ('original', 'future'):
         filename = removed.get(key)
         if not filename:

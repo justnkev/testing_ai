@@ -1,0 +1,105 @@
+# Product Requirements Document (PRD)
+
+## Title: AI Coach: Adaptive Conversation Flow (v2)
+
+---
+
+## 1. Summary & Objective
+
+**Summary:**
+This document outlines the requirements to update the AI Coach's conversation logic. The update will enable the coach to differentiate between new and existing users, delivering a tailored conversational experience for each.
+
+**Objective:**
+- Stop showing the onboarding flow to users who have already completed it.
+- Introduce a new "Existing User" conversation flow that is casual, proactive, and focuses on recent user wellness data (sleep, activity, diet, happiness).
+- Increase user engagement with the AI Coach feature and improve overall app "stickiness."
+
+---
+
+## 2. Background & Problem Statement
+
+**The Problem:**
+The AI Coach currently provides a one-size-fits-all experience. It repeatedly runs the onboarding flow every time a user interacts with it. This results in a repetitive, unintelligent experience for returning users, reducing engagement and perceived value.
+
+**The Opportunity:**
+By enabling the AI Coach to recognize user context (new vs. returning), we can deliver a more intelligent, natural, and supportive experience. This differentiation will enhance long-term engagement and foster trust in the AI Coach as a helpful wellness companion.
+
+---
+
+## 3. User Personas & Scenarios
+
+### Persona 1: New User ("First-Time Finn")
+- **Definition:** Any user interacting with the AI Coach for the very first time.
+- **Scenario:** Finn has just downloaded the app. He taps the "AI Coach" button. He needs guidance on how the app works, what to track, and how to set his goals.
+
+### Persona 2: Existing User ("Returning Riley")
+- **Definition:** Any user who has completed the onboarding flow at least once.
+- **Scenario:** Riley has been using the app for 3 weeks. She opens the AI Coach, hoping for insights. She doesn't want to be asked to set goals again—she wants to know how she's doing now based on her existing data.
+
+---
+
+## 4. User Stories & Functional Requirements
+
+### Epic: New User Onboarding Flow ("First-Time Finn" Experience)
+
+**User Story:**
+As a new user, when I first open the AI Coach, I want to be taken through a guided onboarding flow so that I can set up my profile, understand the app's features, and set my initial wellness goals.
+
+**Functional Requirements:**
+- [ ] The system MUST identify the user as "new" using the `onboarding_complete` flag (false).
+- [ ] The system MUST trigger the structured onboarding flow currently implemented.
+- [ ] Upon successful completion, the system MUST update the `onboarding_complete` flag to true.
+- [ ] This onboarding flow MUST only run once per user.
+
+---
+
+### Epic: Existing User Check-in Flow ("Returning Riley" Experience)
+
+**User Story 1:**
+As an existing user, when I open the AI Coach, I want it to recognize me and start a casual conversation about my recent progress so that I feel supported and can get quick insights.
+
+**User Story 2:**
+As an existing user, I want my coach to ask me about my sleep, activity, diet, and happiness since our last chat so the conversation is relevant and builds on our previous interactions.
+
+**Functional Requirements:**
+- [ ] The system MUST check the `onboarding_complete` flag.
+- [ ] If `true`, the system MUST initiate the "Existing User Check-in Flow."
+- [ ] The conversation tone MUST be casual, friendly, and supportive (e.g., "Hey Riley, great to see you again!").
+- [ ] The coach MUST reference the date or timestamp of the last interaction (e.g., "since Tuesday").
+- [ ] The conversation MUST dynamically include:
+  - Sleep (e.g., "How’s your sleep been the last few nights?")
+  - Activity (e.g., "I saw you hit your step goal 3 days in a row—great job!")
+  - Diet/Nutrition (e.g., "How are you feeling about your meals this week?")
+  - Mood/Happiness (e.g., "How has your overall mood been lately?")
+- [ ] If no data exists for a category, the coach MUST ask an open-ended question (e.g., "Tell me how you've been eating this week.")
+- [ ] The system MUST pull the timestamp of the user's last coach interaction to define the data window for check-in.
+
+---
+
+## 5. Non-Functional Requirements
+
+- **Tone & Voice:**
+  - Must be empathetic, fluid, and human-like.
+  - Avoid script-like, robotic responses.
+
+- **Performance:**
+  - The logic to determine user status (new vs. existing) MUST be instantaneous (sub-200ms target).
+
+---
+
+## 6. Success Metrics
+
+**Primary Metrics:**
+- Increase in 7-day retention rate among users who interact with the AI Coach.
+- Increase in 30-day retention rate for users engaging with the AI Coach.
+
+**Secondary Metrics:**
+- Increase in the average number of AI Coach interactions per user per week.
+- Higher completion rate of weekly check-ins by existing users.
+- Positive user sentiment in surveys and reviews mentioning coach helpfulness.
+- Decrease in drop-off rate (users opening the coach and sending no message).
+
+---
+
+## End of Document
+

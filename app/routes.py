@@ -415,19 +415,17 @@ def visualize() -> str | Response:
         generated_bytes = current_app.ai_service.generate_visualization(temp_path, context)
 
         original_name = f'{viz_id}_original{extension}'
-        future_name = f'{viz_id}_future{extension}'
         original_path = directory / original_name
-        future_path = directory / future_name
-        original_path = directory / f'{viz_id}_original{extension}'
         temp_path.rename(original_path)
 
-        future_name = ''
+        future_path = directory / f'{viz_id}_future{extension}'
         if generated_bytes:
-            future_name = f'{viz_id}_future.png'
-            future_path = directory / future_name
+            future_path = directory / f'{viz_id}_future.png'
             future_path.write_bytes(generated_bytes)
         else:
             shutil.copyfile(original_path, future_path)
+
+        future_name = future_path.name
 
         entry = {
             'id': viz_id,
@@ -436,7 +434,6 @@ def visualize() -> str | Response:
             'intensity': context['intensity'],
             'timeline': context['timeline'],
             'profile': profile_data,
-            'original': original_name,
             'original': original_path.name,
             'future': future_name,
         }

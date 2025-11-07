@@ -22,8 +22,8 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-from .services.ai_service import AIService
-from .services.storage_service import StorageService
+#from .services.ai_service import AIService
+#from .services.storage_service import StorageService
 
 main_bp = Blueprint('main', __name__)
 
@@ -217,7 +217,7 @@ def onboarding() -> str | Response:
     user_id = session['user']['id']
     conversation: List[Dict[str, str]] = session.get('onboarding_conversation')
     if conversation is None:
-        conversation = storage_service.fetch_conversation(user_id)
+        conversation = current_app.storage_service.fetch_conversation(user_id)
         session['onboarding_conversation'] = conversation
         session.modified = True
 
@@ -261,7 +261,7 @@ def ai_coach() -> str | Response:
     user_id = user['id']
     conversation: List[Dict[str, str]] = session.get('coach_conversation')
     if conversation is None:
-        conversation = storage_service.fetch_coach_conversation(user_id)
+        conversation = current_app.storage_service.fetch_coach_conversation(user_id)
         session['coach_conversation'] = conversation
         session.modified = True
 

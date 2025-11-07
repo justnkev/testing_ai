@@ -23,7 +23,7 @@ def create_app():
     app.storage_service = StorageService(app.supabase_client) 
     app.ai_service = AIService(api_key=gemini_key)
 
-    app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
+    app.config['SECRET_KEY'] = flask_key
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
 

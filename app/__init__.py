@@ -2,6 +2,7 @@
 
 import os
 import secrets
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -49,6 +50,7 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = _resolve_secret_key()
     app.config["SESSION_TYPE"] = "filesystem"
     app.config["SESSION_FILE_DIR"] = str(session_dir)
+    app.permanent_session_lifetime = timedelta(hours=1)
 
     Session(app)
 

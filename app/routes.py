@@ -81,6 +81,7 @@ def signup() -> str | Response:
             return render_template('signup.html')
 
         session['user'] = user
+        session.permanent = True
         session.modified = True
         flash('Welcome to FitVision! Let\'s get started with your onboarding.', 'success')
         return redirect(url_for('main.onboarding'))
@@ -100,6 +101,7 @@ def login() -> str | Response:
             return render_template('login.html')
 
         session['user'] = user
+        session.permanent = True
         session.modified = True
         if _onboarding_complete():
             flash('Welcome back! Ready to continue your journey?', 'success')

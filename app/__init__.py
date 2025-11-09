@@ -30,6 +30,36 @@ def _resolve_secret_key() -> str:
     return secrets.token_hex(32)
 
 
+def _running_on_vercel() -> bool:
+    """Return ``True`` when executing inside the Vercel serverless runtime."""
+
+    return bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+
+
+def _resolve_database_uri(app: Flask) -> str:
+    """Return the database URI configured for the application."""
+
+    supabase_pool_url = os.environ.get("SUPABASE_DB_POOL_URL")
+    if supabase_pool_url:
+        return supabase_pool_url
+
+    configured_url = os.environ.get("DATABASE_URL")
+    if configured_url:
+        return configured_url
+
+    default_sqlite_path = Path(app.instance_path) / "fitvision.sqlite"
+
+    if not _running_on_vercel():
+        try:
+            default_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # Read-only filesystems (e.g. certain CI providers) should not break
+            # the application startup when SQLite is only a development fallback.
+            pass
+
+    return f"sqlite:///{default_sqlite_path}"
+
+
 def create_app() -> Flask:
     """Configure and return the Flask application."""
 
@@ -49,6 +79,7 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = _resolve_secret_key()
     app.config["SESSION_TYPE"] = "filesystem"
     app.config["SESSION_FILE_DIR"] = str(session_dir)
+    app.config["SQLALCHEMY_DATABASE_URI"] = _resolve_database_uri(app)
 
     Session(app)
 

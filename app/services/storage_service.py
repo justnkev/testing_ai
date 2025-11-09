@@ -22,8 +22,13 @@ class StorageService:
     """Persistence layer that defaults to filesystem storage for local testing."""
 
     def __init__(self) -> None:
+        #self._supabase: Optional[SupabaseClient] = self._init_supabase()
+        #data_dir = Path('instance/data')
+        #data_dir_path = os.environ.get('STORAGE_DATA_DIR', '/tmp/fitvision-data')
+        #data_dir = Path(data_dir_path)
         self._supabase: Optional[SupabaseClient] = self._init_supabase()
-        data_dir = Path('instance/data')
+
+        data_dir = Path(os.getenv('STORAGE_DATA_DIR', '/tmp/fitvision-data')).expanduser()
         data_dir.mkdir(parents=True, exist_ok=True)
         self._data_dir = data_dir.resolve()
 

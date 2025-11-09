@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
-import logging 
-logger = logging.getLogger(__name__)
-
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
+from sqlalchemy.exc import SQLAlchemyError
+
+from ..extensions import db
+from ..models import UserAppState
+
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 try:
@@ -19,18 +24,37 @@ except Exception:  # pragma: no cover - optional dependency for local dev
 
 
 class StorageService:
-    """Persistence layer that defaults to filesystem storage for local testing."""
+    """Persistence layer for user state.
+
+    In production we require database-backed storage because the lambda runtime
+    does not persist the filesystem between invocations. Local development can
+    still use JSON files for convenience unless the operator explicitly opts
+    into DB-only mode via ``DISABLE_FILESYSTEM_STORAGE``.
+    """
 
     def __init__(self) -> None:
-        #self._supabase: Optional[SupabaseClient] = self._init_supabase()
-        #data_dir = Path('instance/data')
-        #data_dir_path = os.environ.get('STORAGE_DATA_DIR', '/tmp/fitvision-data')
-        #data_dir = Path(data_dir_path)
         self._supabase: Optional[SupabaseClient] = self._init_supabase()
 
+        self._filesystem_enabled = not _env_flag("DISABLE_FILESYSTEM_STORAGE")
+        if not self._filesystem_enabled:
+            logger.info("Filesystem storage disabled by configuration")
+        elif os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+            logger.info("Filesystem storage disabled on Vercel deployment")
+            self._filesystem_enabled = False
+
+        self._db_available = bool(os.getenv("SUPABASE_DB_POOL_URL"))
+        self._db_only_mode = not self._filesystem_enabled
+        if self._db_only_mode and not self._db_available:
+            raise RuntimeError(
+                "Database storage is required but SUPABASE_DB_POOL_URL is not configured."
+            )
+
         data_dir = Path(os.getenv('STORAGE_DATA_DIR', '/tmp/fitvision-data')).expanduser()
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self._data_dir = data_dir.resolve()
+        if self._filesystem_enabled:
+            data_dir.mkdir(parents=True, exist_ok=True)
+            self._data_dir: Optional[Path] = data_dir.resolve()
+        else:
+            self._data_dir = None
 
     def sign_up(self, email: str, password: str, name: str) -> Dict[str, str]:
         if self._supabase:
@@ -92,20 +116,32 @@ class StorageService:
         }
 
     def save_plan(self, user_id: str, plan: Dict) -> None:
+        if self._write_state(user_id, plan=plan):
+            return
         self._write_json(self._plan_path(user_id), plan)
 
     def fetch_plan(self, user_id: str) -> Dict:
-        return self._read_json(self._plan_path(user_id)) or {}
+        state = self._read_state_field(user_id, "plan")
+        if state is not None:
+            return state
+        if self._filesystem_enabled:
+            return self._read_json(self._plan_path(user_id)) or {}
+        return {}
 
     def save_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
         """Persist the onboarding conversation so users can resume later."""
 
+        if self._write_state(user_id, onboarding_conversation=conversation):
+            return
         self._write_json(self._conversation_path(user_id), conversation)
 
     def fetch_conversation(self, user_id: str) -> List[Dict[str, str]]:
         """Return the stored onboarding conversation for a user."""
 
-        data = self._read_json(self._conversation_path(user_id))
+        data = self._read_state_field(user_id, "onboarding_conversation")
+        if data is None:
+            if self._filesystem_enabled:
+                data = self._read_json(self._conversation_path(user_id))
         if isinstance(data, list):
             return [item for item in data if isinstance(item, dict)]
         return []
@@ -113,14 +149,20 @@ class StorageService:
     def clear_conversation(self, user_id: str) -> None:
         """Remove any persisted onboarding conversation for a user."""
 
-        path = self._conversation_path(user_id)
-        if path.exists():
-            path.unlink()
+        if self._write_state(user_id, onboarding_conversation=[]):
+            return
+        if self._filesystem_enabled:
+            path = self._conversation_path(user_id)
+            if path.exists():
+                path.unlink()
 
     def fetch_coach_conversation(self, user_id: str) -> List[Dict[str, str]]:
         """Return the stored AI coach conversation for a user."""
 
-        data = self._read_json(self._coach_conversation_path(user_id))
+        data = self._read_state_field(user_id, "coach_conversation")
+        if data is None:
+            if self._filesystem_enabled:
+                data = self._read_json(self._coach_conversation_path(user_id))
         if isinstance(data, list):
             return [item for item in data if isinstance(item, dict)]
         return []
@@ -128,12 +170,17 @@ class StorageService:
     def save_coach_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
         """Persist the ongoing AI coach chat history."""
 
+        if self._write_state(user_id, coach_conversation=conversation):
+            return
         self._write_json(self._coach_conversation_path(user_id), conversation)
 
     def clear_coach_conversation(self, user_id: str) -> None:
-        path = self._coach_conversation_path(user_id)
-        if path.exists():
-            path.unlink()
+        if self._write_state(user_id, coach_conversation=[]):
+            return
+        if self._filesystem_enabled:
+            path = self._coach_conversation_path(user_id)
+            if path.exists():
+                path.unlink()
 
     def set_onboarding_complete(self, user_id: str, completed: bool = True) -> None:
         """Persist onboarding completion metadata for the user."""
@@ -170,10 +217,17 @@ class StorageService:
     def append_log(self, user_id: str, log_entry: Dict) -> None:
         logs = self.fetch_logs(user_id)
         logs.append(log_entry)
+        if self._write_state(user_id, logs=logs):
+            return
         self._write_json(self._log_path(user_id), logs)
 
     def fetch_logs(self, user_id: str) -> List[Dict]:
-        return self._read_json(self._log_path(user_id)) or []
+        data = self._read_state_field(user_id, "logs")
+        if isinstance(data, list):
+            return data
+        if self._filesystem_enabled:
+            return self._read_json(self._log_path(user_id)) or []
+        return []
 
     def get_weekly_prompt(self, user_id: str) -> str:
         logs = self.fetch_logs(user_id)
@@ -190,10 +244,15 @@ class StorageService:
     def append_visualization(self, user_id: str, entry: Dict) -> None:
         items = self.fetch_visualizations(user_id)
         items.append(entry)
+        if self._write_state(user_id, visualizations=items):
+            return
         self._write_json(self._visualizations_path(user_id), items)
 
     def fetch_visualizations(self, user_id: str) -> List[Dict]:
-        data = self._read_json(self._visualizations_path(user_id))
+        data = self._read_state_field(user_id, "visualizations")
+        if data is None:
+            if self._filesystem_enabled:
+                data = self._read_json(self._visualizations_path(user_id))
         if isinstance(data, list):
             return [item for item in data if isinstance(item, dict)]
         return []
@@ -213,10 +272,18 @@ class StorageService:
                 removed = item
                 continue
             remaining.append(item)
-        self._write_json(self._visualizations_path(user_id), remaining)
+        if self._write_state(user_id, visualizations=remaining):
+            return removed
+        if self._filesystem_enabled:
+            self._write_json(self._visualizations_path(user_id), remaining)
         return removed
 
     def visualization_image_dir(self, user_id: str) -> Path:
+        if not self._filesystem_enabled or self._data_dir is None:
+            raise RuntimeError(
+                'Visualization image storage requires filesystem access. '
+                'Configure external storage (e.g. Supabase Storage) in production.'
+            )
         path = self._data_dir / 'visualizations' / user_id
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
@@ -244,10 +311,16 @@ class StorageService:
             return None
 
     def _write_json(self, path: Path, data) -> None:
+        if not self._filesystem_enabled or self._data_dir is None:
+            raise RuntimeError(
+                'Filesystem storage is disabled. Configure Supabase Postgres or enable local storage.'
+            )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
 
     def _read_json(self, path: Path):
+        if not self._filesystem_enabled or self._data_dir is None:
+            return None
         if not path.exists():
             return None
         try:
@@ -256,21 +329,33 @@ class StorageService:
             return None
 
     def _profile_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_profile.json'
 
     def _plan_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_plan.json'
 
     def _log_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_logs.json'
 
     def _conversation_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_conversation.json'
 
     def _visualizations_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_visualizations.json'
 
     def _coach_conversation_path(self, user_id: str) -> Path:
+        if self._data_dir is None:
+            raise RuntimeError('Filesystem storage is disabled; configure Supabase Postgres.')
         return self._data_dir / f'{user_id}_coach_conversation.json'
 
     @staticmethod
@@ -280,3 +365,49 @@ class StorageService:
             if value:
                 return value
         return None
+
+    # --- Database helpers ---------------------------------------------
+
+    def _write_state(self, user_id: str, **fields: Any) -> bool:
+        if not self._db_available:
+            return False
+        session = db.session
+        try:
+            state: Optional[UserAppState] = session.get(UserAppState, user_id)
+            if state is None:
+                state = UserAppState(user_id=user_id)
+                session.add(state)
+            for key, value in fields.items():
+                setattr(state, key, value)
+            state.touch()
+            session.commit()
+            return True
+        except SQLAlchemyError:
+            session.rollback()
+            logger.exception("Failed to write application state for user %s", user_id)
+            if self._db_only_mode:
+                raise
+        return False
+
+    def _read_state_field(self, user_id: str, field: str) -> Any:
+        if not self._db_available:
+            return None
+        session = db.session
+        try:
+            state: Optional[UserAppState] = session.get(UserAppState, user_id)
+            if state is None:
+                return None
+            return getattr(state, field)
+        except SQLAlchemyError:
+            session.rollback()
+            logger.exception("Failed to read %s for user %s", field, user_id)
+            if self._db_only_mode:
+                raise
+        return None
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}

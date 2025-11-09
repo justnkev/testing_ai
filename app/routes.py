@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from flask import (
@@ -22,8 +22,33 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-#from .services.ai_service import AIService
-#from .services.storage_service import StorageService
+if TYPE_CHECKING:
+    from .services.ai_service import AIService
+    from .services.storage_service import StorageService
+
+
+class _ServiceProxy:
+    """Proxy that forwards attribute access to the Flask application context."""
+
+    def __init__(self, attribute: str) -> None:
+        object.__setattr__(self, "_attribute", attribute)
+
+    def __getattr__(self, item: str):
+        return getattr(getattr(current_app, object.__getattribute__(self, "_attribute")), item)
+
+    def __setattr__(self, key: str, value) -> None:
+        setattr(getattr(current_app, object.__getattribute__(self, "_attribute")), key, value)
+
+    def __delattr__(self, item: str) -> None:
+        delattr(getattr(current_app, object.__getattribute__(self, "_attribute")), item)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        target = getattr(current_app, object.__getattribute__(self, "_attribute"), None)
+        return f"ServiceProxy({target!r})"
+
+
+ai_service: "AIService" = _ServiceProxy("ai_service")
+storage_service: "StorageService" = _ServiceProxy("storage_service")
 
 main_bp = Blueprint('main', __name__)
 

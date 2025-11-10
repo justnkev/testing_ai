@@ -50,11 +50,11 @@
         <div>
           <label for="goal_type">Goal focus</label>
           <select id="goal_type" name="goal_type">
+            <option value="Thin &amp; skinny"{% if goal_defaults.get('goal_type') == 'Thin & skinny' %} selected{% endif %}>Thin &amp; skinny</option>            
             <option value="Lean &amp; fit"{% if goal_defaults.get('goal_type') == 'Lean & fit' %} selected{% endif %}>Lean &amp; fit</option>
             <option value="Toned &amp; healthy"{% if goal_defaults.get('goal_type') == 'Toned & healthy' %} selected{% endif %}>Toned &amp; healthy</option>
             <option value="Muscular &amp; athletic"{% if goal_defaults.get('goal_type') == 'Muscular & athletic' %} selected{% endif %}>Muscular &amp; athletic</option>
             <option value="Big &amp; shredded"{% if goal_defaults.get('goal_type') == 'Big & shredded' %} selected{% endif %}>Big &amp; shredded</option>
-            <option value="Huge &amp; god-like"{% if goal_defaults.get('goal_type') == 'Huge & god-like' %} selected{% endif %}>Huge &amp; god-like</option>
           </select>
         </div>
         <div>

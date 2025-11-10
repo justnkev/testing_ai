@@ -332,7 +332,7 @@ class AIService:
         if not isinstance(profile, dict):
             profile = {}
 
-        keys = ("age", "gender", "height", "weight", "body_type")
+        keys = ("age", "gender", "height", "weight")
         bits = []
         for k in keys:
             v = profile.get(k)
@@ -345,14 +345,14 @@ class AIService:
 
         lines = [
             "Analyze the provided image of a person.",
-            "Create a hyper-realistic, encouraging future version of this person.",
+            "Create a hyper-realistic, encouraging future version of this person showing off every inch of their body.",
             "Output must be a high-quality PNG image and nothing else.",
             f"Goal: {goal}.",
             f"Transformation intensity: {intensity}.",
             f"Timeline: {timeline}.",
             (
                 "Keep proportions natural, honor the individual's facial features and characteristics "
-                f"({profile_text}), and express vitality without unrealistic alterations."
+                f"({profile_text}), and express vitality."
             ),
         ]
         return " ".join(lines).strip()

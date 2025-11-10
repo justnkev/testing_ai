@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -58,3 +58,20 @@ class AppFactoryDatabaseTests(TestCase):
         touched_paths = [call.args[0] for call in mock_mkdir.mock_calls if call.args]
 
         self.assertNotIn(sqlite_parent, touched_paths)
+
+    def test_redis_session_configuration(self) -> None:
+        environ = {
+            "UPSTASH_REDIS_URL": "rediss://default:password@global-example.upstash.io:6379",
+            "STORAGE_DATA_DIR": "/tmp/fitvision-data",
+        }
+
+        fake_client = object()
+
+        with patch.dict(os.environ, environ, clear=False):
+            with patch("app.redis") as mock_redis, patch("app.Session") as mock_session:
+                mock_redis.from_url.return_value = fake_client
+                app = create_app()
+
+        self.assertEqual("redis", app.config["SESSION_TYPE"])
+        self.assertIs(app.config["SESSION_REDIS"], fake_client)
+        mock_session.assert_called_once()

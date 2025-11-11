@@ -53,6 +53,14 @@ def _onboarding_complete() -> bool:
             status = stored
         else:
             status = False
+
+    if not status:
+        plan = current_app.storage_service.fetch_plan(user['id'])
+        if plan:
+            user['onboarding_complete'] = True
+            session['user'] = user
+            session.modified = True
+            return True
     return bool(status)
 
 

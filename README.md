@@ -31,7 +31,7 @@ app.py                  # Flask entry point
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   flask --app app.py --debug run
+   pip install -r requirements.txt
    ```
 
 2. **Configure environment variables (optional)**
@@ -44,14 +44,19 @@ app.py                  # Flask entry point
    export SUPABASE_ANON_KEY="YOUR_ANON_KEY"
    export GEMINI_API_KEY="YOUR_GEMINI_KEY"
    export FLASK_SECRET_KEY="YOUR_FLASK_SECRET"
+   export UPSTASH_REDIS_URL="rediss://default:YOUR_PASSWORD@global-example.upstash.io:6379"
+   # Alternatively, supply the REST credentials issued by Upstash
+   export UPSTASH_REDIS_REST_URL="https://global-example.upstash.io"
+   export UPSTASH_REDIS_REST_TOKEN="YOUR_REST_TOKEN"
    ```
 
    The Flask CLI automatically reads `.env` (via `python-dotenv`), so secrets stay out of source control. When the variables
    are not provided, the app falls back to local JSON storage so you can explore the flow offline.
 
    > **GitHub Actions deployments** – store the same keys as repository secrets (for example `SUPABASE_URL`,
-   > `SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `FLASK_SECRET_KEY`) and expose them as environment variables in your workflow.
-   > The runtime automatically picks them up thanks to the new environment helpers in the services.
+   > `SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `FLASK_SECRET_KEY`, `UPSTASH_REDIS_URL`) and expose them as environment variables
+   > in your workflow. If you prefer Upstash's REST credentials, expose both `UPSTASH_REDIS_REST_URL` and
+   > `UPSTASH_REDIS_REST_TOKEN`. The runtime automatically picks them up thanks to the new environment helpers in the services.
 
 3. **Run the app**
 
@@ -72,7 +77,15 @@ app.py                  # Flask entry point
 
 ## Data Storage
 
-`StorageService` automatically writes JSON files to `instance/data` during local development. In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls.
+`StorageService` automatically writes JSON files to `instance/data` during local development. In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls. When Supabase is not configured, the service now prefers an Upstash Redis instance when the Upstash environment variables are present. Sessions also move to Redis in that scenario so serverless platforms with ephemeral disks can persist login state between requests.
+
+## Testing
+
+Run the automated test suite (including the Redis-backed storage checks) with:
+
+```bash
+python -m pytest
+```
 
 ## Disclaimer
 

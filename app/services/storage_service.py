@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-import logging 
-logger = logging.getLogger(__name__)
-
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -14,8 +14,19 @@ try:
     from supabase import create_client, Client as SupabaseClient
 except Exception:  # pragma: no cover - optional dependency for local dev
     create_client = None  # type: ignore
-    class SupabaseClient:
+
+    class SupabaseClient:  # pragma: no cover - simple stub
         pass
+
+try:
+    import redis  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    redis = None  # type: ignore
+
+try:
+    from upstash_redis import Redis as UpstashRedis  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    UpstashRedis = None  # type: ignore
 
 
 class StorageService:
@@ -27,6 +38,7 @@ class StorageService:
         #data_dir_path = os.environ.get('STORAGE_DATA_DIR', '/tmp/fitvision-data')
         #data_dir = Path(data_dir_path)
         self._supabase: Optional[SupabaseClient] = self._init_supabase()
+        self._redis: Optional[Any] = self._init_redis()
 
         data_dir = Path(os.getenv('STORAGE_DATA_DIR', '/tmp/fitvision-data')).expanduser()
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -114,6 +126,12 @@ class StorageService:
         """Remove any persisted onboarding conversation for a user."""
 
         path = self._conversation_path(user_id)
+        if self._supabase is None and self._redis is not None:
+            try:
+                self._redis.delete(self._redis_key(path))
+                return
+            except Exception:
+                logger.warning('Redis delete failed; falling back to filesystem', exc_info=True)
         if path.exists():
             path.unlink()
 
@@ -132,6 +150,12 @@ class StorageService:
 
     def clear_coach_conversation(self, user_id: str) -> None:
         path = self._coach_conversation_path(user_id)
+        if self._supabase is None and self._redis is not None:
+            try:
+                self._redis.delete(self._redis_key(path))
+                return
+            except Exception:
+                logger.warning('Redis delete failed; falling back to filesystem', exc_info=True)
         if path.exists():
             path.unlink()
 
@@ -243,17 +267,72 @@ class StorageService:
             logger.warning("Supabase init failed: %s", exc)
             return None
 
+    def _init_redis(self) -> Optional[Any]:
+        """Initialise a Redis client when Upstash credentials are available."""
+
+        redis_url = os.getenv('UPSTASH_REDIS_URL')
+        if redis_url and redis is not None:
+            try:
+                client = redis.from_url(redis_url, decode_responses=True)
+                return client
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Redis init failed', exc_info=True)
+
+        rest_url = os.getenv('UPSTASH_REDIS_REST_URL')
+        rest_token = os.getenv('UPSTASH_REDIS_REST_TOKEN')
+        if rest_url and rest_token:
+            if UpstashRedis is None:
+                logger.warning(
+                    'Upstash REST credentials provided but the upstash-redis package is missing'
+                )
+                return None
+            try:
+                client = UpstashRedis(url=rest_url, token=rest_token)
+                return client
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Upstash REST client init failed', exc_info=True)
+
+        if redis_url and redis is None:
+            logger.info('Redis package not installed; falling back to filesystem storage')
+        return None
+
     def _write_json(self, path: Path, data) -> None:
+        if self._supabase is None and self._redis is not None:
+            try:
+                self._redis.set(self._redis_key(path), json.dumps(data))
+                return
+            except Exception:
+                logger.warning('Redis write failed; using filesystem fallback', exc_info=True)
+
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
 
     def _read_json(self, path: Path):
+        if self._supabase is None and self._redis is not None:
+            try:
+                raw = self._redis.get(self._redis_key(path))
+            except Exception:
+                logger.warning('Redis read failed; using filesystem fallback', exc_info=True)
+            else:
+                if raw is None:
+                    return None
+                if isinstance(raw, bytes):  # pragma: no cover - defensive
+                    raw = raw.decode('utf-8')
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    logger.warning('Redis value was not valid JSON for %s', path.name)
+                    return None
+
         if not path.exists():
             return None
         try:
             return json.loads(path.read_text())
         except json.JSONDecodeError:
             return None
+
+    def _redis_key(self, path: Path) -> str:
+        return f'fitvision:{path.name}'
 
     def _profile_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_profile.json'

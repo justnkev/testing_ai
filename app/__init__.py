@@ -1,5 +1,6 @@
 """Flask application factory."""
 
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -8,8 +9,12 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_session import Session
 
-from .services.ai_service import AIService
-from .services.storage_service import StorageService
+try:
+    import redis  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    redis = None  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_secret_key() -> str:
@@ -70,15 +75,34 @@ def create_app() -> Flask:
     # Services discover their own credentials from the environment so the app
     # can run in environments where optional integrations (e.g. Supabase,
     # Gemini) are not configured.
-    app.storage_service = StorageService()
-    app.ai_service = AIService()
+    from .routes import ai_service, storage_service
 
-    session_dir = Path(os.environ.get("SESSION_FILE_DIR", "/tmp/flask_session"))
-    session_dir.mkdir(parents=True, exist_ok=True)
+    app.storage_service = storage_service
+    app.ai_service = ai_service
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
-    app.config["SESSION_TYPE"] = "filesystem"
-    app.config["SESSION_FILE_DIR"] = str(session_dir)
+    redis_session_client = None
+    redis_url = os.environ.get("UPSTASH_REDIS_URL")
+    if redis_url and redis is not None:
+        try:
+            redis_session_client = redis.from_url(redis_url)
+        except Exception:  # pragma: no cover - network dependent
+            logger.warning(
+                "Redis session initialisation failed; falling back to filesystem",
+                exc_info=True,
+            )
+    elif redis_url and redis is None:
+        logger.info("Redis package not installed; using filesystem session store")
+
+    if redis_session_client is not None:
+        app.config["SESSION_TYPE"] = "redis"
+        app.config["SESSION_REDIS"] = redis_session_client
+    else:
+        session_dir = Path(os.environ.get("SESSION_FILE_DIR", "/tmp/flask_session"))
+        session_dir.mkdir(parents=True, exist_ok=True)
+        app.config["SESSION_TYPE"] = "filesystem"
+        app.config["SESSION_FILE_DIR"] = str(session_dir)
+
     app.config["SQLALCHEMY_DATABASE_URI"] = _resolve_database_uri(app)
 
     Session(app)

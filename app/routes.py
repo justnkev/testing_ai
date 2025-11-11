@@ -22,13 +22,13 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-#from .services.ai_service import AIService
-#from .services.storage_service import StorageService
+from .services.ai_service import AIService
+from .services.storage_service import StorageService
 
 main_bp = Blueprint('main', __name__)
 
-#ai_service = AIService()
-#storage_service = StorageService()
+ai_service = AIService()
+storage_service = StorageService()
 
 
 def _require_login() -> str | None:

@@ -314,15 +314,15 @@ class StorageService:
             except Exception:
                 logger.warning('Redis read failed; using filesystem fallback', exc_info=True)
             else:
-                if raw is None:
-                    return None
-                if isinstance(raw, bytes):  # pragma: no cover - defensive
-                    raw = raw.decode('utf-8')
-                try:
-                    return json.loads(raw)
-                except json.JSONDecodeError:
-                    logger.warning('Redis value was not valid JSON for %s', path.name)
-                    return None
+                if raw is not None:
+                    if isinstance(raw, bytes):  # pragma: no cover - defensive
+                        raw = raw.decode('utf-8')
+                    try:
+                        return json.loads(raw)
+                    except json.JSONDecodeError:
+                        logger.warning('Redis value was not valid JSON for %s', path.name)
+                        # fall through to filesystem lookup
+                # Redis miss should check filesystem fallback
 
         if not path.exists():
             return None

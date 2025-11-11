@@ -126,7 +126,7 @@ class StorageService:
         """Remove any persisted onboarding conversation for a user."""
 
         path = self._conversation_path(user_id)
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.delete(self._redis_key(path))
                 return
@@ -150,7 +150,7 @@ class StorageService:
 
     def clear_coach_conversation(self, user_id: str) -> None:
         path = self._coach_conversation_path(user_id)
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.delete(self._redis_key(path))
                 return
@@ -297,7 +297,7 @@ class StorageService:
         return None
 
     def _write_json(self, path: Path, data) -> None:
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.set(self._redis_key(path), json.dumps(data))
                 return
@@ -308,7 +308,7 @@ class StorageService:
         path.write_text(json.dumps(data, indent=2))
 
     def _read_json(self, path: Path):
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 raw = self._redis.get(self._redis_key(path))
             except Exception:

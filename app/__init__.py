@@ -81,6 +81,8 @@ def create_app() -> Flask:
     app.ai_service = ai_service
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
+    app.config["HEALTHKIT_JWT_SECRET"] = os.environ.get("HEALTHKIT_JWT_SECRET", "")
+    app.config["FITVISION_API_BASE"] = os.environ.get("FITVISION_API_BASE", "")
     redis_session_client = None
     redis_url = os.environ.get("UPSTASH_REDIS_URL")
     if redis_url and redis is not None:

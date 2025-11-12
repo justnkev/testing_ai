@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from datetime import datetime, timezone
+import statistics
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,6 +14,7 @@ from flask import (
     Response,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -25,11 +27,33 @@ from werkzeug.utils import secure_filename
 
 from .services.ai_service import AIService
 from .services.storage_service import StorageService
+from .utils.auth import AuthError, decode_device_jwt
 
 main_bp = Blueprint('main', __name__)
 
 ai_service = AIService()
 storage_service = StorageService()
+
+SUPPORTED_HEALTH_TYPES = {
+    'step_count',
+    'active_energy_burned',
+    'dietary_energy_consumed',
+    'dietary_protein',
+    'dietary_carbohydrates',
+    'dietary_fat_total',
+    'sleep_analysis',
+    'heart_rate',
+    'body_mass',
+    'body_fat_percentage',
+}
+
+
+def _extract_bearer_token() -> str:
+    auth_header = request.headers.get('Authorization', '')
+    parts = auth_header.split()
+    if len(parts) == 2 and parts[0].lower() == 'bearer':
+        return parts[1]
+    return ''
 
 
 def _require_login() -> str | None:
@@ -70,6 +94,269 @@ def _ensure_onboarding_complete() -> Optional[Response]:
         flash('Complete onboarding to unlock your personalized dashboard.', 'info')
         return redirect(url_for('main.onboarding'))
     return None
+
+
+def _parse_iso8601(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith('Z'):
+            text = text[:-1] + '+00:00'
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return None
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_datetime_for_display(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+
+
+def _build_health_summary(user_id: str) -> Dict[str, Any]:
+    """Aggregate server-side health metrics for dashboard/progress views."""
+
+    now = datetime.now(timezone.utc)
+    start_30d = now - timedelta(days=30)
+    start_7d = now - timedelta(days=7)
+    service = current_app.storage_service
+
+    summary: Dict[str, Any] = {
+        'has_samples': False,
+        'last_sync': None,
+        'last_sync_display': None,
+        'steps_7d': 0,
+        'steps_30d': 0,
+        'active_energy_7d': 0.0,
+        'dietary_energy_7d': 0.0,
+        'sleep_hours_7d': 0.0,
+        'heart_rate': {
+            'min': None,
+            'max': None,
+            'avg': None,
+        },
+        'daily': [],
+    }
+
+    latest_sample: Optional[datetime] = None
+    daily_buckets: Dict[Any, Dict[str, Any]] = {}
+
+    def ensure_day_bucket(day: datetime) -> Dict[str, Any]:
+        key = day.date()
+        if key not in daily_buckets:
+            daily_buckets[key] = {
+                'date': key,
+                'steps': 0.0,
+                'active_energy': 0.0,
+                'dietary_energy': 0.0,
+                'sleep_hours': 0.0,
+                'heart_rates': [],
+            }
+        return daily_buckets[key]
+
+    # Steps
+    step_samples = service.fetch_health_timeseries(user_id, 'step_count', start_30d, now)
+    for sample in step_samples:
+        start = _parse_iso8601(sample.get('start_at'))
+        if start is None:
+            continue
+        value = _safe_float(sample.get('value'))
+        if value is None:
+            continue
+        summary['steps_30d'] += value
+        if start >= start_7d:
+            summary['steps_7d'] += value
+            bucket = ensure_day_bucket(start)
+            bucket['steps'] += value
+        if latest_sample is None or start > latest_sample:
+            latest_sample = start
+
+    # Active energy
+    active_samples = service.fetch_health_timeseries(user_id, 'active_energy_burned', start_30d, now)
+    for sample in active_samples:
+        start = _parse_iso8601(sample.get('start_at'))
+        if start is None:
+            continue
+        value = _safe_float(sample.get('value'))
+        if value is None:
+            continue
+        if start >= start_7d:
+            summary['active_energy_7d'] += value
+            bucket = ensure_day_bucket(start)
+            bucket['active_energy'] += value
+        if latest_sample is None or start > latest_sample:
+            latest_sample = start
+
+    # Dietary energy
+    dietary_samples = service.fetch_health_timeseries(user_id, 'dietary_energy_consumed', start_30d, now)
+    for sample in dietary_samples:
+        start = _parse_iso8601(sample.get('start_at'))
+        if start is None:
+            continue
+        value = _safe_float(sample.get('value'))
+        if value is None:
+            continue
+        if start >= start_7d:
+            summary['dietary_energy_7d'] += value
+            bucket = ensure_day_bucket(start)
+            bucket['dietary_energy'] += value
+        if latest_sample is None or start > latest_sample:
+            latest_sample = start
+
+    # Sleep analysis
+    sleep_samples = service.fetch_health_timeseries(user_id, 'sleep_analysis', start_30d, now)
+    for sample in sleep_samples:
+        start = _parse_iso8601(sample.get('start_at'))
+        end = _parse_iso8601(sample.get('end_at'))
+        if start is None or end is None:
+            continue
+        duration_hours = (end - start).total_seconds() / 3600.0
+        if duration_hours <= 0:
+            continue
+        if start >= start_7d:
+            summary['sleep_hours_7d'] += duration_hours
+            bucket = ensure_day_bucket(start)
+            bucket['sleep_hours'] += duration_hours
+        if latest_sample is None or end > latest_sample:
+            latest_sample = end
+
+    # Heart rate
+    heart_rate_samples = service.fetch_health_timeseries(user_id, 'heart_rate', start_30d, now)
+    heart_values: List[float] = []
+    for sample in heart_rate_samples:
+        start = _parse_iso8601(sample.get('start_at'))
+        if start is None:
+            continue
+        value = _safe_float(sample.get('value'))
+        if value is None:
+            continue
+        if start >= start_7d:
+            heart_values.append(value)
+            bucket = ensure_day_bucket(start)
+            bucket['heart_rates'].append(value)
+        if latest_sample is None or start > latest_sample:
+            latest_sample = start
+
+    if heart_values:
+        summary['heart_rate']['min'] = round(min(heart_values), 1)
+        summary['heart_rate']['max'] = round(max(heart_values), 1)
+        summary['heart_rate']['avg'] = round(statistics.mean(heart_values), 1)
+
+    # Daily roll-up for last 7 days
+    daily_rows: List[Dict[str, Any]] = []
+    for offset in range(7):
+        day = (now - timedelta(days=offset)).date()
+        bucket = daily_buckets.get(day, {
+            'date': day,
+            'steps': 0.0,
+            'active_energy': 0.0,
+            'dietary_energy': 0.0,
+            'sleep_hours': 0.0,
+            'heart_rates': [],
+        })
+        heart_rates = bucket.get('heart_rates', [])
+        row = {
+            'date': day.isoformat(),
+            'steps': int(round(bucket.get('steps', 0.0))),
+            'active_energy': round(bucket.get('active_energy', 0.0), 2),
+            'dietary_energy': round(bucket.get('dietary_energy', 0.0), 2),
+            'sleep_hours': round(bucket.get('sleep_hours', 0.0), 2),
+            'heart_rate_min': round(min(heart_rates), 1) if heart_rates else None,
+            'heart_rate_max': round(max(heart_rates), 1) if heart_rates else None,
+            'heart_rate_avg': round(statistics.mean(heart_rates), 1) if heart_rates else None,
+        }
+        daily_rows.append(row)
+
+    daily_rows.reverse()  # oldest first for charts/tables
+    summary['daily'] = daily_rows
+
+    if summary['steps_30d'] or summary['active_energy_7d'] or summary['dietary_energy_7d'] or heart_values or sleep_samples:
+        summary['has_samples'] = True
+    if latest_sample is not None:
+        summary['last_sync'] = latest_sample
+        summary['last_sync_display'] = _format_datetime_for_display(latest_sample)
+
+    return summary
+
+
+@main_bp.route('/api/healthkit/ingest', methods=['POST'])
+def ingest_healthkit_samples() -> Response:
+    token = _extract_bearer_token()
+    secret = current_app.config.get('HEALTHKIT_JWT_SECRET', '')
+
+    try:
+        payload = decode_device_jwt(token, secret)
+    except AuthError as exc:
+        return jsonify({'error': str(exc)}), exc.status_code
+
+    body = request.get_json(silent=True) or {}
+
+    subject = str(payload.get('sub') or '')
+    if not subject:
+        return jsonify({'error': 'Token missing subject claim.'}), 401
+
+    body_user_id = body.get('user_id')
+    if body_user_id and str(body_user_id) != subject:
+        return jsonify({'error': 'User mismatch between token and payload.'}), 403
+
+    user_id = str(body_user_id or subject)
+    samples = body.get('samples')
+    if samples is None:
+        return jsonify({'error': 'Request body must include a "samples" list.'}), 400
+    if not isinstance(samples, list):
+        return jsonify({'error': '"samples" must be a list.'}), 400
+
+    summary = current_app.storage_service.upsert_health_samples(user_id, samples)
+
+    anchor = body.get('anchor')
+    if isinstance(anchor, dict) and anchor:
+        current_app.storage_service.save_health_anchor(user_id, anchor)
+
+    response_payload = {
+        'accepted': summary.get('inserted', 0),
+        'updated': summary.get('updated', 0),
+        'total': summary.get('total', 0),
+    }
+    if isinstance(anchor, dict) and anchor:
+        response_payload['anchor'] = anchor
+
+    return jsonify(response_payload)
+
+
+@main_bp.route('/api/healthkit/types', methods=['GET'])
+def healthkit_types() -> Response:
+    token = _extract_bearer_token()
+    secret = current_app.config.get('HEALTHKIT_JWT_SECRET', '')
+
+    try:
+        payload = decode_device_jwt(token, secret)
+    except AuthError as exc:
+        return jsonify({'error': str(exc)}), exc.status_code
+
+    subject = str(payload.get('sub') or '')
+    requested_user = request.args.get('user_id')
+    if requested_user and requested_user != subject:
+        return jsonify({'error': 'User mismatch between token and request.'}), 403
+
+    user_id = requested_user or subject
+    anchor = current_app.storage_service.fetch_health_anchor(user_id) if user_id else {}
+
+    return jsonify({'types': sorted(SUPPORTED_HEALTH_TYPES), 'anchor': anchor})
 
 
 @main_bp.route('/')
@@ -208,6 +495,7 @@ def dashboard() -> str | Response:
 
     stats, trend = _derive_dashboard_stats(logs)
     recent_logs = list(reversed(logs[-3:])) if logs else []
+    health_summary = _build_health_summary(user['id'])
 
     return render_template(
         'dashboard.html',
@@ -217,6 +505,7 @@ def dashboard() -> str | Response:
         stats=stats,
         trend=trend,
         recent_logs=recent_logs,
+        health_summary=health_summary,
     )
 
 
@@ -385,7 +674,8 @@ def progress() -> str | Response:
         return redirect(url_for('main.progress'))
 
     logs = current_app.storage_service.fetch_logs(user_id)
-    return render_template('progress.html', logs=logs)
+    health_summary = _build_health_summary(user_id)
+    return render_template('progress.html', logs=logs, health_summary=health_summary)
 
 
 @main_bp.route('/replan', methods=['POST'])

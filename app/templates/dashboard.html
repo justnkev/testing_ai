@@ -15,6 +15,52 @@
     <p data-weekly-prompt>{{ weekly_prompt }}</p>
   </section>
 
+  {% if health_summary.has_samples %}
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Apple Health</small>
+        <h3 style="margin:0.4rem 0 0;">Objective insights (last 7 days)</h3>
+        {% if health_summary.last_sync_display %}
+        <p class="stat-detail" style="margin:0.4rem 0 0;">Last sync: {{ health_summary.last_sync_display }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="data-grid">
+      <article class="surface-card stat-card">
+        <span class="stat-label">Steps (7d)</span>
+        <div class="stat-value">{{ health_summary.steps_7d|int }}</div>
+        <div class="stat-detail">{{ health_summary.steps_30d|int }} steps over 30 days</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Active energy</span>
+        <div class="stat-value">{{ health_summary.active_energy_7d|round|int }}</div>
+        <div class="stat-detail">kcal burned this week</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Calories in</span>
+        <div class="stat-value">{{ health_summary.dietary_energy_7d|round|int }}</div>
+        <div class="stat-detail">kcal consumed from Apple Health</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Sleep</span>
+        <div class="stat-value">{{ health_summary.sleep_hours_7d|round(1) }}<small style="margin-left:0.35rem; font-size:1rem; letter-spacing:0; text-transform:none; color:var(--color-muted);">hrs</small></div>
+        <div class="stat-detail">Summed from sleep analysis segments</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Heart rate</span>
+        {% if health_summary.heart_rate.avg is not none %}
+        <div class="stat-value">{{ health_summary.heart_rate.avg }}<small style="margin-left:0.35rem; font-size:1rem; letter-spacing:0; text-transform:none; color:var(--color-muted);">bpm avg</small></div>
+        <div class="stat-detail">Range {{ health_summary.heart_rate.min }}–{{ health_summary.heart_rate.max }} bpm</div>
+        {% else %}
+        <div class="stat-value">—</div>
+        <div class="stat-detail">No heart rate samples yet</div>
+        {% endif %}
+      </article>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="data-grid">
     <article class="surface-card stat-card">
       <span class="stat-label">Workouts logged</span>

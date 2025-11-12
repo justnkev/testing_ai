@@ -5,7 +5,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -160,6 +160,112 @@ class StorageService:
                 logger.warning('Redis delete failed; falling back to filesystem', exc_info=True)
         if path.exists():
             path.unlink()
+
+    # --- Health data ingestion -------------------------------------------
+
+    def upsert_health_samples(self, user_id: str, samples: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Persist HealthKit-derived samples for a user.
+
+        Parameters
+        ----------
+        user_id:
+            FitVision user identifier the samples belong to.
+        samples:
+            Sequence of dictionaries describing HealthKit samples. Each
+            dictionary must contain at least ``sample_uuid`` and ``type``.
+
+        Returns
+        -------
+        dict
+            Summary counts for inserted and updated records.
+        """
+
+        if not samples:
+            return {"inserted": 0, "updated": 0, "total": len(self._load_health_samples(user_id))}
+
+        existing_map = {
+            entry["sample_uuid"]: entry
+            for entry in self._load_health_samples(user_id)
+            if isinstance(entry, dict) and entry.get("sample_uuid")
+        }
+
+        inserted = 0
+        updated = 0
+
+        for sample in samples:
+            try:
+                normalized = self._normalise_health_sample(sample)
+            except ValueError:
+                logger.warning("Skipping invalid health sample: %s", sample)
+                continue
+
+            sample_uuid = normalized["sample_uuid"]
+            previous = existing_map.get(sample_uuid)
+            if previous is None:
+                existing_map[sample_uuid] = normalized
+                inserted += 1
+            else:
+                merged = previous.copy()
+                merged.update(normalized)
+                if merged != previous:
+                    updated += 1
+                existing_map[sample_uuid] = merged
+
+        sorted_samples = sorted(
+            existing_map.values(),
+            key=lambda entry: self._health_sample_sort_key(entry),
+        )
+
+        self._write_json(self._health_samples_path(user_id), sorted_samples)
+
+        return {"inserted": inserted, "updated": updated, "total": len(sorted_samples)}
+
+    def fetch_health_timeseries(
+        self,
+        user_id: str,
+        type_: str,
+        start: datetime,
+        end: datetime,
+    ) -> List[Dict[str, Any]]:
+        """Return samples of ``type_`` between ``start`` and ``end`` (inclusive)."""
+
+        if start.tzinfo is None or end.tzinfo is None:
+            raise ValueError("start and end must be timezone-aware datetimes")
+
+        results: List[Dict[str, Any]] = []
+        for entry in self._load_health_samples(user_id):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("type") != type_:
+                continue
+            sample_start = self._parse_timestamp(entry.get("start_at"))
+            sample_end = self._parse_timestamp(entry.get("end_at"))
+            if sample_start is None:
+                continue
+            if sample_start < start or sample_start > end:
+                continue
+            # Ensure samples have consistent ordering for downstream code.
+            normalized_entry = entry.copy()
+            if sample_end is not None:
+                normalized_entry["end_at"] = self._isoformat(sample_end)
+            normalized_entry["start_at"] = self._isoformat(sample_start)
+            results.append(normalized_entry)
+
+        results.sort(key=lambda entry: entry.get("start_at", ""))
+        return results
+
+    def save_health_anchor(self, user_id: str, anchor: Dict[str, Any]) -> None:
+        """Persist the opaque anchor values provided by devices."""
+
+        if not isinstance(anchor, dict):
+            return
+        self._write_json(self._health_anchor_path(user_id), anchor)
+
+    def fetch_health_anchor(self, user_id: str) -> Dict[str, Any]:
+        """Return previously stored anchor tokens for the user."""
+
+        data = self._read_json(self._health_anchor_path(user_id))
+        return data if isinstance(data, dict) else {}
 
     def set_onboarding_complete(self, user_id: str, completed: bool = True) -> None:
         """Persist onboarding completion metadata for the user."""
@@ -398,6 +504,86 @@ class StorageService:
 
     def _coach_conversation_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_coach_conversation.json'
+
+    def _health_samples_path(self, user_id: str) -> Path:
+        return self._data_dir / f"{user_id}_health_samples.json"
+
+    def _health_anchor_path(self, user_id: str) -> Path:
+        return self._data_dir / f"{user_id}_health_anchor.json"
+
+    def _load_health_samples(self, user_id: str) -> List[Dict[str, Any]]:
+        data = self._read_json(self._health_samples_path(user_id))
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def _normalise_health_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(sample, dict):
+            raise ValueError("Sample must be a dictionary")
+
+        sample_uuid = str(sample.get("sample_uuid") or "").strip()
+        type_ = str(sample.get("type") or "").strip()
+        if not sample_uuid or not type_:
+            raise ValueError("Sample requires 'sample_uuid' and 'type'")
+
+        normalized: Dict[str, Any] = {"sample_uuid": sample_uuid, "type": type_}
+
+        value = sample.get("value")
+        if value is not None:
+            normalized["value"] = value
+        unit = sample.get("unit")
+        if unit is not None:
+            normalized["unit"] = unit
+
+        start_at = self._parse_timestamp(sample.get("start_at"))
+        end_at = self._parse_timestamp(sample.get("end_at"))
+        if start_at is not None:
+            normalized["start_at"] = self._isoformat(start_at)
+        if end_at is not None:
+            normalized["end_at"] = self._isoformat(end_at)
+
+        device = sample.get("device")
+        if device is not None:
+            normalized["device"] = device
+
+        metadata = sample.get("metadata")
+        if isinstance(metadata, dict):
+            normalized["metadata"] = metadata
+
+        source_bundle = sample.get("source_bundle") or sample.get("sourceBundle")
+        if source_bundle is not None:
+            normalized["source_bundle"] = source_bundle
+
+        return normalized
+
+    @staticmethod
+    def _health_sample_sort_key(entry: Dict[str, Any]) -> Tuple[str, str]:
+        start = str(entry.get("start_at") or "")
+        end = str(entry.get("end_at") or "")
+        return (start, end)
+
+    @staticmethod
+    def _parse_timestamp(value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value.astimezone(timezone.utc)
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                parsed = datetime.fromisoformat(text)
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        return None
+
+    @staticmethod
+    def _isoformat(value: datetime) -> str:
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:

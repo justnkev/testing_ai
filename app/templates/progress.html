@@ -42,6 +42,85 @@
       </div>
     </form>
   </section>
+  {% if health_summary.has_samples %}
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Apple Health sync</small>
+        <h2 style="margin:0.4rem 0 0;">Imported metrics</h2>
+        {% if health_summary.last_sync_display %}
+        <p class="stat-detail" style="margin:0.4rem 0 0;">Last sync: {{ health_summary.last_sync_display }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="data-grid">
+      <article class="surface-card stat-card">
+        <span class="stat-label">Steps (7d)</span>
+        <div class="stat-value">{{ health_summary.steps_7d|int }}</div>
+        <div class="stat-detail">{{ health_summary.steps_30d|int }} in 30 days</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Active kcal</span>
+        <div class="stat-value">{{ health_summary.active_energy_7d|round|int }}</div>
+        <div class="stat-detail">Burned via Apple Health</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Calories in</span>
+        <div class="stat-value">{{ health_summary.dietary_energy_7d|round|int }}</div>
+        <div class="stat-detail">Consumed (HealthKit)</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Sleep hours</span>
+        <div class="stat-value">{{ health_summary.sleep_hours_7d|round(1) }}</div>
+        <div class="stat-detail">Total across past 7 nights</div>
+      </article>
+      <article class="surface-card stat-card">
+        <span class="stat-label">Heart rate</span>
+        {% if health_summary.heart_rate.avg is not none %}
+        <div class="stat-value">{{ health_summary.heart_rate.avg }}</div>
+        <div class="stat-detail">{{ health_summary.heart_rate.min }}–{{ health_summary.heart_rate.max }} bpm</div>
+        {% else %}
+        <div class="stat-value">—</div>
+        <div class="stat-detail">No samples yet</div>
+        {% endif %}
+      </article>
+    </div>
+    <div style="overflow-x:auto; margin-top:1.5rem;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+        <thead>
+          <tr style="text-align:left; border-bottom:1px solid var(--color-border);">
+            <th style="padding:0.5rem 0.75rem;">Date</th>
+            <th style="padding:0.5rem 0.75rem;">Steps</th>
+            <th style="padding:0.5rem 0.75rem;">Active kcal</th>
+            <th style="padding:0.5rem 0.75rem;">Calories in</th>
+            <th style="padding:0.5rem 0.75rem;">Sleep (hrs)</th>
+            <th style="padding:0.5rem 0.75rem;">HR avg</th>
+            <th style="padding:0.5rem 0.75rem;">HR range</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in health_summary.daily %}
+          <tr style="border-bottom:1px solid var(--color-border);">
+            <td style="padding:0.5rem 0.75rem; white-space:nowrap;">{{ day.date }}</td>
+            <td style="padding:0.5rem 0.75rem;">{{ day.steps }}</td>
+            <td style="padding:0.5rem 0.75rem;">{{ day.active_energy|round(1) }}</td>
+            <td style="padding:0.5rem 0.75rem;">{{ day.dietary_energy|round(1) }}</td>
+            <td style="padding:0.5rem 0.75rem;">{{ day.sleep_hours|round(2) }}</td>
+            <td style="padding:0.5rem 0.75rem;">{{ day.heart_rate_avg if day.heart_rate_avg is not none else '—' }}</td>
+            <td style="padding:0.5rem 0.75rem;">
+              {% if day.heart_rate_min is not none %}
+              {{ day.heart_rate_min }}–{{ day.heart_rate_max }}
+              {% else %}
+              —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
   <section class="surface-card">
     <div class="section-header">
       <div>

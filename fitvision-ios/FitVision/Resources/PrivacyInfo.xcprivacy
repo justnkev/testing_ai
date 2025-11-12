@@ -1,0 +1,27 @@
+{
+  "privacy" : {
+    "tracking" : {
+      "allowsTracking" : false
+    },
+    "dataCategories" : [
+      {
+        "identifier" : "health",
+        "collected" : "optional",
+        "usedForTracking" : false,
+        "linkedToUser" : true
+      },
+      {
+        "identifier" : "camera",
+        "collected" : "optional",
+        "usedForTracking" : false,
+        "linkedToUser" : false
+      },
+      {
+        "identifier" : "photos",
+        "collected" : "optional",
+        "usedForTracking" : false,
+        "linkedToUser" : true
+      }
+    ]
+  }
+}

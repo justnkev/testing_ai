@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1" lastSavedToolsVersion="18154" systemVersion="22G90" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="CDUser" representedClassName="CDUser" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="email" optional="YES" attributeType="String"/>
+        <attribute name="avatarURL" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="CDLogEntry" representedClassName="CDLogEntry" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="type" optional="NO" attributeType="String"/>
+        <attribute name="payload" optional="YES" attributeType="Binary"/>
+        <attribute name="timestamp" optional="NO" attributeType="Date"/>
+        <attribute name="calories" optional="YES" attributeType="Double" defaultValueString="0"/>
+        <attribute name="macros" optional="YES" attributeType="Binary"/>
+        <attribute name="status" optional="NO" attributeType="Integer 16" defaultValueString="0"/>
+    </entity>
+    <entity name="CDVisualization" representedClassName="CDVisualization" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="url" optional="NO" attributeType="String"/>
+        <attribute name="createdAt" optional="NO" attributeType="Date"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="localPath" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="CDStatsSnapshot" representedClassName="CDStatsSnapshot" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="range" optional="NO" attributeType="String"/>
+        <attribute name="payload" optional="NO" attributeType="Binary"/>
+        <attribute name="createdAt" optional="NO" attributeType="Date"/>
+    </entity>
+    <entity name="CDUploadQueue" representedClassName="CDUploadQueue" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="endpoint" optional="NO" attributeType="String"/>
+        <attribute name="body" optional="NO" attributeType="Binary"/>
+        <attribute name="createdAt" optional="NO" attributeType="Date"/>
+        <attribute name="retryCount" optional="NO" attributeType="Integer 16" defaultValueString="0"/>
+    </entity>
+    <elements>
+        <element name="CDUser" positionX="-244" positionY="-125" width="128" height="118"/>
+        <element name="CDLogEntry" positionX="-30" positionY="-125" width="128" height="163"/>
+        <element name="CDVisualization" positionX="177" positionY="-125" width="128" height="148"/>
+        <element name="CDStatsSnapshot" positionX="399" positionY="-125" width="128" height="148"/>
+        <element name="CDUploadQueue" positionX="604" positionY="-125" width="128" height="178"/>
+    </elements>
+</model>

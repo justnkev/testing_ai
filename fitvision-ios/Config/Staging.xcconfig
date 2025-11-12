@@ -1,0 +1,3 @@
+#include "Base.xcconfig"
+BASE_URL = https://staging.api.fitvision.example
+ENABLE_SSL_PINNING = NO

@@ -1,0 +1,749 @@
+// !$*UTF8*$!
+{
+archiveVersion = 1;
+classes = {
+};
+objectVersion = 55;
+objects = {
+
+/* Begin PBXBuildFile section */
+A1F000010000000000000001 /* FitVisionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100010000000000000001 /* FitVisionApp.swift */; };
+A1F000020000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100020000000000000001 /* AppEnvironment.swift */; };
+A1F000030000000000000001 /* DIContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100030000000000000001 /* DIContainer.swift */; };
+A1F000040000000000000001 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100040000000000000001 /* MainTabView.swift */; };
+A1F000050000000000000001 /* AppleSignInCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100050000000000000001 /* AppleSignInCoordinator.swift */; };
+A1F000060000000000000001 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100060000000000000001 /* AuthViewModel.swift */; };
+A1F000070000000000000001 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100070000000000000001 /* SignInView.swift */; };
+A1F000080000000000000001 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100080000000000000001 /* OnboardingViewModel.swift */; };
+A1F000090000000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100090000000000000001 /* OnboardingView.swift */; };
+A1F0000A0000000000000001 /* PlanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000A0000000000000001 /* PlanViewModel.swift */; };
+A1F0000B0000000000000001 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000B0000000000000001 /* PlanView.swift */; };
+A1F0000C0000000000000001 /* ProgressViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000C0000000000000001 /* ProgressViewModel.swift */; };
+A1F0000D0000000000000001 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000D0000000000000001 /* ProgressView.swift */; };
+A1F0000E0000000000000001 /* VisualizeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000E0000000000000001 /* VisualizeViewModel.swift */; };
+A1F0000F0000000000000001 /* VisualizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1000F0000000000000001 /* VisualizeView.swift */; };
+A1F000100000000000000001 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100100000000000000001 /* ImageCache.swift */; };
+A1F000110000000000000001 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100110000000000000001 /* DashboardViewModel.swift */; };
+A1F000120000000000000001 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100120000000000000001 /* DashboardView.swift */; };
+A1F000130000000000000001 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100130000000000000001 /* HealthKitManager.swift */; };
+A1F000140000000000000001 /* HealthUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100140000000000000001 /* HealthUploadService.swift */; };
+A1F000150000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100150000000000000001 /* APIClient.swift */; };
+A1F000160000000000000001 /* Endpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100160000000000000001 /* Endpoints.swift */; };
+A1F000170000000000000001 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100170000000000000001 /* User.swift */; };
+A1F000180000000000000001 /* LogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100180000000000000001 /* LogEntry.swift */; };
+A1F000190000000000000001 /* Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100190000000000000001 /* Plan.swift */; };
+A1F0001A0000000000000001 /* Stats.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001A0000000000000001 /* Stats.swift */; };
+A1F0001B0000000000000001 /* Visualization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001B0000000000000001 /* Visualization.swift */; };
+A1F0001C0000000000000001 /* HealthSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001C0000000000000001 /* HealthSample.swift */; };
+A1F0001D0000000000000001 /* CoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001D0000000000000001 /* CoreDataStack.swift */; };
+A1F0001E0000000000000001 /* UserRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001E0000000000000001 /* UserRepository.swift */; };
+A1F0001F0000000000000001 /* LogsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1001F0000000000000001 /* LogsRepository.swift */; };
+A1F000200000000000000001 /* VisualizationsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100200000000000000001 /* VisualizationsRepository.swift */; };
+A1F000210000000000000001 /* HealthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100210000000000000001 /* HealthRepository.swift */; };
+A1F000220000000000000001 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100220000000000000001 /* DesignSystem.swift */; };
+A1F000230000000000000001 /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100230000000000000001 /* LoadingView.swift */; };
+A1F000240000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100240000000000000001 /* SettingsView.swift */; };
+A1F000250000000000000001 /* BackgroundSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100250000000000000001 /* BackgroundSyncCoordinator.swift */; };
+A1F000260000000000000001 /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100260000000000000001 /* KeychainStorage.swift */; };
+A1F000270000000000000001 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100270000000000000001 /* NetworkMonitor.swift */; };
+A1F000280000000000000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1F100280000000000000001 /* Info.plist */; };
+A1F000290000000000000001 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A1F100290000000000000001 /* LaunchScreen.storyboard */; };
+A1F0002A0000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1F1002A0000000000000001 /* Assets.xcassets */; };
+A1F0002B0000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1F1002B0000000000000001 /* PrivacyInfo.xcprivacy */; };
+A1F0002C0000000000000001 /* FitVision.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = A1F1002C0000000000000001 /* FitVision.xcdatamodeld */; };
+A1F0002D0000000000000001 /* AuthViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1002D0000000000000001 /* AuthViewModelTests.swift */; };
+A1F0002E0000000000000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1F1002E0000000000000001 /* FitVisionTests Info.plist */; };
+A1F0002F0000000000000001 /* MainFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1002F0000000000000001 /* MainFlowUITests.swift */; };
+A1F000300000000000000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1F100300000000000000001 /* FitVisionUITests Info.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+A1F200010000000000000001 /* PBXContainerItemProxy */ = {
+isa = PBXContainerItemProxy;
+containerPortal = A1F000000000000000000001 /* Project object */;
+proxyType = 1;
+remoteGlobalIDString = A1F100000000000000000001;
+remoteInfo = FitVision;
+};
+A1F200020000000000000001 /* PBXContainerItemProxy */ = {
+isa = PBXContainerItemProxy;
+containerPortal = A1F000000000000000000001 /* Project object */;
+proxyType = 1;
+remoteGlobalIDString = A1F100000000000000000001;
+remoteInfo = FitVision;
+};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+A1F100000000000000000001 /* FitVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
+A1F100010000000000000001 /* FitVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FitVisionApp.swift; sourceTree = "<group>"; };
+A1F100020000000000000001 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+A1F100030000000000000001 /* DIContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIContainer.swift; sourceTree = "<group>"; };
+A1F100040000000000000001 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+A1F100050000000000000001 /* AppleSignInCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInCoordinator.swift; sourceTree = "<group>"; };
+A1F100060000000000000001 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+A1F100070000000000000001 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+A1F100080000000000000001 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+A1F100090000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+A1F1000A0000000000000001 /* PlanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanViewModel.swift; sourceTree = "<group>"; };
+A1F1000B0000000000000001 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
+A1F1000C0000000000000001 /* ProgressViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressViewModel.swift; sourceTree = "<group>"; };
+A1F1000D0000000000000001 /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+A1F1000E0000000000000001 /* VisualizeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualizeViewModel.swift; sourceTree = "<group>"; };
+A1F1000F0000000000000001 /* VisualizeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualizeView.swift; sourceTree = "<group>"; };
+A1F100100000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
+A1F100110000000000000001 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+A1F100120000000000000001 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+A1F100130000000000000001 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+A1F100140000000000000001 /* HealthUploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthUploadService.swift; sourceTree = "<group>"; };
+A1F100150000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+A1F100160000000000000001 /* Endpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Endpoints.swift; sourceTree = "<group>"; };
+A1F100170000000000000001 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+A1F100180000000000000001 /* LogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogEntry.swift; sourceTree = "<group>"; };
+A1F100190000000000000001 /* Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
+A1F1001A0000000000000001 /* Stats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stats.swift; sourceTree = "<group>"; };
+A1F1001B0000000000000001 /* Visualization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Visualization.swift; sourceTree = "<group>"; };
+A1F1001C0000000000000001 /* HealthSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSample.swift; sourceTree = "<group>"; };
+A1F1001D0000000000000001 /* CoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataStack.swift; sourceTree = "<group>"; };
+A1F1001E0000000000000001 /* UserRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserRepository.swift; sourceTree = "<group>"; };
+A1F1001F0000000000000001 /* LogsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsRepository.swift; sourceTree = "<group>"; };
+A1F100200000000000000001 /* VisualizationsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualizationsRepository.swift; sourceTree = "<group>"; };
+A1F100210000000000000001 /* HealthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRepository.swift; sourceTree = "<group>"; };
+A1F100220000000000000001 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+A1F100230000000000000001 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+A1F100240000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+A1F100250000000000000001 /* BackgroundSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSyncCoordinator.swift; sourceTree = "<group>"; };
+A1F100260000000000000001 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
+A1F100270000000000000001 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+A1F100280000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+A1F100290000000000000001 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+A1F1002A0000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+A1F1002B0000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+A1F1002C0000000000000001 /* FitVision.xcdatamodeld */ = {isa = XCVersionGroup; children = (A1F1002D0000000000000002 /* FitVision.xcdatamodel */, ); currentVersion = A1F1002D0000000000000002 /* FitVision.xcdatamodel */; path = FitVision.xcdatamodeld; sourceTree = "<group>"; versionGroupType = wrapper.xcdatamodel; };
+A1F1002D0000000000000002 /* FitVision.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = FitVision.xcdatamodel; sourceTree = "<group>"; };
+A1F1002D0000000000000001 /* AuthViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModelTests.swift; sourceTree = "<group>"; };
+A1F1002E0000000000000001 /* FitVisionTests Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+A1F1002F0000000000000001 /* MainFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlowUITests.swift; sourceTree = "<group>"; };
+A1F100300000000000000001 /* FitVisionUITests Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+A1F100310000000000000001 /* FitVisionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitVisionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+A1F100320000000000000001 /* FitVisionUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitVisionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+A1F100330000000000000001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+A1F100340000000000000001 /* Dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Dev.xcconfig; sourceTree = "<group>"; };
+A1F100350000000000000001 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
+A1F100360000000000000001 /* Prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Prod.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+A1F300010000000000000001 /* Frameworks */ = {
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F300020000000000000001 /* Frameworks */ = {
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F300030000000000000001 /* Frameworks */ = {
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+A1F400000000000000000001 = {
+isa = PBXGroup;
+children = (
+A1F400010000000000000001 /* Config */,
+A1F400020000000000000001 /* FitVision */,
+A1F400030000000000000001 /* FitVisionTests */,
+A1F400040000000000000001 /* FitVisionUITests */,
+A1F100000000000000000001 /* FitVision.app */,
+A1F100310000000000000001 /* FitVisionTests.xctest */,
+A1F100320000000000000001 /* FitVisionUITests.xctest */
+);
+sourceTree = "<group>";
+};
+A1F400010000000000000001 /* Config */ = {
+isa = PBXGroup;
+children = (
+A1F100330000000000000001 /* Base.xcconfig */,
+A1F100340000000000000001 /* Dev.xcconfig */,
+A1F100350000000000000001 /* Staging.xcconfig */,
+A1F100360000000000000001 /* Prod.xcconfig */
+);
+path = Config;
+sourceTree = "<group>";
+};
+A1F400020000000000000001 /* FitVision */ = {
+isa = PBXGroup;
+children = (
+A1F400050000000000000001 /* App */,
+A1F400060000000000000001 /* Auth */,
+A1F400070000000000000001 /* Onboarding */,
+A1F400080000000000000001 /* Plan */,
+A1F400090000000000000001 /* Progress */,
+A1F4000A0000000000000001 /* Visualize */,
+A1F4000B0000000000000001 /* Dashboard */,
+A1F4000C0000000000000001 /* HealthKit */,
+A1F4000D0000000000000001 /* API */,
+A1F4000E0000000000000001 /* Storage */,
+A1F4000F0000000000000001 /* Common */,
+A1F400100000000000000001 /* Resources */
+);
+path = FitVision;
+sourceTree = "<group>";
+};
+A1F400030000000000000001 /* FitVisionTests */ = {
+isa = PBXGroup;
+children = (
+A1F1002D0000000000000001 /* AuthViewModelTests.swift */,
+A1F1002E0000000000000001 /* FitVisionTests Info.plist */
+);
+path = FitVisionTests;
+sourceTree = "<group>";
+};
+A1F400040000000000000001 /* FitVisionUITests */ = {
+isa = PBXGroup;
+children = (
+A1F1002F0000000000000001 /* MainFlowUITests.swift */,
+A1F100300000000000000001 /* FitVisionUITests Info.plist */
+);
+path = FitVisionUITests;
+sourceTree = "<group>";
+};
+A1F400050000000000000001 /* App */ = {
+isa = PBXGroup;
+children = (
+A1F100010000000000000001 /* FitVisionApp.swift */,
+A1F100020000000000000001 /* AppEnvironment.swift */,
+A1F100030000000000000001 /* DIContainer.swift */,
+A1F100040000000000000001 /* MainTabView.swift */
+);
+path = App;
+sourceTree = "<group>";
+};
+A1F400060000000000000001 /* Auth */ = {
+isa = PBXGroup;
+children = (
+A1F100050000000000000001 /* AppleSignInCoordinator.swift */,
+A1F100060000000000000001 /* AuthViewModel.swift */,
+A1F100070000000000000001 /* SignInView.swift */
+);
+path = Auth;
+sourceTree = "<group>";
+};
+A1F400070000000000000001 /* Onboarding */ = {
+isa = PBXGroup;
+children = (
+A1F100080000000000000001 /* OnboardingViewModel.swift */,
+A1F100090000000000000001 /* OnboardingView.swift */
+);
+path = Onboarding;
+sourceTree = "<group>";
+};
+A1F400080000000000000001 /* Plan */ = {
+isa = PBXGroup;
+children = (
+A1F1000A0000000000000001 /* PlanViewModel.swift */,
+A1F1000B0000000000000001 /* PlanView.swift */
+);
+path = Plan;
+sourceTree = "<group>";
+};
+A1F400090000000000000001 /* Progress */ = {
+isa = PBXGroup;
+children = (
+A1F1000C0000000000000001 /* ProgressViewModel.swift */,
+A1F1000D0000000000000001 /* ProgressView.swift */
+);
+path = Progress;
+sourceTree = "<group>";
+};
+A1F4000A0000000000000001 /* Visualize */ = {
+isa = PBXGroup;
+children = (
+A1F1000E0000000000000001 /* VisualizeViewModel.swift */,
+A1F1000F0000000000000001 /* VisualizeView.swift */,
+A1F100100000000000000001 /* ImageCache.swift */
+);
+path = Visualize;
+sourceTree = "<group>";
+};
+A1F4000B0000000000000001 /* Dashboard */ = {
+isa = PBXGroup;
+children = (
+A1F100110000000000000001 /* DashboardViewModel.swift */,
+A1F100120000000000000001 /* DashboardView.swift */
+);
+path = Dashboard;
+sourceTree = "<group>";
+};
+A1F4000C0000000000000001 /* HealthKit */ = {
+isa = PBXGroup;
+children = (
+A1F100130000000000000001 /* HealthKitManager.swift */,
+A1F100140000000000000001 /* HealthUploadService.swift */
+);
+path = HealthKit;
+sourceTree = "<group>";
+};
+A1F4000D0000000000000001 /* API */ = {
+isa = PBXGroup;
+children = (
+A1F100150000000000000001 /* APIClient.swift */,
+A1F100160000000000000001 /* Endpoints.swift */,
+A1F400110000000000000001 /* Models */
+);
+path = API;
+sourceTree = "<group>";
+};
+A1F400110000000000000001 /* Models */ = {
+isa = PBXGroup;
+children = (
+A1F100170000000000000001 /* User.swift */,
+A1F100180000000000000001 /* LogEntry.swift */,
+A1F100190000000000000001 /* Plan.swift */,
+A1F1001A0000000000000001 /* Stats.swift */,
+A1F1001B0000000000000001 /* Visualization.swift */,
+A1F1001C0000000000000001 /* HealthSample.swift */
+);
+path = Models;
+sourceTree = "<group>";
+};
+A1F4000E0000000000000001 /* Storage */ = {
+isa = PBXGroup;
+children = (
+A1F1001D0000000000000001 /* CoreDataStack.swift */,
+A1F400120000000000000001 /* Repositories */
+);
+path = Storage;
+sourceTree = "<group>";
+};
+A1F400120000000000000001 /* Repositories */ = {
+isa = PBXGroup;
+children = (
+A1F1001E0000000000000001 /* UserRepository.swift */,
+A1F1001F0000000000000001 /* LogsRepository.swift */,
+A1F100200000000000000001 /* VisualizationsRepository.swift */,
+A1F100210000000000000001 /* HealthRepository.swift */
+);
+path = Repositories;
+sourceTree = "<group>";
+};
+A1F4000F0000000000000001 /* Common */ = {
+isa = PBXGroup;
+children = (
+A1F100220000000000000001 /* DesignSystem.swift */,
+A1F400130000000000000001 /* Components */,
+A1F400140000000000000001 /* Utils */
+);
+path = Common;
+sourceTree = "<group>";
+};
+A1F400130000000000000001 /* Components */ = {
+isa = PBXGroup;
+children = (
+A1F100230000000000000001 /* LoadingView.swift */,
+A1F100240000000000000001 /* SettingsView.swift */
+);
+path = Components;
+sourceTree = "<group>";
+};
+A1F400140000000000000001 /* Utils */ = {
+isa = PBXGroup;
+children = (
+A1F100250000000000000001 /* BackgroundSyncCoordinator.swift */,
+A1F100260000000000000001 /* KeychainStorage.swift */,
+A1F100270000000000000001 /* NetworkMonitor.swift */
+);
+path = Utils;
+sourceTree = "<group>";
+};
+A1F400100000000000000001 /* Resources */ = {
+isa = PBXGroup;
+children = (
+A1F100280000000000000001 /* Info.plist */,
+A1F100290000000000000001 /* LaunchScreen.storyboard */,
+A1F1002A0000000000000001 /* Assets.xcassets */,
+A1F1002B0000000000000001 /* PrivacyInfo.xcprivacy */,
+A1F1002C0000000000000001 /* FitVision.xcdatamodeld */
+);
+path = Resources;
+sourceTree = "<group>";
+};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+A1F100000000000000000001 /* FitVision */ = {
+isa = PBXNativeTarget;
+buildConfigurationList = A1F600010000000000000001 /* Build configuration list for PBXNativeTarget "FitVision" */;
+buildPhases = (
+A1F500010000000000000001 /* Sources */,
+A1F300010000000000000001 /* Frameworks */,
+A1F500020000000000000001 /* Resources */
+);
+buildRules = (
+);
+dependencies = (
+);
+name = FitVision;
+productName = FitVision;
+productReference = A1F100000000000000000001 /* FitVision.app */;
+productType = "com.apple.product-type.application";
+};
+A1F100330000000000000001 /* FitVisionTests */ = {
+isa = PBXNativeTarget;
+buildConfigurationList = A1F600020000000000000001 /* Build configuration list for PBXNativeTarget "FitVisionTests" */;
+buildPhases = (
+A1F500030000000000000001 /* Sources */,
+A1F300020000000000000001 /* Frameworks */,
+A1F500040000000000000001 /* Resources */
+);
+buildRules = (
+);
+dependencies = (
+A1F700010000000000000001 /* PBXTargetDependency */
+);
+name = FitVisionTests;
+productName = FitVisionTests;
+productReference = A1F100310000000000000001 /* FitVisionTests.xctest */;
+productType = "com.apple.product-type.bundle.unit-test";
+};
+A1F100340000000000000001 /* FitVisionUITests */ = {
+isa = PBXNativeTarget;
+buildConfigurationList = A1F600030000000000000001 /* Build configuration list for PBXNativeTarget "FitVisionUITests" */;
+buildPhases = (
+A1F500050000000000000001 /* Sources */,
+A1F300030000000000000001 /* Frameworks */,
+A1F500060000000000000001 /* Resources */
+);
+buildRules = (
+);
+dependencies = (
+A1F700020000000000000001 /* PBXTargetDependency */
+);
+name = FitVisionUITests;
+productName = FitVisionUITests;
+productReference = A1F100320000000000000001 /* FitVisionUITests.xctest */;
+productType = "com.apple.product-type.bundle.ui-testing";
+};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+A1F000000000000000000001 /* Project object */ = {
+isa = PBXProject;
+attributes = {
+LastSwiftUpdateCheck = 1500;
+LastUpgradeCheck = 1500;
+ORGANIZATIONNAME = "FitVision";
+TargetAttributes = {
+A1F100000000000000000001 = {
+CreatedOnToolsVersion = 15.0;
+};
+A1F100330000000000000001 = {
+CreatedOnToolsVersion = 15.0;
+TestTargetID = A1F100000000000000000001;
+};
+A1F100340000000000000001 = {
+CreatedOnToolsVersion = 15.0;
+TestTargetID = A1F100000000000000000001;
+};
+};
+};
+buildConfigurationList = A1F600000000000000000001 /* Build configuration list for PBXProject "FitVision" */;
+compatibilityVersion = "Xcode 15.0";
+developmentRegion = en;
+hasScannedForEncodings = 0;
+knownRegions = (
+en,
+Base
+);
+mainGroup = A1F400000000000000000001;
+productRefGroup = A1F400000000000000000001;
+projectDirPath = "";
+projectRoot = "";
+targets = (
+A1F100000000000000000001 /* FitVision */,
+A1F100330000000000000001 /* FitVisionTests */,
+A1F100340000000000000001 /* FitVisionUITests */
+);
+};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+A1F500020000000000000001 /* Resources */ = {
+isa = PBXResourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F0002B0000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+A1F0002A0000000000000001 /* Assets.xcassets in Resources */,
+A1F000280000000000000001 /* Info.plist in Resources */,
+A1F000290000000000000001 /* LaunchScreen.storyboard in Resources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F500040000000000000001 /* Resources */ = {
+isa = PBXResourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F0002E0000000000000001 /* Info.plist in Resources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F500060000000000000001 /* Resources */ = {
+isa = PBXResourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F000300000000000000001 /* Info.plist in Resources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+A1F500010000000000000001 /* Sources */ = {
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F000010000000000000001 /* FitVisionApp.swift in Sources */,
+A1F000020000000000000001 /* AppEnvironment.swift in Sources */,
+A1F000030000000000000001 /* DIContainer.swift in Sources */,
+A1F000040000000000000001 /* MainTabView.swift in Sources */,
+A1F000050000000000000001 /* AppleSignInCoordinator.swift in Sources */,
+A1F000060000000000000001 /* AuthViewModel.swift in Sources */,
+A1F000070000000000000001 /* SignInView.swift in Sources */,
+A1F000080000000000000001 /* OnboardingViewModel.swift in Sources */,
+A1F000090000000000000001 /* OnboardingView.swift in Sources */,
+A1F0000A0000000000000001 /* PlanViewModel.swift in Sources */,
+A1F0000B0000000000000001 /* PlanView.swift in Sources */,
+A1F0000C0000000000000001 /* ProgressViewModel.swift in Sources */,
+A1F0000D0000000000000001 /* ProgressView.swift in Sources */,
+A1F0000E0000000000000001 /* VisualizeViewModel.swift in Sources */,
+A1F0000F0000000000000001 /* VisualizeView.swift in Sources */,
+A1F000100000000000000001 /* ImageCache.swift in Sources */,
+A1F000110000000000000001 /* DashboardViewModel.swift in Sources */,
+A1F000120000000000000001 /* DashboardView.swift in Sources */,
+A1F000130000000000000001 /* HealthKitManager.swift in Sources */,
+A1F000140000000000000001 /* HealthUploadService.swift in Sources */,
+A1F000150000000000000001 /* APIClient.swift in Sources */,
+A1F000160000000000000001 /* Endpoints.swift in Sources */,
+A1F000170000000000000001 /* User.swift in Sources */,
+A1F000180000000000000001 /* LogEntry.swift in Sources */,
+A1F000190000000000000001 /* Plan.swift in Sources */,
+A1F0001A0000000000000001 /* Stats.swift in Sources */,
+A1F0001B0000000000000001 /* Visualization.swift in Sources */,
+A1F0001C0000000000000001 /* HealthSample.swift in Sources */,
+A1F0001D0000000000000001 /* CoreDataStack.swift in Sources */,
+A1F0001E0000000000000001 /* UserRepository.swift in Sources */,
+A1F0001F0000000000000001 /* LogsRepository.swift in Sources */,
+A1F000200000000000000001 /* VisualizationsRepository.swift in Sources */,
+A1F000210000000000000001 /* HealthRepository.swift in Sources */,
+A1F000220000000000000001 /* DesignSystem.swift in Sources */,
+A1F000230000000000000001 /* LoadingView.swift in Sources */,
+A1F000240000000000000001 /* SettingsView.swift in Sources */,
+A1F000250000000000000001 /* BackgroundSyncCoordinator.swift in Sources */,
+A1F000260000000000000001 /* KeychainStorage.swift in Sources */,
+A1F000270000000000000001 /* NetworkMonitor.swift in Sources */,
+A1F0002C0000000000000001 /* FitVision.xcdatamodeld in Sources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F500030000000000000001 /* Sources */ = {
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F0002D0000000000000001 /* AuthViewModelTests.swift in Sources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+A1F500050000000000000001 /* Sources */ = {
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+A1F0002F0000000000000001 /* MainFlowUITests.swift in Sources */
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+A1F700010000000000000001 /* PBXTargetDependency */ = {
+isa = PBXTargetDependency;
+target = A1F100000000000000000001 /* FitVision */;
+targetProxy = A1F200010000000000000001 /* PBXContainerItemProxy */;
+};
+A1F700020000000000000001 /* PBXTargetDependency */ = {
+isa = PBXTargetDependency;
+target = A1F100000000000000000000001 /* FitVision */;
+targetProxy = A1F200020000000000000001 /* PBXContainerItemProxy */;
+};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+A1F800010000000000000001 /* Dev */ = {
+isa = XCBuildConfiguration;
+baseConfigurationReference = A1F100340000000000000001 /* Dev.xcconfig */;
+buildSettings = {
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 1;
+DEVELOPMENT_TEAM = "";
+INFOPLIST_FILE = FitVision/Resources/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SWIFT_VERSION = 5.9;
+TARGETED_DEVICE_FAMILY = "1,2";
+};
+name = Dev;
+};
+A1F800020000000000000001 /* Staging */ = {
+isa = XCBuildConfiguration;
+baseConfigurationReference = A1F100350000000000000001 /* Staging.xcconfig */;
+buildSettings = {
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 1;
+DEVELOPMENT_TEAM = "";
+INFOPLIST_FILE = FitVision/Resources/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SWIFT_VERSION = 5.9;
+TARGETED_DEVICE_FAMILY = "1,2";
+};
+name = Staging;
+};
+A1F800030000000000000001 /* Prod */ = {
+isa = XCBuildConfiguration;
+baseConfigurationReference = A1F100360000000000000001 /* Prod.xcconfig */;
+buildSettings = {
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 1;
+DEVELOPMENT_TEAM = "";
+INFOPLIST_FILE = FitVision/Resources/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SWIFT_VERSION = 5.9;
+TARGETED_DEVICE_FAMILY = "1,2";
+};
+name = Prod;
+};
+A1F800040000000000000001 /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+INFOPLIST_FILE = FitVisionTests/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app.tests;
+SWIFT_VERSION = 5.9;
+};
+name = Debug;
+};
+A1F800050000000000000001 /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+INFOPLIST_FILE = FitVisionTests/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app.tests;
+SWIFT_VERSION = 5.9;
+};
+name = Release;
+};
+A1F800060000000000000001 /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+INFOPLIST_FILE = FitVisionUITests/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app.uitests;
+SWIFT_VERSION = 5.9;
+};
+name = Debug;
+};
+A1F800070000000000000001 /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+INFOPLIST_FILE = FitVisionUITests/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+PRODUCT_BUNDLE_IDENTIFIER = com.fitvision.app.uitests;
+SWIFT_VERSION = 5.9;
+};
+name = Release;
+};
+A1F800080000000000000001 /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+SWIFT_VERSION = 5.9;
+};
+name = Debug;
+};
+A1F800090000000000000001 /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+CODE_SIGN_STYLE = Automatic;
+SWIFT_VERSION = 5.9;
+};
+name = Release;
+};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+A1F600000000000000000001 /* Build configuration list for PBXProject "FitVision" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+A1F800080000000000000001 /* Debug */,
+A1F800090000000000000001 /* Release */
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Debug;
+};
+A1F600010000000000000001 /* Build configuration list for PBXNativeTarget "FitVision" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+A1F800010000000000000001 /* Dev */,
+A1F800020000000000000001 /* Staging */,
+A1F800030000000000000001 /* Prod */
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Prod;
+};
+A1F600020000000000000001 /* Build configuration list for PBXNativeTarget "FitVisionTests" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+A1F800040000000000000001 /* Debug */,
+A1F800050000000000000001 /* Release */
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Debug;
+};
+A1F600030000000000000001 /* Build configuration list for PBXNativeTarget "FitVisionUITests" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+A1F800060000000000000001 /* Debug */,
+A1F800070000000000000001 /* Release */
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Debug;
+};
+/* End XCConfigurationList section */
+
+};
+rootObject = A1F000000000000000000001 /* Project object */;
+}

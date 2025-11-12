@@ -1,0 +1,16 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload a TestFlight beta"
+  lane :beta do
+    increment_build_number(xcodeproj: "FitVision.xcodeproj")
+    build_app(scheme: "FitVision", export_method: "app-store")
+    upload_to_testflight
+  end
+
+  desc "Submit a build to the App Store"
+  lane :release do
+    build_app(scheme: "FitVision", export_method: "app-store")
+    upload_to_app_store(skip_screenshots: true, skip_metadata: false)
+  end
+end

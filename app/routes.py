@@ -136,6 +136,7 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
         'sleep_hours': 0.0,
         'habits': 0,
     }
+    calories_total = 0
 
     for entry in window:
         if entry.get('workout'):
@@ -152,6 +153,12 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
                     totals['sleep_hours'] += float(numbers[0])
                 except ValueError:
                     continue
+        calories_value = entry.get('calories')
+        if calories_value is not None:
+            try:
+                calories_total += int(round(float(calories_value)))
+            except (TypeError, ValueError):
+                pass
 
     trend: List[Dict[str, Any]] = []
     for entry in window:
@@ -172,7 +179,7 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
         'total_meals': totals['meals'],
         'total_habits': totals['habits'],
         'hours_sleep': round(totals['sleep_hours'], 1),
-        'calories_estimate': totals['meals'] * 550,
+        'calories_estimate': calories_total,
         'calories_burned': totals['workouts'] * 320,
         'workout_completion': min(100, int((totals['workouts'] / workout_goal) * 100)) if workout_goal else 0,
         'meal_completion': min(100, int((totals['meals'] / meal_goal) * 100)) if meal_goal else 0,
@@ -323,13 +330,55 @@ def progress() -> str | Response:
     user_id = session['user']['id']
 
     if request.method == 'POST':
-        log_entry = {
+        meals = request.form.get('meals')
+        estimation: Optional[Dict[str, Any]] = None
+        if meals:
+            try:
+                estimation = current_app.ai_service.estimate_meal_calories(meals)
+            except Exception:
+                estimation = None
+
+        log_entry: Dict[str, Any] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'workout': request.form.get('workout'),
-            'meals': request.form.get('meals'),
+            'meals': meals,
             'sleep': request.form.get('sleep'),
             'habits': request.form.get('habits'),
         }
+
+        if estimation:
+            calories_value = estimation.get('calories')
+            if calories_value is not None:
+                log_entry['calories'] = calories_value
+
+            macro_segments = []
+            protein = estimation.get('protein_g')
+            carbs = estimation.get('carbs_g')
+            fat = estimation.get('fat_g')
+            if protein is not None:
+                macro_segments.append(f"P {protein}g")
+            if carbs is not None:
+                macro_segments.append(f"C {carbs}g")
+            if fat is not None:
+                macro_segments.append(f"F {fat}g")
+
+            confidence = estimation.get('confidence')
+            confidence_text: Optional[str]
+            if isinstance(confidence, (int, float)):
+                confidence_text = f"{confidence:.2f}".rstrip('0').rstrip('.') if confidence >= 0 else str(confidence)
+            else:
+                confidence_text = None
+
+            if macro_segments:
+                macro_string = ' / '.join(macro_segments)
+                if confidence_text:
+                    macro_string = f"{macro_string} (conf {confidence_text})"
+                log_entry['macros'] = macro_string
+
+            notes = estimation.get('notes')
+            if notes:
+                log_entry['estimation_notes'] = str(notes)
+
         current_app.storage_service.append_log(user_id, log_entry)
         flash('Progress saved. Keep up the great work!', 'success')
         return redirect(url_for('main.progress'))

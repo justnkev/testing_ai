@@ -126,7 +126,7 @@ class StorageService:
         """Remove any persisted onboarding conversation for a user."""
 
         path = self._conversation_path(user_id)
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.delete(self._redis_key(path))
                 return
@@ -150,7 +150,7 @@ class StorageService:
 
     def clear_coach_conversation(self, user_id: str) -> None:
         path = self._coach_conversation_path(user_id)
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.delete(self._redis_key(path))
                 return
@@ -297,7 +297,7 @@ class StorageService:
         return None
 
     def _write_json(self, path: Path, data) -> None:
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 self._redis.set(self._redis_key(path), json.dumps(data))
                 return
@@ -308,21 +308,21 @@ class StorageService:
         path.write_text(json.dumps(data, indent=2))
 
     def _read_json(self, path: Path):
-        if self._supabase is None and self._redis is not None:
+        if self._redis is not None:
             try:
                 raw = self._redis.get(self._redis_key(path))
             except Exception:
                 logger.warning('Redis read failed; using filesystem fallback', exc_info=True)
             else:
-                if raw is None:
-                    return None
-                if isinstance(raw, bytes):  # pragma: no cover - defensive
-                    raw = raw.decode('utf-8')
-                try:
-                    return json.loads(raw)
-                except json.JSONDecodeError:
-                    logger.warning('Redis value was not valid JSON for %s', path.name)
-                    return None
+                if raw is not None:
+                    if isinstance(raw, bytes):  # pragma: no cover - defensive
+                        raw = raw.decode('utf-8')
+                    try:
+                        return json.loads(raw)
+                    except json.JSONDecodeError:
+                        logger.warning('Redis value was not valid JSON for %s', path.name)
+                        # fall through to filesystem lookup
+                # Redis miss should check filesystem fallback
 
         if not path.exists():
             return None

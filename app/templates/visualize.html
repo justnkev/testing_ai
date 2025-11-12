@@ -99,7 +99,7 @@
     <p class="stat-detail">No visualizations yet. Once generated, they will appear here so you can compare and share.</p>
     {% else %}
     <div class="plan-section" style="margin-top:1.2rem;">
-      {% for viz in visualizations|reverse %}
+      {% for viz in visualizations %}
       <div class="plan-tile gallery-card">
         <div>
           <div class="message-meta">Generated {{ viz.created_at|default('recently') }}</div>
@@ -110,11 +110,11 @@
           </div>
         </div>
         <div class="preview-grid">
-          <img src="{{ url_for('main.visualize_image', visualization_id=viz.id, variant='future') }}" alt="Visualization result">
-          <img src="{{ url_for('main.visualize_image', visualization_id=viz.id, variant='original') }}" alt="Original photo">
+          <img src="{{ viz.url }}{% if viz.hash %}?v={{ viz.hash }}{% endif %}" alt="Visualization result">
+          <img src="{{ viz.original_url or viz.url }}" alt="Original photo">
         </div>
         <div class="gallery-actions">
-          <a class="fv-button fv-button--ghost" href="{{ url_for('main.visualize_image', visualization_id=viz.id, variant='future') }}" download>Save to device</a>
+          <a class="fv-button fv-button--ghost" href="{{ viz.url }}" download>Save to device</a>
           <a class="fv-button fv-button--subtle" href="{{ url_for('main.progress') }}">Set reminder</a>
           <a class="fv-button fv-button--primary" href="{{ url_for('main.plan') }}">View plan</a>
         </div>

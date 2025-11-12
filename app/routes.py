@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import shutil
+import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 import re
@@ -434,7 +435,10 @@ def visualize() -> str | Response:
 
     user = session['user']
     user_id = user['id']
-    visualizations = current_app.storage_service.fetch_visualizations(user_id)
+    storage = current_app.storage_service
+    visualizations = storage.refresh_visualization_urls_if_needed(
+        storage.list_visualizations(user_id)
+    )
 
     if request.method == 'POST':
         file = request.files.get('photo')
@@ -449,9 +453,19 @@ def visualize() -> str | Response:
         if extension not in {'.jpg', '.jpeg', '.png', '.webp'}:
             extension = '.jpg'
         viz_id = uuid4().hex
-        directory = current_app.storage_service.visualization_image_dir(user_id)
+        directory = storage.user_images_dir(user_id)
+
+        try:
+            upload_bytes = file.read()
+        except Exception:
+            upload_bytes = b''
+
+        if not upload_bytes:
+            flash('We could not read your photo. Please try another image.', 'danger')
+            return redirect(url_for('main.visualize'))
+
         temp_path = directory / f'{viz_id}_source{extension}'
-        file.save(temp_path)
+        temp_path.write_bytes(upload_bytes)
 
         profile_data = {
             'age': request.form.get('age', '').strip(),
@@ -471,35 +485,85 @@ def visualize() -> str | Response:
 
         generated_bytes = current_app.ai_service.generate_visualization(temp_path, context)
 
-        original_name = f'{viz_id}_original{extension}'
-        original_path = directory / original_name
-        temp_path.rename(original_path)
+        if isinstance(generated_bytes, dict):
+            encoded = generated_bytes.get('image_base64')
+            generated_bytes = None
+            if encoded:
+                try:
+                    generated_bytes = base64.b64decode(encoded.split(',')[-1])
+                except Exception:
+                    current_app.logger.warning('Failed to decode generated visualization image payload')
+        elif isinstance(generated_bytes, str):
+            try:
+                generated_bytes = base64.b64decode(generated_bytes.split(',')[-1])
+            except Exception:
+                current_app.logger.warning('Failed to decode visualization image string payload')
 
-        future_path = directory / f'{viz_id}_future{extension}'
-        if generated_bytes:
-            future_path = directory / f'{viz_id}_future.png'
-            future_path.write_bytes(generated_bytes)
-        else:
-            shutil.copyfile(original_path, future_path)
+        try:
+            original_saved = storage.save_visualization_image(
+                user_id,
+                upload_bytes,
+                ext=extension.lstrip('.') or 'jpg',
+            )
+        except Exception:
+            current_app.logger.exception('Failed to persist original image')
+            flash('We could not save your photo. Please try again.', 'danger')
+            temp_path.unlink(missing_ok=True)
+            return redirect(url_for('main.visualize'))
 
-        future_name = future_path.name
+        future_bytes = generated_bytes or upload_bytes
+        future_ext = 'png' if generated_bytes else (extension.lstrip('.') or 'jpg')
+        try:
+            future_saved = storage.save_visualization_image(
+                user_id,
+                future_bytes,
+                ext=future_ext,
+            )
+        except Exception:
+            current_app.logger.exception('Failed to persist visualization image')
+            temp_path.unlink(missing_ok=True)
+            _cleanup_paths = [original_saved.get('path')]
+            for item in _cleanup_paths:
+                if item:
+                    Path(item).unlink(missing_ok=True)
+            flash('We generated an image but could not save it. Please try again.', 'danger')
+            return redirect(url_for('main.visualize'))
 
-        entry = {
+        temp_path.unlink(missing_ok=True)
+
+        meta = {
             'id': viz_id,
-            'created_at': datetime.now(timezone.utc).isoformat(),
+            'created_at': future_saved.get('created_at'),
             'goal_type': context['goal_type'],
             'intensity': context['intensity'],
             'timeline': context['timeline'],
             'profile': profile_data,
-            'original': original_path.name,
-            'future': future_name,
+            'prompt': f"{context['goal_type']} · {context['timeline']} · {context['intensity']}",
+            'model': getattr(current_app.ai_service, '_image_model_id', None),
+            'hash': hashlib.md5(future_bytes).hexdigest(),
+            'key': future_saved.get('key'),
+            'url': future_saved.get('url'),
+            'storage_path': future_saved.get('path'),
+            'original_key': original_saved.get('key'),
+            'original_url': original_saved.get('url'),
+            'original_storage_path': original_saved.get('path'),
+            'notes': '',
         }
-        current_app.storage_service.append_visualization(user_id, entry)
+
+        try:
+            storage.record_visualization_metadata(user_id, meta)
+        except Exception:
+            current_app.logger.exception('Failed to persist visualization metadata')
+            for cleanup in (future_saved.get('path'), original_saved.get('path')):
+                if cleanup:
+                    Path(cleanup).unlink(missing_ok=True)
+            flash('Something went wrong while saving your visualization metadata. Please try again.', 'danger')
+            return redirect(url_for('main.visualize'))
 
         flash('Your future self visualization is ready! Explore it below.', 'success')
         return redirect(url_for('main.visualize'))
 
-    latest_entry = visualizations[-1] if visualizations else {}
+    latest_entry = visualizations[0] if visualizations else {}
     latest_profile = dict(latest_entry.get('profile', {})) if latest_entry else {}
     goal_defaults = {
         'goal_type': latest_entry.get('goal_type', 'Toned & healthy') if latest_entry else 'Toned & healthy',
@@ -533,12 +597,45 @@ def visualize_image(visualization_id: str, variant: str):
     if not entry:
         abort(404)
 
-    filename = entry.get(variant)
-    if not filename:
+    if variant == 'future':
+        candidate = entry.get('storage_path')
+        fallback = entry.get('future')
+    else:
+        candidate = entry.get('original_storage_path')
+        fallback = entry.get('original')
+
+    if candidate:
+        path = Path(candidate)
+        if path.is_file():
+            return send_from_directory(path.parent, path.name, max_age=86400)
+
+    if not fallback:
         abort(404)
 
-    directory = current_app.storage_service.visualization_image_dir(user_id)
-    return send_from_directory(directory, filename)
+    directory = current_app.storage_service.user_images_dir(user_id)
+    safe_name = Path(fallback).name
+    return send_from_directory(directory, safe_name, max_age=86400)
+
+
+@main_bp.route('/user-images/<user_id>/<path:filename>')
+def user_image(user_id: str, filename: str):
+    redirect_url = _require_login()
+    if redirect_url:
+        return redirect(redirect_url)
+
+    if session['user']['id'] != user_id:
+        abort(403)
+
+    safe_name = Path(filename).name
+    if safe_name != filename:
+        abort(404)
+
+    directory = current_app.storage_service.user_images_dir(user_id)
+    path = directory / safe_name
+    if not path.exists():
+        abort(404)
+
+    return send_from_directory(directory, safe_name, max_age=86400)
 
 
 @main_bp.route('/visualize/<visualization_id>/delete', methods=['POST'])
@@ -557,14 +654,26 @@ def delete_visualization(visualization_id: str) -> Response:
         flash('Visualization not found.', 'warning')
         return redirect(url_for('main.visualize'))
 
-    directory = current_app.storage_service.visualization_image_dir(user_id)
+    for path_value in (
+        removed.get('storage_path'),
+        removed.get('original_storage_path'),
+    ):
+        if not path_value:
+            continue
+        try:
+            Path(path_value).unlink()
+        except FileNotFoundError:
+            continue
+
+    # Fallback cleanup for legacy entries storing only filenames
+    directory = current_app.storage_service.user_images_dir(user_id)
     for key in ('original', 'future'):
         filename = removed.get(key)
         if not filename:
             continue
-        path = directory / filename
+        legacy_path = directory / filename
         try:
-            path.unlink()
+            legacy_path.unlink()
         except FileNotFoundError:
             continue
 

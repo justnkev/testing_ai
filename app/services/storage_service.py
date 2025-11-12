@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import os
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
@@ -211,36 +213,81 @@ class StorageService:
 
     # --- Visualization storage -----------------------------------------
 
-    def append_visualization(self, user_id: str, entry: Dict) -> None:
-        items = self.fetch_visualizations(user_id)
-        items.append(entry)
-        self._write_json(self._visualizations_path(user_id), items)
+    def save_visualization_image(self, user_id: str, image_bytes: bytes, ext: str = "png") -> Dict[str, str]:
+        """Persist visualization image bytes and return metadata."""
 
-    def fetch_visualizations(self, user_id: str) -> List[Dict]:
-        data = self._read_json(self._visualizations_path(user_id))
-        if isinstance(data, list):
-            return [item for item in data if isinstance(item, dict)]
-        return []
+        if not image_bytes:
+            raise ValueError("No image data provided")
+
+        safe_ext = (ext or "png").lstrip(".") or "png"
+        directory = self.user_images_dir(user_id)
+        filename = f"{uuid4().hex}.{safe_ext}"
+        path = directory / filename
+        path.write_bytes(image_bytes)
+        created_at = datetime.now(timezone.utc).isoformat()
+
+        return {
+            "key": f"{user_id}/{filename}",
+            "url": f"/user-images/{user_id}/{filename}",
+            "created_at": created_at,
+            "path": str(path),
+        }
+
+    def record_visualization_metadata(self, user_id: str, meta: Dict) -> None:
+        """Append visualization metadata for the user."""
+
+        meta = dict(meta)
+        meta.setdefault("user_id", user_id)
+        entries = self._load_visualizations(user_id)
+        entries.append(meta)
+        self._write_json(self._visualizations_path(user_id), entries)
+
+    def list_visualizations(self, user_id: str, limit: int = 20) -> List[Dict]:
+        """Return visualization metadata records for a user."""
+
+        entries = [
+            self._normalise_visualization_entry(user_id, item)
+            for item in self._load_visualizations(user_id)
+            if isinstance(item, dict)
+        ]
+
+        entries.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+        if limit and limit > 0:
+            return entries[:limit]
+        return entries
+
+    def refresh_visualization_urls_if_needed(self, items: List[Dict]) -> List[Dict]:
+        """Refresh signed URLs when required. Local filesystem is a no-op."""
+
+        refreshed: List[Dict] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            refreshed.append(item)
+        return refreshed
 
     def get_visualization(self, user_id: str, visualization_id: str) -> Optional[Dict]:
-        for item in self.fetch_visualizations(user_id):
-            if item.get('id') == visualization_id:
-                return item
+        for item in self._load_visualizations(user_id):
+            if isinstance(item, dict) and item.get("id") == visualization_id:
+                return self._normalise_visualization_entry(user_id, item)
         return None
 
     def remove_visualization(self, user_id: str, visualization_id: str) -> Optional[Dict]:
-        items = self.fetch_visualizations(user_id)
+        items = self._load_visualizations(user_id)
         remaining: List[Dict] = []
         removed: Optional[Dict] = None
         for item in items:
-            if item.get('id') == visualization_id and removed is None:
-                removed = item
+            if isinstance(item, dict) and item.get("id") == visualization_id and removed is None:
+                removed = self._normalise_visualization_entry(user_id, item)
                 continue
             remaining.append(item)
         self._write_json(self._visualizations_path(user_id), remaining)
         return removed
 
     def visualization_image_dir(self, user_id: str) -> Path:
+        return self.user_images_dir(user_id)
+
+    def user_images_dir(self, user_id: str) -> Path:
         path = self._data_dir / 'visualizations' / user_id
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
@@ -359,3 +406,46 @@ class StorageService:
             if value:
                 return value
         return None
+
+    def _load_visualizations(self, user_id: str) -> List[Dict]:
+        data = self._read_json(self._visualizations_path(user_id))
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def _normalise_visualization_entry(self, user_id: str, entry: Dict) -> Dict:
+        data = dict(entry)
+        data.setdefault('user_id', user_id)
+
+        def _coerce_url(filename: Optional[str]) -> Optional[str]:
+            if not filename:
+                return None
+            if filename.startswith('/'):
+                return filename
+            if '/' in filename and filename.split('/', 1)[0] == user_id:
+                return f"/user-images/{filename}"
+            return f"/user-images/{user_id}/{filename}"
+
+        if 'url' not in data:
+            future_name = data.get('future') or data.get('filename')
+            if future_name:
+                data['url'] = _coerce_url(future_name)
+                data.setdefault('key', f"{user_id}/{Path(future_name).name}")
+
+        original_name = data.get('original') or data.get('original_filename')
+        if 'original_url' not in data and original_name:
+            data['original_url'] = _coerce_url(original_name)
+            data.setdefault('original_key', f"{user_id}/{Path(original_name).name}")
+
+        if 'key' in data and 'storage_path' not in data:
+            filename = Path(str(data['key'])).name
+            data['storage_path'] = str(self.user_images_dir(user_id) / filename)
+
+        if 'original_key' in data and 'original_storage_path' not in data:
+            filename = Path(str(data['original_key'])).name
+            data['original_storage_path'] = str(self.user_images_dir(user_id) / filename)
+
+        if 'created_at' not in data:
+            data['created_at'] = datetime.now(timezone.utc).isoformat()
+
+        return data

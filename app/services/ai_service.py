@@ -151,6 +151,45 @@ class AIService:
 
         return self._fallback_check_in(conversation, user)
 
+    def estimate_meal_calories(self, meal_text: str) -> Optional[Dict[str, Any]]:
+        """Estimate nutrition details for a meal description using Gemini."""
+
+        if not meal_text or not self._gemini_model:
+            return None
+
+        prompt = (
+            "You are a nutrition estimator. Given a free-text meal description, "
+            "estimate total calories and macro grams. Respond ONLY valid JSON with keys: "
+            'calories (int), protein_g (int), carbs_g (int), fat_g (int), confidence (0-1 float), notes (short string). '
+            "Assume common US servings; be conservative when uncertain.\n\n"
+            f"Meal: {meal_text}\n"
+            "JSON:"
+        )
+
+        raw = self._call_gemini(prompt)
+        if not raw:
+            return None
+
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+            if not isinstance(data, dict) or "calories" not in data:
+                return None
+            for key in ("calories", "protein_g", "carbs_g", "fat_g"):
+                if key in data:
+                    try:
+                        data[key] = int(round(float(data[key])))
+                    except Exception:
+                        data[key] = None
+            if "confidence" in data:
+                try:
+                    data["confidence"] = float(data["confidence"])
+                except Exception:
+                    data["confidence"] = None
+            return data
+        except Exception:
+            return None
+
     def generate_plan(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> Dict[str, Dict[str, str]]:
         """Return a personalized plan summary based on the conversation."""
 

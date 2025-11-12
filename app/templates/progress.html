@@ -56,6 +56,12 @@
         <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
         {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
         {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+        {% if log.calories is not none %}
+        <p><strong>Nutrition:</strong> ~{{ log.calories }} kcal{% if log.macros %} <span class="stat-detail">{{ log.macros }}</span>{% endif %}</p>
+        {% elif log.macros %}
+        <p><strong>Nutrition:</strong> {{ log.macros }}</p>
+        {% endif %}
+        {% if log.estimation_notes %}<p class="stat-detail">{{ log.estimation_notes }}</p>{% endif %}
         {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
         {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
       </article>

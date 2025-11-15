@@ -232,6 +232,8 @@ class StorageService:
     def clear_user_data(self, user_id: str) -> None:
         """Remove all non-auth data for the given user."""
 
+        supabase_errors: List[str] = []
+
         if self._supabase:
             table_factory = getattr(self._supabase, 'table', None)
             if table_factory:
@@ -243,11 +245,29 @@ class StorageService:
                     'visualizations',
                 ):
                     try:
-                        table_factory(table_name).delete().eq('user_id', user_id)
-                    except Exception:
-                        logger.debug(
-                            'Supabase cleanup skipped for %s.%s', table_name, user_id, exc_info=True
+                        query = table_factory(table_name).delete().eq('user_id', user_id)
+                        response = query.execute()
+                    except Exception as exc:
+                        logger.warning(
+                            'Supabase cleanup failed for %s.%s', table_name, user_id, exc_info=True
                         )
+                        supabase_errors.append(f'{table_name}: {exc}')
+                        continue
+
+                    error = getattr(response, 'error', None)
+                    if error is None and isinstance(response, dict):
+                        error = response.get('error')
+                    if error:
+                        logger.warning(
+                            'Supabase cleanup returned an error for %s.%s: %s',
+                            table_name,
+                            user_id,
+                            error,
+                        )
+                        supabase_errors.append(f'{table_name}: {error}')
+
+        if supabase_errors:
+            raise ValueError('Unable to clear Supabase data: ' + '; '.join(supabase_errors))
 
         for resolver in (
             self._plan_path,

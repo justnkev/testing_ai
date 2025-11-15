@@ -1,0 +1,135 @@
+**Product Requirements Document (PRD)**  
+**Feature:** Account Settings  
+**App:** FitVision (Web Application)  
+**Platform:** Flask (Python Backend), HTML/CSS Frontend  
+**Target User:** Authenticated FitVision users via Flask-Login  
+**Date:** 2025-11-14  
+**Owner:** Product Management  
+**Developer Target:** Codex AI agent
+
+---
+
+### 1. Objective
+Implement a centralized **Account Settings** page within the FitVision web application. This screen allows authenticated users to manage their account identity, security, privacy, preferences, and units, improving user autonomy and trust.
+
+---
+
+### 2. Access & Navigation
+- The new screen will be accessible only to **logged-in users** (enforced via Flask-Login).
+- Entry point: Navigation menu — **gear icon** with label **"Settings"**, visible when logged in.
+- Page should be **mobile responsive** using standard CSS techniques (e.g., flexbox, media queries).
+
+---
+
+### 3. Feature Scope & Functional Requirements
+
+#### 3.1 User Identity Management
+- **Change Username**
+  - Editable input field.
+  - Validation: unique, alphanumeric, 3–30 characters.
+  - Submit via "Save" button.
+- **Change Password**
+  - Fields: Old Password, New Password, Confirm New Password.
+  - Must validate old password on server.
+  - New password must meet existing security policy.
+  - Server returns success/failure message.
+
+#### 3.2 Data & Privacy Management
+- **Clear All Data**
+  - Deletes: fitness logs, goals, historical metrics from Supabase.
+  - Retains: user account and login credentials.
+  - Requires: password re-entry + confirmation modal.
+  - Modal Text: _"This will permanently delete all your fitness data but keep your account active. This cannot be undone. Are you sure?"_
+- **Delete Account**
+  - Deletes entire user record and all associated data from Supabase.
+  - Requires: password re-entry + multi-step confirmation.
+  - Steps:
+    1. Warning modal
+    2. Password re-entry form
+    3. Final confirmation button
+  - Logs user out immediately after deletion and clears related cookies and Redis session.
+
+#### 3.3 Preferences Management
+- **Email Preferences**
+  - Checkbox: Receive promotional emails and newsletters.
+- **Notification Preferences**
+  - Checkboxes:
+    - Workout Reminders
+    - Achievement Badges
+    - Goal Progress
+- **Unit Preferences**
+  - Radio buttons or dropdown:
+    - Metric (kg, cm, km)
+    - Imperial (lbs, ft, miles)
+
+> All changes are staged and submitted via a single **Save** button at the bottom of the form.
+
+---
+
+### 4. UI & UX Requirements
+- Use HTML/CSS, styled to match FitVision's existing branding (colors, fonts, buttons).
+- Layout:
+  - Mobile-friendly vertical layout using flexbox/grid.
+  - Group related settings with headers.
+  - Clear buttons for **Save**, **Clear All Data**, and **Delete Account**.
+- Modals:
+  - Use a reusable HTML/CSS modal component.
+  - Destructive actions should use red-colored CTA buttons.
+
+---
+
+### 5. Backend Integration (Flask + Supabase + Redis + Cookies)
+- Flask routes to support:
+  - `POST /settings/update-username`
+  - `POST /settings/update-password`
+  - `POST /settings/clear-data`
+  - `POST /settings/delete-account`
+  - `POST /settings/update-preferences`
+- CSRF protection using Flask-WTF or equivalent.
+- Password re-authentication for destructive actions via secure form.
+- Persist user settings in Supabase tables.
+- Invalidate Redis session tokens and clear cookies on account deletion.
+- Use Redis for temporary state/session management.
+- Flash messages or modal feedback for success/error.
+
+---
+
+### 6. Analytics & Logging
+Log all key actions server-side (for audit trail):
+- `settings_username_changed`
+- `settings_password_changed`
+- `settings_clear_data_requested`
+- `settings_clear_data_confirmed`
+- `settings_account_deletion_started`
+- `settings_account_deleted`
+- `settings_preferences_saved`
+- `settings_unit_changed`
+- `settings_notification_toggle_changed`
+- `settings_email_toggle_changed`
+
+Each log should include: user ID, timestamp, and IP address.
+
+---
+
+### 7. Acceptance Criteria
+- ✅ Account Settings page accessible only to logged-in users.
+- ✅ Preferences update only on "Save".
+- ✅ Password change requires old password and follows security policy.
+- ✅ Data clearing and account deletion require password re-entry and confirmation.
+- ✅ All changes persist correctly in Supabase and reflect on reload.
+- ✅ Redis session and cookies cleared on account deletion.
+- ✅ Modals show warnings and handle backend errors.
+- ✅ UI is mobile responsive.
+- ✅ All user actions logged on the server.
+
+---
+
+### 8. Non-Goals / Out of Scope
+- No OAuth (Google, Apple) support in this release.
+- No integration with third-party notification or email systems.
+- No use of JS frameworks (like React or Vue) — strictly HTML/CSS/Flask.
+
+---
+
+**End of PRD**
+

@@ -557,6 +557,17 @@ label {
   background: rgba(140, 123, 255, 0.15);
 }
 
+.fv-button--danger {
+  background: rgba(255, 111, 168, 0.14);
+  border: 1px solid rgba(255, 111, 168, 0.45);
+  color: var(--color-accent);
+}
+
+.fv-button--danger:hover {
+  background: rgba(255, 111, 168, 0.24);
+  transform: translateY(-1px);
+}
+
 .fv-button--subtle {
   background: rgba(17, 23, 39, 0.65);
   border: 1px solid rgba(140, 123, 255, 0.18);
@@ -930,6 +941,108 @@ input[type="file"] {
   font-size: 0.8rem;
   color: var(--color-muted);
   margin-top: 0.35rem;
+}
+
+.checkbox-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.checkbox-stack input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--color-primary);
+}
+
+.checkbox-stack span {
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.settings-layout {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.settings-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.settings-section-header p {
+  margin: 0.4rem 0 0;
+  max-width: 420px;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.settings-card--danger {
+  border: 1px solid rgba(255, 111, 168, 0.35);
+  background: rgba(42, 16, 36, 0.72);
+}
+
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 12, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 60;
+}
+
+.settings-modal:target {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-modal__dialog {
+  position: relative;
+  width: min(480px, 100%);
+  padding: 2rem 2.2rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(140, 123, 255, 0.25);
+  background: rgba(12, 16, 31, 0.92);
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 1.2rem;
+}
+
+.settings-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.settings-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: var(--color-muted);
+  font-size: 1.4rem;
+}
+
+.settings-modal__close:hover {
+  color: var(--color-text);
+}
+
+.settings-anchor {
+  display: none;
 }
 
 .gallery-card {

@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 from datetime import datetime, timezone
+from functools import wraps
+import logging
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -31,12 +33,27 @@ main_bp = Blueprint('main', __name__)
 ai_service = AIService()
 storage_service = StorageService()
 
+logger = logging.getLogger(__name__)
+
 
 def _require_login() -> str | None:
     if 'user' not in session:
         flash('Please log in to continue.', 'warning')
         return url_for('main.login')
     return None
+
+
+def login_required(view):
+    """Decorator ensuring the user is authenticated before accessing a view."""
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        redirect_url = _require_login()
+        if redirect_url:
+            return redirect(redirect_url)
+        return view(*args, **kwargs)
+
+    return wrapped
 
 
 def _onboarding_complete() -> bool:
@@ -679,3 +696,202 @@ def delete_visualization(visualization_id: str) -> Response:
 
     flash('Visualization deleted.', 'info')
     return redirect(url_for('main.visualize'))
+
+
+@main_bp.route('/settings')
+@login_required
+def settings_view() -> str:
+    user = session['user']
+    preferences = current_app.storage_service.fetch_preferences(user['id']) or {}
+    logger.info('settings.view', extra={'user_id': user['id']})
+    return render_template('settings.html', preferences=preferences, user=user)
+
+
+@main_bp.route('/settings/update-username', methods=['POST'])
+@login_required
+def update_username() -> Response:
+    user = session['user']
+    target = url_for('main.settings_view')
+    new_name = (request.form.get('display_name') or '').strip()
+    if not new_name:
+        flash('Please provide a display name before saving.', 'warning')
+        logger.info('settings.update_username.validation_failed', extra={'user_id': user['id']})
+        return redirect(target)
+
+    try:
+        current_app.storage_service.update_display_name(user['id'], new_name)
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+        logger.warning(
+            'settings.update_username.failed',
+            extra={'user_id': user['id'], 'error': str(exc)},
+        )
+    except Exception:
+        flash('We could not update your display name. Please try again.', 'danger')
+        logger.exception('settings.update_username.error', extra={'user_id': user['id']})
+    else:
+        session['user']['name'] = new_name
+        session.modified = True
+        flash('Display name updated.', 'success')
+        logger.info('settings.update_username.success', extra={'user_id': user['id']})
+    return redirect(target)
+
+
+@main_bp.route('/settings/update-password', methods=['POST'])
+@login_required
+def update_password() -> Response:
+    user = session['user']
+    target = url_for('main.settings_view')
+
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    if not current_password or not new_password:
+        flash('Please complete all password fields.', 'warning')
+        logger.info('settings.update_password.validation_failed', extra={'user_id': user['id']})
+        return redirect(target)
+
+    if new_password != confirm_password:
+        flash('New passwords do not match. Double-check and try again.', 'warning')
+        logger.info('settings.update_password.mismatch', extra={'user_id': user['id']})
+        return redirect(target)
+
+    if len(new_password) < 8:
+        flash('Choose a password that is at least 8 characters.', 'warning')
+        logger.info('settings.update_password.too_short', extra={'user_id': user['id']})
+        return redirect(target)
+
+    try:
+        current_app.storage_service.update_password(
+            user['id'], user.get('email', ''), current_password, new_password
+        )
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+        logger.warning(
+            'settings.update_password.denied',
+            extra={'user_id': user['id'], 'error': str(exc)},
+        )
+    except Exception:
+        flash('We could not change your password right now. Please try again later.', 'danger')
+        logger.exception('settings.update_password.error', extra={'user_id': user['id']})
+    else:
+        flash('Password updated successfully.', 'success')
+        logger.info('settings.update_password.success', extra={'user_id': user['id']})
+
+    return redirect(target)
+
+
+@main_bp.route('/settings/update-preferences', methods=['POST'])
+@login_required
+def update_preferences() -> Response:
+    user = session['user']
+    target = url_for('main.settings_view')
+
+    preferences = {
+        'timezone': (request.form.get('timezone') or '').strip(),
+        'unit_system': request.form.get('unit_system', 'metric'),
+        'weekly_summary': bool(request.form.get('weekly_summary')),
+        'reminder_window': request.form.get('reminder_window', 'morning'),
+        'coach_tone': request.form.get('coach_tone', 'balanced'),
+    }
+
+    try:
+        saved = current_app.storage_service.update_preferences(user['id'], preferences)
+    except Exception:
+        flash('We were unable to save your preferences. Please retry shortly.', 'danger')
+        logger.exception('settings.update_preferences.error', extra={'user_id': user['id']})
+        return redirect(target)
+
+    session_user_preferences = session['user'].setdefault('preferences', {})
+    if isinstance(session_user_preferences, dict):
+        session_user_preferences.update(saved)
+    else:
+        session['user']['preferences'] = saved
+    session.modified = True
+
+    flash('Preferences saved.', 'success')
+    logger.info('settings.update_preferences.success', extra={'user_id': user['id']})
+    return redirect(target)
+
+
+@main_bp.route('/settings/clear-data', methods=['POST'])
+@login_required
+def clear_account_data() -> Response:
+    user = session['user']
+    target = url_for('main.settings_view')
+    password = request.form.get('confirm_password', '')
+
+    if not password:
+        flash('Please re-enter your password to confirm.', 'warning')
+        logger.info('settings.clear_data.validation_failed', extra={'user_id': user['id']})
+        return redirect(target)
+
+    if not current_app.storage_service.verify_password(user.get('email', ''), password):
+        flash('Password did not match. We did not clear any data.', 'danger')
+        logger.warning('settings.clear_data.denied', extra={'user_id': user['id']})
+        return redirect(target)
+
+    try:
+        current_app.storage_service.clear_user_data(user['id'])
+    except Exception:
+        flash('We could not clear your account data. Please try again later.', 'danger')
+        logger.exception('settings.clear_data.error', extra={'user_id': user['id']})
+        return redirect(target)
+
+    session.pop('onboarding_conversation', None)
+    session.pop('coach_conversation', None)
+    session.modified = True
+
+    flash('All FitVision data tied to your account has been cleared.', 'info')
+    logger.info('settings.clear_data.success', extra={'user_id': user['id']})
+    return redirect(target)
+
+
+@main_bp.route('/settings/delete-account', methods=['POST'])
+@login_required
+def delete_account() -> Response:
+    user = session['user']
+    password = request.form.get('confirm_password', '')
+    phrase = (request.form.get('confirm_phrase') or '').strip().upper()
+    required_phrase = 'DELETE'
+
+    if phrase != required_phrase:
+        flash('Type DELETE in all caps to confirm account removal.', 'warning')
+        logger.info('settings.delete_account.confirm_phrase_mismatch', extra={'user_id': user['id']})
+        return redirect(url_for('main.settings_view'))
+
+    if not password:
+        flash('Please re-enter your password to continue.', 'warning')
+        logger.info('settings.delete_account.missing_password', extra={'user_id': user['id']})
+        return redirect(url_for('main.settings_view'))
+
+    if not current_app.storage_service.verify_password(user.get('email', ''), password):
+        flash('Password did not match our records. Account not deleted.', 'danger')
+        logger.warning('settings.delete_account.denied', extra={'user_id': user['id']})
+        return redirect(url_for('main.settings_view'))
+
+    try:
+        current_app.storage_service.delete_user_account(user['id'], user.get('email', ''))
+    except Exception:
+        flash('We were unable to delete your account. Please try again shortly.', 'danger')
+        logger.exception('settings.delete_account.error', extra={'user_id': user['id']})
+        return redirect(url_for('main.settings_view'))
+
+    session_interface = current_app.session_interface
+    sid = getattr(session, 'sid', None)
+    if sid and hasattr(session_interface, 'delete_session'):
+        try:
+            session_interface.delete_session(current_app, sid)
+        except Exception:
+            logger.warning('settings.delete_account.session_cleanup_failed', exc_info=True)
+
+    cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'session')
+
+    session.clear()
+    flash('Your FitVision account has been permanently deleted.', 'info')
+    logger.info('settings.delete_account.success', extra={'user_id': user['id']})
+
+    response = redirect(url_for('main.index'))
+    response.delete_cookie(cookie_name)
+    return response

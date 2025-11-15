@@ -130,15 +130,25 @@ class StorageService:
             raise ValueError('Display name cannot be empty.')
 
         if self._supabase:
-            try:
-                auth_admin = getattr(self._supabase.auth, 'admin', None)
-                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+            auth_admin = getattr(self._supabase.auth, 'admin', None)
+            admin_error: Optional[Exception] = None
+            if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                try:
                     auth_admin.update_user_by_id(user_id, user_metadata={'name': name})
-                else:
+                except Exception as exc:  # pragma: no cover - network dependent
+                    admin_error = exc
+                    logger.warning(
+                        'Supabase admin display name update failed; attempting session fallback',
+                        exc_info=True,
+                    )
+            if admin_error or not (auth_admin and hasattr(auth_admin, 'update_user_by_id')):
+                try:
                     self._supabase.auth.update_user({'data': {'name': name}})
-            except Exception as exc:  # pragma: no cover - network dependent
-                logger.warning('Supabase display name update failed', exc_info=True)
-                raise ValueError('Unable to update your name at this time.') from exc
+                except Exception as exc:  # pragma: no cover - network dependent
+                    logger.warning('Supabase display name update failed', exc_info=True)
+                    if admin_error:
+                        raise ValueError('Unable to update your name at this time.') from admin_error
+                    raise ValueError('Unable to update your name at this time.') from exc
 
         profile = self._read_json(self._profile_path(user_id)) or {}
         profile['id'] = profile.get('id', user_id)
@@ -150,15 +160,27 @@ class StorageService:
             raise ValueError('Your current password was incorrect.')
 
         if self._supabase:
-            try:
-                auth_admin = getattr(self._supabase.auth, 'admin', None)
-                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+            auth_admin = getattr(self._supabase.auth, 'admin', None)
+            admin_error: Optional[Exception] = None
+            if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                try:
                     auth_admin.update_user_by_id(user_id, password=new_password)
-                else:
+                except Exception as exc:  # pragma: no cover - network dependent
+                    admin_error = exc
+                    logger.warning(
+                        'Supabase admin password update failed; attempting session fallback',
+                        exc_info=True,
+                    )
+            if admin_error or not (auth_admin and hasattr(auth_admin, 'update_user_by_id')):
+                try:
+                    # ``verify_password`` above signs the client in which seeds the
+                    # session for ``update_user`` calls that rely on the current user.
                     self._supabase.auth.update_user({'password': new_password})
-            except Exception as exc:  # pragma: no cover - network dependent
-                logger.warning('Supabase password update failed', exc_info=True)
-                raise ValueError('Unable to update password at this time.') from exc
+                except Exception as exc:  # pragma: no cover - network dependent
+                    logger.warning('Supabase password update failed', exc_info=True)
+                    if admin_error:
+                        raise ValueError('Unable to update password at this time.') from admin_error
+                    raise ValueError('Unable to update password at this time.') from exc
 
         profile_path = self._profile_path(user_id)
         profile = self._read_json(profile_path) or {}
@@ -484,6 +506,7 @@ class StorageService:
             'SUPABASE_PROJECT_URL',
         )
         key = self._get_env_value(
+            'SUPABASE_SERVICE_ROLE_KEY',
             'SUPABASE_ANON_KEY',
             'SUPABASE_ANON_KEY_SECRET',
             'SUPABASE_API_KEY',

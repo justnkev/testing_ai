@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -105,6 +106,230 @@ class StorageService:
             'onboarding_complete': bool(profile.get('onboarding_complete')),
         }
 
+    def verify_password(self, email: str, password: str) -> bool:
+        """Return ``True`` when the provided password matches the stored secret."""
+
+        if not email:
+            return False
+
+        if self._supabase:
+            try:
+                response = self._supabase.auth.sign_in_with_password({'email': email, 'password': password})
+            except Exception:
+                logger.warning('Supabase password verification failed for %s', email, exc_info=True)
+                return False
+            return bool(getattr(response, 'user', None))
+
+        profile = self._read_json(self._profile_path(email.lower()))
+        if not isinstance(profile, dict):
+            return False
+        return profile.get('password') == password
+
+    def update_display_name(self, user_id: str, name: str) -> None:
+        if not name:
+            raise ValueError('Display name cannot be empty.')
+
+        if self._supabase:
+            auth_admin = getattr(self._supabase.auth, 'admin', None)
+            admin_error: Optional[Exception] = None
+            if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                try:
+                    auth_admin.update_user_by_id(user_id, user_metadata={'name': name})
+                except Exception as exc:  # pragma: no cover - network dependent
+                    admin_error = exc
+                    logger.warning(
+                        'Supabase admin display name update failed; attempting session fallback',
+                        exc_info=True,
+                    )
+            if admin_error or not (auth_admin and hasattr(auth_admin, 'update_user_by_id')):
+                try:
+                    self._supabase.auth.update_user({'data': {'name': name}})
+                except Exception as exc:  # pragma: no cover - network dependent
+                    logger.warning('Supabase display name update failed', exc_info=True)
+                    if admin_error:
+                        raise ValueError('Unable to update your name at this time.') from admin_error
+                    raise ValueError('Unable to update your name at this time.') from exc
+
+        profile = self._read_json(self._profile_path(user_id)) or {}
+        profile['id'] = profile.get('id', user_id)
+        profile['name'] = name
+        self._write_json(self._profile_path(user_id), profile)
+
+    def update_password(self, user_id: str, email: str, current_password: str, new_password: str) -> None:
+        if not self.verify_password(email, current_password):
+            raise ValueError('Your current password was incorrect.')
+
+        if self._supabase:
+            auth_admin = getattr(self._supabase.auth, 'admin', None)
+            admin_error: Optional[Exception] = None
+            if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                try:
+                    auth_admin.update_user_by_id(user_id, password=new_password)
+                except Exception as exc:  # pragma: no cover - network dependent
+                    admin_error = exc
+                    logger.warning(
+                        'Supabase admin password update failed; attempting session fallback',
+                        exc_info=True,
+                    )
+            if admin_error or not (auth_admin and hasattr(auth_admin, 'update_user_by_id')):
+                try:
+                    # ``verify_password`` above signs the client in which seeds the
+                    # session for ``update_user`` calls that rely on the current user.
+                    self._supabase.auth.update_user({'password': new_password})
+                except Exception as exc:  # pragma: no cover - network dependent
+                    logger.warning('Supabase password update failed', exc_info=True)
+                    if admin_error:
+                        raise ValueError('Unable to update password at this time.') from admin_error
+                    raise ValueError('Unable to update password at this time.') from exc
+
+        profile_path = self._profile_path(user_id)
+        profile = self._read_json(profile_path) or {}
+        profile['id'] = profile.get('id', user_id)
+        profile['password'] = new_password
+        self._write_json(profile_path, profile)
+
+    def fetch_preferences(self, user_id: str) -> Dict[str, Any]:
+        cached = self._read_json(self._preferences_path(user_id))
+        if isinstance(cached, dict):
+            return cached
+
+        if self._supabase:
+            try:
+                auth_admin = getattr(self._supabase.auth, 'admin', None)
+                if auth_admin and hasattr(auth_admin, 'get_user_by_id'):
+                    response = auth_admin.get_user_by_id(user_id)
+                    supabase_user = getattr(response, 'user', None) or {}
+                    metadata = getattr(supabase_user, 'user_metadata', None)
+                    if metadata is None and isinstance(response, dict):
+                        metadata = response.get('user', {}).get('user_metadata')
+                    if metadata and isinstance(metadata, dict):
+                        preferences = metadata.get('preferences')
+                        if isinstance(preferences, dict):
+                            self._write_json(self._preferences_path(user_id), preferences)
+                            return preferences
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Supabase preference fetch failed for %s', user_id, exc_info=True)
+
+        return {}
+
+    def update_preferences(self, user_id: str, preferences: Dict[str, Any]) -> Dict[str, Any]:
+        saved = dict(preferences)
+        saved['weekly_summary'] = bool(saved.get('weekly_summary'))
+
+        if self._supabase:
+            try:
+                auth_admin = getattr(self._supabase.auth, 'admin', None)
+                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
+                    auth_admin.update_user_by_id(user_id, user_metadata={'preferences': saved})
+                else:
+                    self._supabase.auth.update_user({'data': {'preferences': saved}})
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Supabase preference update failed for %s', user_id, exc_info=True)
+
+        self._write_json(self._preferences_path(user_id), saved)
+        return saved
+
+    def clear_user_data(self, user_id: str) -> None:
+        """Remove all non-auth data for the given user."""
+
+        supabase_errors: List[str] = []
+
+        if self._supabase:
+            table_factory = getattr(self._supabase, 'table', None)
+            if table_factory:
+                for table_name in (
+                    'plans',
+                    'progress_logs',
+                    'onboarding_conversations',
+                    'coach_conversations',
+                    'visualizations',
+                ):
+                    try:
+                        query = table_factory(table_name).delete().eq('user_id', user_id)
+                        response = query.execute()
+                    except Exception as exc:
+                        logger.warning(
+                            'Supabase cleanup failed for %s.%s', table_name, user_id, exc_info=True
+                        )
+                        supabase_errors.append(f'{table_name}: {exc}')
+                        continue
+
+                    error = getattr(response, 'error', None)
+                    if error is None and isinstance(response, dict):
+                        error = response.get('error')
+                    if error:
+                        logger.warning(
+                            'Supabase cleanup returned an error for %s.%s: %s',
+                            table_name,
+                            user_id,
+                            error,
+                        )
+                        supabase_errors.append(f'{table_name}: {error}')
+
+        if supabase_errors:
+            raise ValueError('Unable to clear Supabase data: ' + '; '.join(supabase_errors))
+
+        for resolver in (
+            self._plan_path,
+            self._log_path,
+            self._conversation_path,
+            self._coach_conversation_path,
+            self._visualizations_path,
+            self._preferences_path,
+        ):
+            path = resolver(user_id)
+            if path.exists():
+                path.unlink(missing_ok=True)
+
+        if self._redis is not None:
+            for resolver in (
+                self._plan_path,
+                self._log_path,
+                self._conversation_path,
+                self._coach_conversation_path,
+                self._visualizations_path,
+                self._preferences_path,
+            ):
+                redis_key = self._redis_key(resolver(user_id))
+                try:
+                    self._redis.delete(redis_key)
+                except Exception:
+                    logger.warning('Failed to delete redis key %s', redis_key, exc_info=True)
+
+        # Remove generated visualization assets
+        image_dir = (self._data_dir / 'visualizations' / user_id)
+        if image_dir.exists():
+            shutil.rmtree(image_dir, ignore_errors=True)
+
+    def delete_user_account(self, user_id: str, email: Optional[str] = None) -> None:
+        """Delete the user account and all associated data."""
+
+        self.clear_user_data(user_id)
+
+        if self._supabase:
+            try:
+                auth_admin = getattr(self._supabase.auth, 'admin', None)
+                delete_callable = None
+                if auth_admin:
+                    delete_callable = getattr(auth_admin, 'delete_user', None) or getattr(
+                        auth_admin, 'delete_user_by_id', None
+                    )
+                if delete_callable:
+                    delete_callable(user_id)
+                else:
+                    # Fall back to marking the account deleted via metadata when admin API is missing
+                    self._supabase.auth.update_user({'data': {'deleted': True}})
+            except Exception:  # pragma: no cover - network dependent
+                logger.warning('Supabase account deletion failed for %s', user_id, exc_info=True)
+
+        profile_path = self._profile_path(user_id)
+        if profile_path.exists():
+            profile_path.unlink(missing_ok=True)
+
+        if email:
+            alt_profile_path = self._profile_path(email.lower())
+            if alt_profile_path.exists():
+                alt_profile_path.unlink(missing_ok=True)
     def save_plan(self, user_id: str, plan: Dict) -> None:
         self._write_json(self._plan_path(user_id), plan)
 
@@ -301,6 +526,7 @@ class StorageService:
             'SUPABASE_PROJECT_URL',
         )
         key = self._get_env_value(
+            'SUPABASE_SERVICE_ROLE_KEY',
             'SUPABASE_ANON_KEY',
             'SUPABASE_ANON_KEY_SECRET',
             'SUPABASE_API_KEY',
@@ -398,6 +624,9 @@ class StorageService:
 
     def _coach_conversation_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_coach_conversation.json'
+
+    def _preferences_path(self, user_id: str) -> Path:
+        return self._data_dir / f'{user_id}_preferences.json'
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:

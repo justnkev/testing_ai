@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>Account</small>
+  <h2 style="margin:0.4rem 0 0;">Fine-tune your FitVision profile.</h2>
+  <p style="margin:0.6rem 0 0; max-width:520px;">Update your identity, notification preferences, and data controls from a single secure hub.</p>
+</div>
+<div class="topbar-meta">
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+</div>
+{% endblock %}
+{% block content %}
+<div id="close" class="settings-anchor" aria-hidden="true"></div>
+<div class="settings-layout">
+  <section class="surface-card">
+    <div class="settings-section-header">
+      <div>
+        <small>Profile</small>
+        <h3 style="margin:0.35rem 0 0;">Display identity</h3>
+        <p>Choose how your name appears across FitVision experiences.</p>
+      </div>
+    </div>
+    <form action="{{ url_for('main.update_username') }}" method="post" class="form-grid two-col">
+      <div>
+        <label for="display_name">Display name</label>
+        <input id="display_name" name="display_name" value="{{ user.get('name', '') }}" placeholder="Jordan Parker">
+        <p class="form-helper">We use this name in greetings, dashboards, and communications.</p>
+      </div>
+      <div style="align-self:end;">
+        <button class="fv-button fv-button--primary" type="submit">Save name</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="surface-card">
+    <div class="settings-section-header">
+      <div>
+        <small>Security</small>
+        <h3 style="margin:0.35rem 0 0;">Change password</h3>
+        <p>Keep your account secure with a strong password unique to FitVision.</p>
+      </div>
+    </div>
+    <form action="{{ url_for('main.update_password') }}" method="post" class="form-grid two-col">
+      <div>
+        <label for="current_password">Current password</label>
+        <input id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+      </div>
+      <div>
+        <label for="new_password">New password</label>
+        <input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div>
+        <label for="confirm_password">Confirm new password</label>
+        <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+        <p class="form-helper">Use 8+ characters with a mix of letters, numbers, or symbols.</p>
+      </div>
+      <div style="align-self:end;">
+        <button class="fv-button fv-button--primary" type="submit">Update password</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="surface-card">
+    <div class="settings-section-header">
+      <div>
+        <small>Preferences</small>
+        <h3 style="margin:0.35rem 0 0;">Personalize FitVision</h3>
+        <p>Control reminders, unit systems, and the tone of AI guidance.</p>
+      </div>
+    </div>
+    <form action="{{ url_for('main.update_preferences') }}" method="post" class="form-grid three-col">
+      <div>
+        <label for="timezone">Timezone</label>
+        <input id="timezone" name="timezone" value="{{ preferences.get('timezone', '') }}" placeholder="America/Los_Angeles">
+        <p class="form-helper">Used for reminders and scheduling cues.</p>
+      </div>
+      <div>
+        <label for="unit_system">Unit system</label>
+        <select id="unit_system" name="unit_system">
+          {% set unit = preferences.get('unit_system', 'metric') %}
+          <option value="metric" {% if unit == 'metric' %}selected{% endif %}>Metric (kg, km)</option>
+          <option value="imperial" {% if unit == 'imperial' %}selected{% endif %}>Imperial (lb, miles)</option>
+        </select>
+      </div>
+      <div>
+        <label for="reminder_window">Reminder window</label>
+        {% set window = preferences.get('reminder_window', 'morning') %}
+        <select id="reminder_window" name="reminder_window">
+          <option value="morning" {% if window == 'morning' %}selected{% endif %}>Morning (6a - 10a)</option>
+          <option value="midday" {% if window == 'midday' %}selected{% endif %}>Midday (11a - 2p)</option>
+          <option value="evening" {% if window == 'evening' %}selected{% endif %}>Evening (6p - 9p)</option>
+        </select>
+      </div>
+      <div>
+        <label for="coach_tone">AI coach tone</label>
+        {% set tone = preferences.get('coach_tone', 'balanced') %}
+        <select id="coach_tone" name="coach_tone">
+          <option value="balanced" {% if tone == 'balanced' %}selected{% endif %}>Balanced & encouraging</option>
+          <option value="motivational" {% if tone == 'motivational' %}selected{% endif %}>High-energy motivation</option>
+          <option value="direct" {% if tone == 'direct' %}selected{% endif %}>Direct & concise</option>
+        </select>
+      </div>
+      <div>
+        <label class="checkbox-stack">
+          {% set summary = preferences.get('weekly_summary', true) %}
+          <input type="checkbox" id="weekly_summary" name="weekly_summary" value="1" {% if summary %}checked{% endif %}>
+          <span>Send weekly email summaries</span>
+        </label>
+        <p class="form-helper">We only send one digest per week with highlights and next steps.</p>
+      </div>
+      <div style="align-self:end;">
+        <button class="fv-button fv-button--primary" type="submit">Save preferences</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="surface-card settings-card--danger">
+    <div class="settings-section-header">
+      <div>
+        <small>Danger zone</small>
+        <h3 style="margin:0.35rem 0 0;">Data & account controls</h3>
+        <p>These actions permanently remove data. A password confirmation is required.</p>
+      </div>
+    </div>
+    <div class="settings-actions">
+      <a class="fv-button fv-button--danger" href="#clear-data-modal">Clear all FitVision data</a>
+      <a class="fv-button fv-button--ghost" href="#delete-account-modal">Delete account</a>
+    </div>
+  </section>
+</div>
+
+<div class="settings-modal" id="clear-data-modal" role="dialog" aria-modal="true" aria-labelledby="clear-data-title">
+  <div class="settings-modal__dialog">
+    <a class="settings-modal__close" href="#close" aria-label="Close dialog">&times;</a>
+    <h3 id="clear-data-title">Clear all FitVision data</h3>
+    <p>This removes plans, progress logs, conversations, and visualizations. Your login remains active.</p>
+    <form action="{{ url_for('main.clear_account_data') }}" method="post" class="form-grid">
+      <div>
+        <label for="clear-password">Re-enter password</label>
+        <input id="clear-password" name="confirm_password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="settings-modal__actions">
+        <a class="fv-button fv-button--ghost" href="#close">Cancel</a>
+        <button class="fv-button fv-button--danger" type="submit">Clear my data</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="settings-modal" id="delete-account-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+  <div class="settings-modal__dialog">
+    <a class="settings-modal__close" href="#close" aria-label="Close dialog">&times;</a>
+    <h3 id="delete-account-title">Delete account</h3>
+    <p>Deleting your account signs you out everywhere and permanently removes your FitVision presence.</p>
+    <form action="{{ url_for('main.delete_account') }}" method="post" class="form-grid">
+      <div>
+        <label for="delete-password">Re-enter password</label>
+        <input id="delete-password" name="confirm_password" type="password" autocomplete="current-password" required>
+      </div>
+      <div>
+        <label for="delete-phrase">Type DELETE to confirm</label>
+        <input id="delete-phrase" name="confirm_phrase" placeholder="DELETE" pattern="DELETE" required>
+      </div>
+      <div class="settings-modal__actions">
+        <a class="fv-button fv-button--ghost" href="#close">Cancel</a>
+        <button class="fv-button fv-button--danger" type="submit">Delete my account</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

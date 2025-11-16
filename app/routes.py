@@ -103,6 +103,13 @@ def index() -> str:
     return render_template('index.html')
 
 
+@main_bp.route('/offline')
+def offline() -> str:
+    """Render the offline status page without requiring authentication."""
+
+    return render_template('offline.html')
+
+
 @main_bp.route('/signup', methods=['GET', 'POST'])
 def signup() -> str | Response:
     if request.method == 'POST':

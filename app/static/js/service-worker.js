@@ -2,13 +2,14 @@ const STATIC_CACHE = 'fitvision-static-v1';
 const RUNTIME_CACHE = 'fitvision-runtime-v1';
 const PRECACHE_URLS = [
   '/',
+  '/offline',
   '/static/css/styles.css',
   '/static/js/dashboard.js',
   '/static/manifest.webmanifest',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
 ];
-const OFFLINE_FALLBACK = '/';
+const OFFLINE_FALLBACK = '/offline';
 const API_PATTERN = /\/api\//;
 const STATIC_FILE_PATTERN = /\/static\/(css|js|icons|manifest\.webmanifest)/;
 

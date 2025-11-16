@@ -36,6 +36,15 @@ storage_service = StorageService()
 logger = logging.getLogger(__name__)
 
 
+@main_bp.route('/service-worker.js')
+def service_worker() -> Response:
+    """Serve the compiled service worker with no-store caching."""
+
+    response = current_app.send_static_file('js/service-worker.js')
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 def _require_login() -> str | None:
     if 'user' not in session:
         flash('Please log in to continue.', 'warning')

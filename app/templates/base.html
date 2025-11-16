@@ -99,5 +99,10 @@
       </div>
     </div>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script
+      defer
+      data-sw-path="{{ url_for('main.service_worker') }}"
+      src="{{ url_for('static', filename='js/pwa-bootstrap.js') }}"
+    ></script>
   </body>
 </html>

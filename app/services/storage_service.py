@@ -120,6 +120,36 @@ class StorageService:
             'onboarding_complete': bool(profile.get('onboarding_complete')),
         }
 
+    def resend_verification_email(self, email: str) -> None:
+        if not email:
+            raise ValueError('A valid email is required to resend verification.')
+
+        if self._supabase:
+            try:
+                self._supabase.auth.resend({'type': 'signup', 'email': email})
+                return
+            except Exception as exc:  # pragma: no cover - network dependent
+                logger.warning('Supabase resend verification failed', exc_info=True)
+                raise ValueError('Unable to resend verification email.') from exc
+
+        raise ValueError('Email verification is only available when Supabase is configured.')
+
+    def is_email_verified(self, user_id: Optional[str]) -> bool:
+        if not user_id:
+            return False
+
+        if self._supabase:
+            try:
+                response = self._supabase.auth.admin.get_user_by_id(user_id)
+                supabase_user = getattr(response, 'user', None)
+                return bool(getattr(supabase_user, 'email_confirmed_at', None))
+            except Exception as exc:  # pragma: no cover - network dependent
+                logger.warning('Failed to check Supabase email verification state', exc_info=True)
+                raise ValueError('Unable to check verification status right now.') from exc
+
+        # Local fallback: treat users as verified
+        return True
+
     def verify_password(self, email: str, password: str) -> bool:
         """Return ``True`` when the provided password matches the stored secret."""
 

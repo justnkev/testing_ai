@@ -16,8 +16,42 @@
       <label for="password">Password</label>
       <input id="password" name="password" type="password" minlength="6" required>
     </div>
+    <div>
+      <label for="confirm_password">Confirm password</label>
+      <input id="confirm_password" name="confirm_password" type="password" minlength="6" required>
+      <p id="password-mismatch" class="form-hint" style="color: var(--color-danger); display:none;">Passwords must match.</p>
+    </div>
     <button class="fv-button fv-button--primary" type="submit">Sign up</button>
   </form>
   <p style="text-align:center; color:var(--color-muted); margin-top:1.6rem;">Already have an account? <a href="{{ url_for('main.login') }}">Log in</a>.</p>
 </div>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form');
+    const password = document.getElementById('password');
+    const confirm = document.getElementById('confirm_password');
+    const mismatch = document.getElementById('password-mismatch');
+
+    const syncErrorState = () => {
+      if (password.value && confirm.value && password.value !== confirm.value) {
+        mismatch.style.display = 'block';
+        confirm.setCustomValidity('Passwords must match');
+      } else {
+        mismatch.style.display = 'none';
+        confirm.setCustomValidity('');
+      }
+    };
+
+    password.addEventListener('input', syncErrorState);
+    confirm.addEventListener('input', syncErrorState);
+
+    form.addEventListener('submit', (event) => {
+      syncErrorState();
+      if (confirm.validationMessage) {
+        event.preventDefault();
+        confirm.focus();
+      }
+    });
+  });
+</script>
 {% endblock %}

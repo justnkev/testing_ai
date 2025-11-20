@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-card">
+  <h1>Check your inbox</h1>
+  <p style="text-align:center; color:var(--color-muted); margin-bottom:1.6rem;">We sent a verification link to <strong>{{ pending_email }}</strong>. Please confirm your email to continue.</p>
+  <div style="display:flex; flex-direction:column; gap:0.8rem;">
+    <button id="verify-button" class="fv-button fv-button--primary" type="button">I’ve verified my email</button>
+    <button id="resend-button" class="fv-button fv-button--ghost" type="button">Resend email</button>
+  </div>
+  <p id="verify-status" class="form-hint" style="text-align:center; margin-top:1rem; display:none;"></p>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const verifyButton = document.getElementById('verify-button');
+    const resendButton = document.getElementById('resend-button');
+    const status = document.getElementById('verify-status');
+
+    const showStatus = (message, tone = 'info') => {
+      status.textContent = message;
+      status.style.display = 'block';
+      status.style.color = tone === 'danger' ? 'var(--color-danger)' : 'var(--color-muted)';
+    };
+
+    const withLoading = async (button, task) => {
+      button.disabled = true;
+      try {
+        await task();
+      } finally {
+        button.disabled = false;
+      }
+    };
+
+    verifyButton.addEventListener('click', () => {
+      withLoading(verifyButton, async () => {
+        const response = await fetch('{{ url_for('main.verify_email_status') }}', { method: 'POST' });
+        const payload = await response.json();
+        if (payload.verified && payload.redirect) {
+          window.location.href = payload.redirect;
+          return;
+        }
+        if (payload.message) {
+          showStatus(payload.message, 'info');
+        }
+      });
+    });
+
+    resendButton.addEventListener('click', () => {
+      withLoading(resendButton, async () => {
+        const response = await fetch('{{ url_for('main.resend_verification_email') }}', { method: 'POST' });
+        const payload = await response.json();
+        if (payload.ok) {
+          showStatus('Verification email resent. Please check your inbox.', 'info');
+        } else if (payload.message) {
+          showStatus(payload.message, 'danger');
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

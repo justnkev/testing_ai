@@ -15,6 +15,7 @@ from flask import (
     Response,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -115,19 +116,76 @@ def signup() -> str | Response:
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        confirm_password = request.form.get('confirm_password', '')
         name = request.form['name']
+        if password != confirm_password:
+            flash('Passwords must match.', 'danger')
+            return render_template('signup.html')
         try:
             user = current_app.storage_service.sign_up(email=email, password=password, name=name)
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('signup.html')
 
-        session['user'] = user
+        session['pending_verification'] = {
+            'email': email,
+            'user_id': user.get('id'),
+            'name': name,
+        }
         session.modified = True
-        flash('Welcome to FitVision! Let\'s get started with your onboarding.', 'success')
-        return redirect(url_for('main.onboarding'))
+        flash('Account created! Please verify your email to continue.', 'info')
+        return redirect(url_for('main.verify_email'))
 
     return render_template('signup.html')
+
+
+@main_bp.route('/verify-email')
+def verify_email() -> str | Response:
+    pending = session.get('pending_verification')
+    if not pending:
+        flash('Create an account to verify your email.', 'info')
+        return redirect(url_for('main.signup'))
+
+    return render_template('verify_email.html', pending_email=pending.get('email', ''))
+
+
+@main_bp.route('/verify-email/resend', methods=['POST'])
+def resend_verification_email() -> Response:
+    pending = session.get('pending_verification')
+    if not pending:
+        return jsonify({'ok': False, 'message': 'No pending signup found.'}), 400
+
+    try:
+        current_app.storage_service.resend_verification_email(pending.get('email', ''))
+    except Exception as exc:  # pragma: no cover - depends on Supabase configuration
+        return jsonify({'ok': False, 'message': str(exc)}), 400
+
+    return jsonify({'ok': True})
+
+
+@main_bp.route('/verify-email/status', methods=['POST'])
+def verify_email_status() -> Response:
+    pending = session.get('pending_verification')
+    if not pending:
+        return jsonify({'verified': False, 'message': 'No pending signup found.'}), 400
+
+    try:
+        verified = current_app.storage_service.is_email_verified(pending.get('user_id'))
+    except Exception as exc:  # pragma: no cover - depends on Supabase configuration
+        return jsonify({'verified': False, 'message': str(exc)}), 400
+
+    if verified:
+        session['user'] = {
+            'id': pending.get('user_id'),
+            'email': pending.get('email'),
+            'name': pending.get('name', ''),
+            'onboarding_complete': False,
+        }
+        session.pop('pending_verification', None)
+        session.modified = True
+        return jsonify({'verified': True, 'redirect': url_for('main.onboarding')})
+
+    return jsonify({'verified': False, 'message': 'Email not verified yet. Please check your inbox.'})
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])

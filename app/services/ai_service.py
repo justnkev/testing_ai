@@ -269,6 +269,10 @@ class AIService:
         if not self.client:
             logger.warning("Gemini client not configured")
             return self._safe_fallback(image_path)
+        
+        # Store original image URL in context before generating the new one
+        if 'original_url' not in context:
+            context['original_url'] = f"/user-images/{image_path.parent.name}/{image_path.name}"
 
         try:  # pragma: no cover - external API
             # Read image bytes and wrap as a Part with mime type.

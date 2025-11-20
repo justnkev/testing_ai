@@ -29,8 +29,20 @@ app.py                  # Flask entry point
 1. **Install dependencies**
 
    ```bash
-   python -m venv .venv
+   python -m venv .venv # Create the virtual environment
+   ```
+
+   Activate the environment. On Windows (PowerShell):
+   ```powershell
+   .\.venv\Scripts\activate
+   ```
+   On macOS/Linux:
+   ```bash
    source .venv/bin/activate
+   ```
+
+   Then, install the required packages:
+   ```bash
    pip install -r requirements.txt
    ```
 

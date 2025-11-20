@@ -36,6 +36,7 @@ class StorageService:
     """Persistence layer that defaults to filesystem storage for local testing."""
 
     def __init__(self) -> None:
+
         #self._supabase: Optional[SupabaseClient] = self._init_supabase()
         #data_dir = Path('instance/data')
         #data_dir_path = os.environ.get('STORAGE_DATA_DIR', '/tmp/fitvision-data')
@@ -59,6 +60,19 @@ class StorageService:
             user = response.user
             if not user:  # pragma: no cover - network dependent
                 raise ValueError('Supabase sign up failed.')
+
+            # After creating the auth user, create a corresponding public profile
+            try:
+                # The user's profile is created by a trigger; we just need to update it.
+                self._supabase.table('profiles').update({
+                    'display_name': name,
+                    'email': email,
+                }).eq('id', user.id).execute()
+            except Exception as exc:
+                logger.error("Failed to create public profile for new user %s: %s", user.id, exc, exc_info=True)
+                # Optionally, you could delete the auth user here for consistency
+                raise ValueError('Failed to create user profile.') from exc
+
             return {
                 'id': user.id,
                 'email': email,
@@ -134,7 +148,7 @@ class StorageService:
             admin_error: Optional[Exception] = None
             if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
                 try:
-                    auth_admin.update_user_by_id(user_id, user_metadata={'name': name})
+                    auth_admin.update_user_by_id(user_id, attributes={'user_metadata': {'name': name}})
                 except Exception as exc:  # pragma: no cover - network dependent
                     admin_error = exc
                     logger.warning(
@@ -149,6 +163,14 @@ class StorageService:
                     if admin_error:
                         raise ValueError('Unable to update your name at this time.') from admin_error
                     raise ValueError('Unable to update your name at this time.') from exc
+            # Also update the public profiles table
+            try:
+                self._supabase.table('profiles').update({'display_name': name}).eq('id', user_id).execute()
+            except Exception as exc:
+                logger.warning('Supabase public profile name update failed', exc_info=True)
+                if admin_error:
+                    raise ValueError('Unable to update your name at this time.') from admin_error
+                raise ValueError('Unable to update your name at this time.') from exc
 
         profile = self._read_json(self._profile_path(user_id)) or {}
         profile['id'] = profile.get('id', user_id)
@@ -238,10 +260,10 @@ class StorageService:
             table_factory = getattr(self._supabase, 'table', None)
             if table_factory:
                 for table_name in (
-                    'plans',
+                    'user_plans',
                     'progress_logs',
-                    'onboarding_conversations',
-                    'coach_conversations',
+                    'user_onboarding',
+                    'conversations',
                     'visualizations',
                 ):
                     try:
@@ -331,18 +353,60 @@ class StorageService:
             if alt_profile_path.exists():
                 alt_profile_path.unlink(missing_ok=True)
     def save_plan(self, user_id: str, plan: Dict) -> None:
+        if self._supabase:
+            try:
+                self._supabase.table('user_plans').upsert(
+                    {'user_id': user_id, 'plan_data': plan, 'updated_at': datetime.now(timezone.utc).isoformat()}
+                ).execute()
+                return
+            except Exception:
+                logger.warning('Supabase plan save failed; using fallback', exc_info=True)
+
         self._write_json(self._plan_path(user_id), plan)
 
     def fetch_plan(self, user_id: str) -> Dict:
+        if self._supabase:
+            try:
+                # Use limit(1) and check for data to avoid .single() error on no results
+                response = self._supabase.table('user_plans').select('plan_data').eq('user_id', user_id).limit(1).execute()
+                if response.data and len(response.data) > 0:
+                    return response.data[0].get('plan_data', {})
+            except Exception:
+                logger.warning('Supabase plan fetch failed; using fallback', exc_info=True)
+
         return self._read_json(self._plan_path(user_id)) or {}
 
     def save_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
         """Persist the onboarding conversation so users can resume later."""
 
+        if self._supabase:
+            try:
+                self._supabase.table('conversations').upsert(
+                    {
+                        'user_id': user_id,
+                        'history': conversation,
+                        'updated_at': datetime.now(timezone.utc).isoformat(),
+                        'conversation_type': 'onboarding',
+                    }
+                ).execute()
+            except Exception:
+                logger.warning('Supabase onboarding conversation save failed; using fallback', exc_info=True)
+
         self._write_json(self._conversation_path(user_id), conversation)
 
     def fetch_conversation(self, user_id: str) -> List[Dict[str, str]]:
         """Return the stored onboarding conversation for a user."""
+
+        if self._supabase:
+            try:
+                response = self._supabase.table('conversations').select('history').eq('user_id', user_id).eq('conversation_type', 'onboarding').limit(1).execute()
+                if response.data and len(response.data) > 0:
+                    data = response.data[0].get('history')
+                    if isinstance(data, list):
+                        # Ensure all items in the list are dictionaries
+                        return [item for item in data if isinstance(item, dict)]
+            except Exception:
+                logger.warning('Supabase onboarding conversation fetch failed; using fallback', exc_info=True)
 
         data = self._read_json(self._conversation_path(user_id))
         if isinstance(data, list):
@@ -351,6 +415,12 @@ class StorageService:
 
     def clear_conversation(self, user_id: str) -> None:
         """Remove any persisted onboarding conversation for a user."""
+
+        if self._supabase:
+            try:
+                self._supabase.table('conversations').delete().eq('user_id', user_id).eq('conversation_type', 'onboarding').execute()
+            except Exception:
+                logger.warning('Supabase onboarding conversation clear failed', exc_info=True)
 
         path = self._conversation_path(user_id)
         if self._redis is not None:
@@ -365,6 +435,16 @@ class StorageService:
     def fetch_coach_conversation(self, user_id: str) -> List[Dict[str, str]]:
         """Return the stored AI coach conversation for a user."""
 
+        if self._supabase:
+            try:
+                response = self._supabase.table('conversations').select('history').eq('user_id', user_id).eq('conversation_type', 'coach').limit(1).execute()
+                if response.data and len(response.data) > 0:
+                    data = response.data[0].get('history')
+                    if isinstance(data, list):
+                        return [item for item in data if isinstance(item, dict)]
+            except Exception:
+                logger.warning('Supabase coach conversation fetch failed; using fallback', exc_info=True)
+
         data = self._read_json(self._coach_conversation_path(user_id))
         if isinstance(data, list):
             return [item for item in data if isinstance(item, dict)]
@@ -373,10 +453,25 @@ class StorageService:
     def save_coach_conversation(self, user_id: str, conversation: List[Dict[str, str]]) -> None:
         """Persist the ongoing AI coach chat history."""
 
+        if self._supabase:
+            try:
+                self._supabase.table('conversations').upsert(
+                    {
+                        'user_id': user_id,
+                        'history': conversation,
+                        'updated_at': datetime.now(timezone.utc).isoformat(),
+                        'conversation_type': 'coach',
+                    }
+                ).execute()
+            except Exception:
+                logger.warning('Supabase coach conversation save failed; using fallback', exc_info=True)
+
         self._write_json(self._coach_conversation_path(user_id), conversation)
 
     def clear_coach_conversation(self, user_id: str) -> None:
         path = self._coach_conversation_path(user_id)
+        if self._supabase:
+            self._supabase.table('conversations').delete().eq('user_id', user_id).eq('conversation_type', 'coach').execute()
         if self._redis is not None:
             try:
                 self._redis.delete(self._redis_key(path))
@@ -391,15 +486,9 @@ class StorageService:
 
         if self._supabase:
             try:
-                auth_admin = getattr(self._supabase.auth, 'admin', None)
-                if auth_admin and hasattr(auth_admin, 'update_user_by_id'):
-                    auth_admin.update_user_by_id(
-                        user_id,
-                        user_metadata={'onboardingComplete': completed},
-                    )
-                    return
-                self._supabase.auth.update_user({'data': {'onboardingComplete': completed}})
-                return
+                self._supabase.table('user_onboarding').upsert(
+                    {'user_id': user_id, 'is_complete': completed}
+                ).execute()
             except Exception:  # pragma: no cover - network dependent
                 logger.warning('Supabase onboarding metadata update failed', exc_info=True)
                 return
@@ -412,7 +501,12 @@ class StorageService:
         """Return onboarding completion when available from local storage."""
 
         if self._supabase:
-            return None
+            try:
+                response = self._supabase.table('user_onboarding').select('is_complete').eq('user_id', user_id).limit(1).execute()
+                if response.data and len(response.data) > 0:
+                    return bool(response.data[0].get('is_complete'))
+            except Exception:
+                logger.warning('Supabase onboarding status fetch failed', exc_info=True)
         profile = self._read_json(self._profile_path(user_id))
         if isinstance(profile, dict):
             return bool(profile.get('onboarding_complete'))
@@ -420,17 +514,36 @@ class StorageService:
 
     def append_log(self, user_id: str, log_entry: Dict) -> None:
         logs = self.fetch_logs(user_id)
+        if self._supabase:
+            try:
+                # Ensure timestamp exists for ordering
+                if 'timestamp' not in log_entry:
+                    log_entry['timestamp'] = datetime.now(timezone.utc).isoformat()
+                self._supabase.table('progress_logs').insert(
+                    {'user_id': user_id, 'log_data': log_entry}
+                ).execute()
+            except Exception:
+                logger.warning('Supabase log append failed; using fallback', exc_info=True)
+
         logs.append(log_entry)
         self._write_json(self._log_path(user_id), logs)
 
     def fetch_logs(self, user_id: str) -> List[Dict]:
+        if self._supabase:
+            try:
+                response = self._supabase.table('progress_logs').select('log_data, created_at').eq('user_id', user_id).order('created_at', desc=False).execute()
+                if response.data:
+                    return [item['log_data'] for item in response.data]
+            except Exception:
+                logger.warning('Supabase log fetch failed; using fallback', exc_info=True)
+
         return self._read_json(self._log_path(user_id)) or []
 
     def get_weekly_prompt(self, user_id: str) -> str:
         logs = self.fetch_logs(user_id)
         if not logs:
             return "It's a new week! Share one win and one challenge from the past few days."
-        latest = logs[-1]
+        latest = logs[-5]
         return (
             "How did the habits go after your last check-in on {date}? "
             "Anything you'd like me to adjust?"
@@ -461,25 +574,46 @@ class StorageService:
     def record_visualization_metadata(self, user_id: str, meta: Dict) -> None:
         """Append visualization metadata for the user."""
 
-        meta = dict(meta)
-        meta.setdefault("user_id", user_id)
+        if self._supabase:
+            try:
+                # Prepare a record that matches the Supabase schema
+                record = {
+                    'user_id': user_id,
+                    'original_image_url': meta.get('original_url'),
+                    'generated_image_url': meta.get('generated_url'),
+                    'metadata': meta,  # Store the full context in the metadata column
+                }
+                self._supabase.table('visualizations').insert(record).execute()
+                return
+            except Exception:
+                logger.warning('Supabase visualization record failed; using fallback', exc_info=True)
+
+        # Fallback to local JSON storage
         entries = self._load_visualizations(user_id)
         entries.append(meta)
         self._write_json(self._visualizations_path(user_id), entries)
 
     def list_visualizations(self, user_id: str, limit: int = 20) -> List[Dict]:
         """Return visualization metadata records for a user."""
-
-        entries = [
+        if self._supabase:
+            try:
+                response = self._supabase.table('visualizations').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(limit).execute()
+                if response.data:
+                    # The 'metadata' column holds the original detailed object
+                    return [item.get('metadata', item) for item in response.data]
+            except Exception:
+                logger.warning('Supabase visualization list failed; using fallback', exc_info=True)
+        # Fallback to local JSON storage
+        local_entries = [
             self._normalise_visualization_entry(user_id, item)
             for item in self._load_visualizations(user_id)
             if isinstance(item, dict)
         ]
 
-        entries.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+        local_entries.sort(key=lambda item: item.get("created_at", ""), reverse=True)
         if limit and limit > 0:
-            return entries[:limit]
-        return entries
+            return local_entries[:limit]
+        return local_entries
 
     def refresh_visualization_urls_if_needed(self, items: List[Dict]) -> List[Dict]:
         """Refresh signed URLs when required. Local filesystem is a no-op."""

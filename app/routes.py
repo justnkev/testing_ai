@@ -117,15 +117,87 @@ def signup() -> str | Response:
         password = request.form['password']
         name = request.form['name']
         try:
-            current_app.storage_service.sign_up(email=email, password=password, name=name)
+            signup_result = current_app.storage_service.sign_up(email=email, password=password, name=name)
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('signup.html')
 
+        session['pending_verification'] = {
+            'email': email,
+            'user_id': signup_result.get('id'),
+            'name': name,
+        }
+        session.modified = True
         flash('Account created! We sent a verification email—please check your inbox.', 'success')
         return redirect('/verify-email')
 
     return render_template('signup.html')
+
+
+@main_bp.route('/verify-email', methods=['GET'])
+def verify_email() -> str | Response:
+    if 'user' in session and _onboarding_complete():
+        return redirect(url_for('main.dashboard'))
+
+    pending = session.get('pending_verification') or {}
+    user = session.get('user') or {}
+    email = pending.get('email') or user.get('email')
+    return render_template(
+        'verify_email.html',
+        email=email,
+        user_id=pending.get('user_id') or user.get('id'),
+        name=pending.get('name') or user.get('name'),
+    )
+
+
+@main_bp.route('/verify-email/resend', methods=['POST'])
+def resend_verification_email() -> Response:
+    payload = request.get_json(silent=True) or request.form or {}
+    pending = session.get('pending_verification') or {}
+    email = payload.get('email') or pending.get('email') or session.get('user', {}).get('email')
+
+    if not email:
+        return {'error': 'Email is required to resend verification.'}, 400
+
+    try:
+        current_app.storage_service.resend_verification_email(email)
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+
+    return {'message': 'Verification email resent. Please check your inbox.'}
+
+
+@main_bp.route('/verify-email/status', methods=['POST'])
+def verify_email_status() -> Response:
+    payload = request.get_json(silent=True) or {}
+    pending = session.get('pending_verification') or {}
+    user = session.get('user') or {}
+
+    user_id = payload.get('user_id') or pending.get('user_id') or user.get('id')
+    email = payload.get('email') or pending.get('email') or user.get('email')
+    name = payload.get('name') or pending.get('name') or user.get('name')
+
+    if not user_id:
+        return {'error': 'User information is missing. Please sign up again.'}, 400
+
+    try:
+        verified = current_app.storage_service.is_email_verified(user_id)
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+
+    if verified:
+        if not user:
+            session['user'] = {
+                'id': user_id,
+                'email': email or '',
+                'name': name or '',
+                'onboarding_complete': False,
+            }
+        session.pop('pending_verification', None)
+        session.modified = True
+        return {'verified': True, 'redirect': url_for('main.onboarding')}
+
+    return {'verified': False, 'message': 'Email still not verified. Please check your inbox.'}
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])
@@ -140,6 +212,7 @@ def login() -> str | Response:
             return render_template('login.html')
 
         session['user'] = user
+        session.pop('pending_verification', None)
         session.modified = True
         if _onboarding_complete():
             flash('Welcome back! Ready to continue your journey?', 'success')

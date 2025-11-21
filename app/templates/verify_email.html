@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-card">
+  <h1 style="display:flex; align-items:center; gap:0.5rem; justify-content:center;">✅ Your account has been created!</h1>
+  <p style="text-align:center; color:var(--color-muted); margin-bottom:1rem;">
+    We've sent a verification email to <strong>{{ email or 'your email address' }}</strong>.
+  </p>
+  <div class="card" style="background:var(--color-surface); padding:1rem 1.2rem; margin-bottom:1.2rem;">
+    <p style="margin:0;">Please check your inbox and click the link in the email to verify your account.</p>
+    <p style="margin:0.5rem 0 0; color:var(--color-muted);">Don't forget to check your spam or junk folder.</p>
+  </div>
+  <div class="button-group" style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center;">
+    <button id="resend-email" class="fv-button fv-button--ghost" type="button">Resend Email</button>
+    <button id="verified-email" class="fv-button fv-button--primary" type="button">I've Verified My Email</button>
+  </div>
+  <div id="verify-status" class="flash-card" style="display:none; margin-top:1rem;"></div>
+</div>
+<script>
+  const verifyContext = {
+    email: {{ email|tojson }},
+    userId: {{ user_id|tojson }},
+    name: {{ name|tojson }},
+  };
+
+  const statusEl = document.getElementById('verify-status');
+  const resendBtn = document.getElementById('resend-email');
+  const verifiedBtn = document.getElementById('verified-email');
+
+  const showStatus = (message, tone = 'info') => {
+    statusEl.textContent = message;
+    statusEl.className = `flash-card flash-${tone}`;
+    statusEl.style.display = 'block';
+  };
+
+  const postJson = async (url, payload) => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  };
+
+  resendBtn?.addEventListener('click', async () => {
+    resendBtn.disabled = true;
+    showStatus('Resending verification email...', 'info');
+    const { response, data } = await postJson('{{ url_for("main.resend_verification_email") }}', { email: verifyContext.email });
+    if (response.ok) {
+      showStatus(data.message || 'Verification email resent. Please check your inbox.', 'success');
+    } else {
+      showStatus(data.error || 'Unable to resend verification email. Please try again.', 'danger');
+    }
+    resendBtn.disabled = false;
+  });
+
+  verifiedBtn?.addEventListener('click', async () => {
+    verifiedBtn.disabled = true;
+    showStatus('Checking verification status...', 'info');
+    const { response, data } = await postJson('{{ url_for("main.verify_email_status") }}', {
+      email: verifyContext.email,
+      user_id: verifyContext.userId,
+      name: verifyContext.name,
+    });
+    if (response.ok && data.verified) {
+      window.location.href = data.redirect || '/onboarding';
+      return;
+    }
+    showStatus(data.error || data.message || 'Email still not verified. Please check your inbox.', response.ok ? 'warning' : 'danger');
+    verifiedBtn.disabled = false;
+  });
+</script>
+{% endblock %}

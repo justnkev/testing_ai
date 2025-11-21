@@ -139,6 +139,48 @@ class StorageService:
             return False
         return profile.get('password') == password
 
+    def resend_verification_email(self, email: str) -> None:
+        if not email:
+            raise ValueError('Email is required to resend verification.')
+
+        if self._supabase:
+            resend = getattr(self._supabase.auth, 'resend', None)
+            if not resend:
+                raise ValueError('Supabase resend support is unavailable.')
+            try:
+                resend({'type': 'signup', 'email': email})
+            except Exception as exc:  # pragma: no cover - network dependent
+                logger.warning('Supabase resend verification failed for %s', email, exc_info=True)
+                raise ValueError('Could not resend verification email. Please try again.') from exc
+            return
+
+        raise ValueError('Email verification is unavailable while Supabase is disabled.')
+
+    def is_email_verified(self, user_id: str) -> bool:
+        if not user_id:
+            raise ValueError('User id is required to check verification status.')
+
+        if self._supabase:
+            auth_admin = getattr(self._supabase.auth, 'admin', None)
+            if auth_admin and hasattr(auth_admin, 'get_user_by_id'):
+                try:
+                    response = auth_admin.get_user_by_id(user_id)
+                    supabase_user = getattr(response, 'user', None) or (
+                        response.get('user') if isinstance(response, dict) else None
+                    )
+                    if supabase_user:
+                        email_confirmed = getattr(supabase_user, 'email_confirmed_at', None)
+                        if email_confirmed is None and isinstance(supabase_user, dict):
+                            email_confirmed = supabase_user.get('email_confirmed_at')
+                        return bool(email_confirmed)
+                except Exception as exc:  # pragma: no cover - network dependent
+                    logger.warning('Supabase verification status check failed for %s', user_id, exc_info=True)
+                    raise ValueError('Unable to verify email status right now. Please try again.') from exc
+            return False
+
+        # In local development without Supabase, treat accounts as verified.
+        return True
+
     def update_display_name(self, user_id: str, name: str) -> None:
         if not name:
             raise ValueError('Display name cannot be empty.')

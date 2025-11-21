@@ -65,6 +65,60 @@ def login_required(view):
     return wrapped
 
 
+def _extract_email_confirmed(candidate: Any) -> Any:
+    """Return the email confirmation timestamp from Supabase-like responses."""
+
+    if candidate is None:
+        return None
+
+    if hasattr(candidate, 'email_confirmed_at'):
+        return getattr(candidate, 'email_confirmed_at')
+
+    if isinstance(candidate, dict):
+        for key in ('email_confirmed_at', 'emailConfirmedAt'):
+            value = candidate.get(key)
+            if value:
+                return value
+
+        nested_user = candidate.get('user')
+        if nested_user:
+            return _extract_email_confirmed(nested_user)
+
+    return None
+
+
+def _is_email_verified(user_id: str) -> bool:
+    """Return ``True`` when Supabase reports the user's email as confirmed."""
+
+    supabase = getattr(current_app.storage_service, '_supabase', None)
+    if not supabase:
+        return True
+
+    try:
+        auth_admin = getattr(supabase.auth, 'admin', None)
+        if auth_admin and hasattr(auth_admin, 'get_user_by_id'):
+            admin_response = auth_admin.get_user_by_id(user_id)
+            confirmed = _extract_email_confirmed(
+                getattr(admin_response, 'user', None)
+                or getattr(admin_response, 'data', None)
+                or admin_response
+            )
+            if confirmed:
+                return True
+
+        user_response = supabase.auth.get_user()
+        confirmed = _extract_email_confirmed(
+            getattr(user_response, 'user', None)
+            or getattr(user_response, 'data', None)
+            or user_response
+        )
+        return bool(confirmed)
+    except Exception:
+        logger.warning('verify_email_status.check_failed', exc_info=True, extra={'user_id': user_id})
+
+    return False
+
+
 def _onboarding_complete() -> bool:
     user: Optional[Dict[str, Any]] = session.get('user')
     if not user:
@@ -117,15 +171,17 @@ def signup() -> str | Response:
         password = request.form['password']
         name = request.form['name']
         try:
-            user = current_app.storage_service.sign_up(email=email, password=password, name=name)
+            pending_user = current_app.storage_service.sign_up(
+                email=email, password=password, name=name
+            )
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('signup.html')
 
-        session['user'] = user
+        session['pending_user'] = pending_user
         session.modified = True
-        flash('Welcome to FitVision! Let\'s get started with your onboarding.', 'success')
-        return redirect(url_for('main.onboarding'))
+        flash('Account created! We sent a verification email—please check your inbox.', 'success')
+        return redirect('/verify-email')
 
     return render_template('signup.html')
 
@@ -142,6 +198,7 @@ def login() -> str | Response:
             return render_template('login.html')
 
         session['user'] = user
+        session.pop('pending_user', None)
         session.modified = True
         if _onboarding_complete():
             flash('Welcome back! Ready to continue your journey?', 'success')
@@ -158,6 +215,41 @@ def logout() -> Response:
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('main.index'))
+
+
+@main_bp.route('/verify-email/status', methods=['POST'])
+def verify_email_status() -> Dict[str, Any] | Response:
+    session_user = session.get('user')
+    pending_user = session.get('pending_user')
+    verification_subject: Optional[Dict[str, Any]] = session_user or pending_user
+
+    if not verification_subject:
+        return {'error': 'Unauthorized'}, 401
+
+    payload = request.get_json(silent=True) or {}
+    request_user_id = payload.get('user_id')
+    request_email = payload.get('email')
+
+    subject_user_id = verification_subject.get('id')
+    subject_email = verification_subject.get('email')
+
+    if request_user_id and subject_user_id and request_user_id != subject_user_id:
+        return {'error': 'Session mismatch'}, 403
+
+    if request_email and subject_email and request_email.lower() != subject_email.lower():
+        return {'error': 'Session mismatch'}, 403
+
+    if not subject_user_id:
+        return {'error': 'Invalid session'}, 400
+
+    verified = _is_email_verified(subject_user_id)
+
+    if verified and session_user is None and pending_user is not None:
+        session['user'] = dict(pending_user)
+        session.pop('pending_user', None)
+        session.modified = True
+
+    return {'verified': bool(verified)}
 
 
 def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-card">
+  <h1>Check your inbox</h1>
+  <p style="text-align:center; color:var(--color-muted); margin-bottom:1.6rem;">
+    We sent a verification link to <strong>{{ pending_email }}</strong>. Please click the link to confirm your email and continue.
+  </p>
+  <p style="text-align:center; color:var(--color-muted);">
+    Didn’t get the email? Check your spam folder or try again in a few minutes.
+  </p>
+</div>
+{% endblock %}

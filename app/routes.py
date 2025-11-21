@@ -130,6 +130,15 @@ def signup() -> str | Response:
     return render_template('signup.html')
 
 
+@main_bp.route('/verify-email')
+@login_required
+def verify_email() -> str:
+    user = session.get('user', {})
+    pending_email = user.get('pending_email') or user.get('email', '')
+
+    return render_template('verify_email.html', pending_email=pending_email)
+
+
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login() -> str | Response:
     if request.method == 'POST':

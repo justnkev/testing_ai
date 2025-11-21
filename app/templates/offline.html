@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="offline-state">
+  <div class="fv-card" style="max-width: 520px; margin: 0 auto; text-align: center; padding: 2.5rem 2rem;">
+    <p class="eyebrow" style="letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.8rem; color: rgba(248,249,255,0.65); margin-bottom: 0.8rem;">Connection lost</p>
+    <h1 style="margin: 0 0 1rem; font-size: 2rem;">You're offline</h1>
+    <p style="margin: 0 0 1.25rem; color: rgba(248,249,255,0.8);">
+      FitVision couldn't reach the network. Reconnect to sync your most recent data and resume where you left off.
+    </p>
+    <p style="margin: 0 0 2rem; color: rgba(248,249,255,0.8);">
+      We'll automatically refresh cached data once you're back online. You can also retry now.
+    </p>
+    <div class="offline-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <button class="fv-button fv-button--primary" type="button" onclick="window.location.reload()">Retry connection</button>
+      <a class="fv-button fv-button--ghost" href="{{ url_for('main.index') }}">Return home</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

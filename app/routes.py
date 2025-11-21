@@ -103,6 +103,13 @@ def index() -> str:
     return render_template('index.html')
 
 
+@main_bp.route('/offline')
+def offline() -> str:
+    """Render the offline status page without requiring authentication."""
+
+    return render_template('offline.html')
+
+
 @main_bp.route('/signup', methods=['GET', 'POST'])
 def signup() -> str | Response:
     if request.method == 'POST':
@@ -278,8 +285,6 @@ def onboarding() -> str | Response:
             plan = current_app.ai_service.generate_plan(conversation, session['user'])
             current_app.storage_service.save_plan(session['user']['id'], plan)
             session.pop('onboarding_conversation', None)
-            session.modified = True
-            current_app.storage_service.clear_conversation(user_id)
             current_app.storage_service.set_onboarding_complete(user_id, True)
             session['user']['onboarding_complete'] = True
             session.modified = True

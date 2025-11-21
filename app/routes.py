@@ -117,15 +117,13 @@ def signup() -> str | Response:
         password = request.form['password']
         name = request.form['name']
         try:
-            user = current_app.storage_service.sign_up(email=email, password=password, name=name)
+            current_app.storage_service.sign_up(email=email, password=password, name=name)
         except Exception as exc:  # pragma: no cover - depends on Supabase configuration
             flash(str(exc), 'danger')
             return render_template('signup.html')
 
-        session['user'] = user
-        session.modified = True
-        flash('Welcome to FitVision! Let\'s get started with your onboarding.', 'success')
-        return redirect(url_for('main.onboarding'))
+        flash('Account created! We sent a verification email—please check your inbox.', 'success')
+        return redirect('/verify-email')
 
     return render_template('signup.html')
 

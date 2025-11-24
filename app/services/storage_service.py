@@ -543,7 +543,7 @@ class StorageService:
         logs = self.fetch_logs(user_id)
         if not logs:
             return "It's a new week! Share one win and one challenge from the past few days."
-        latest = logs[-5]
+        latest = logs[-1]
         return (
             "How did the habits go after your last check-in on {date}? "
             "Anything you'd like me to adjust?"

@@ -512,21 +512,39 @@ class StorageService:
             return bool(profile.get('onboarding_complete'))
         return None
 
-    def append_log(self, user_id: str, log_entry: Dict) -> None:
-        logs = self.fetch_logs(user_id)
+    def append_log(self, user_id: str, log_entry: Dict) -> Dict:
+        logs = self._read_json(self._log_path(user_id))
+        if not isinstance(logs, list):
+            logs = []
+
         if self._supabase:
             try:
-                # Ensure timestamp exists for ordering
                 if 'timestamp' not in log_entry:
                     log_entry['timestamp'] = datetime.now(timezone.utc).isoformat()
-                self._supabase.table('progress_logs').insert(
-                    {'user_id': user_id, 'log_data': log_entry}
-                ).execute()
+                response = (
+                    self._supabase
+                    .table('progress_logs')
+                    .insert({'user_id': user_id, 'log_data': log_entry})
+                    .select('id, user_id, created_at, log_data')
+                    .execute()
+                )
+                if response.data:
+                    record = response.data[0]
+                    return {
+                        'id': record.get('id'),
+                        'user_id': record.get('user_id', user_id),
+                        'created_at': record.get('created_at'),
+                        'log_data': record.get('log_data', log_entry),
+                    }
             except Exception:
                 logger.warning('Supabase log append failed; using fallback', exc_info=True)
 
-        logs.append(log_entry)
+        next_id = max((item.get('id', 0) for item in logs if isinstance(item, dict)), default=0) + 1
+        created_at = datetime.now(timezone.utc).isoformat()
+        record = {'id': next_id, 'user_id': user_id, 'created_at': created_at, 'log_data': log_entry}
+        logs.append(record)
         self._write_json(self._log_path(user_id), logs)
+        return record
 
     def fetch_logs(self, user_id: str) -> List[Dict]:
         if self._supabase:
@@ -537,7 +555,33 @@ class StorageService:
             except Exception:
                 logger.warning('Supabase log fetch failed; using fallback', exc_info=True)
 
-        return self._read_json(self._log_path(user_id)) or []
+        stored = self._read_json(self._log_path(user_id)) or []
+        if isinstance(stored, list):
+            return [item.get('log_data', item) for item in stored if isinstance(item, dict)]
+        return []
+
+    def fetch_progress_log_records(self, user_id: Optional[str] = None) -> List[Dict]:
+        if self._supabase:
+            try:
+                query = self._supabase.table('progress_logs').select('id, user_id, log_data, created_at').order('created_at', desc=False)
+                if user_id:
+                    query = query.eq('user_id', user_id)
+                response = query.execute()
+                if response.data:
+                    return [item for item in response.data if isinstance(item, dict)]
+            except Exception:
+                logger.warning('Supabase progress_log fetch failed; using fallback', exc_info=True)
+
+        if user_id:
+            stored = self._read_json(self._log_path(user_id)) or []
+            return [item for item in stored if isinstance(item, dict)]
+
+        records: List[Dict] = []
+        for path in self._data_dir.glob('*_logs.json'):
+            data = self._read_json(path)
+            if isinstance(data, list):
+                records.extend([item for item in data if isinstance(item, dict)])
+        return records
 
     def get_weekly_prompt(self, user_id: str) -> str:
         logs = self.fetch_logs(user_id)
@@ -548,6 +592,54 @@ class StorageService:
             "How did the habits go after your last check-in on {date}? "
             "Anything you'd like me to adjust?"
         ).format(date=latest.get('timestamp', 'recently'))
+
+    # --- Normalized health data --------------------------------------
+
+    def upsert_normalized_record(self, category: str, record: Dict[str, Any]) -> None:
+        if self._supabase:
+            try:
+                self._supabase.table(category).upsert(record, on_conflict='progress_log_id').execute()
+                return
+            except Exception:
+                logger.warning('%s.upsert_failed', category, exc_info=True)
+
+        path = self._normalized_path(category)
+        rows = self._read_json(path) or []
+        if not isinstance(rows, list):
+            rows = []
+        filtered = [row for row in rows if isinstance(row, dict) and row.get('progress_log_id') != record.get('progress_log_id')]
+        filtered.append(record)
+        self._write_json(path, filtered)
+
+    def get_normalized_by_progress_log(self, category: str, progress_log_id: int) -> Optional[Dict[str, Any]]:
+        if self._supabase:
+            try:
+                response = self._supabase.table(category).select('*').eq('progress_log_id', progress_log_id).limit(1).execute()
+                if response.data:
+                    return response.data[0]
+            except Exception:
+                logger.warning('%s.lookup_failed', category, exc_info=True)
+
+        rows = self._read_json(self._normalized_path(category)) or []
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, dict) and row.get('progress_log_id') == progress_log_id:
+                    return row
+        return None
+
+    def list_normalized_records(self, category: str, user_id: str) -> List[Dict[str, Any]]:
+        if self._supabase:
+            try:
+                response = self._supabase.table(category).select('*').eq('user_id', user_id).order('date_inferred', desc=False).execute()
+                if response.data:
+                    return [item for item in response.data if isinstance(item, dict)]
+            except Exception:
+                logger.warning('%s.list_failed', category, exc_info=True)
+
+        rows = self._read_json(self._normalized_path(category)) or []
+        if not isinstance(rows, list):
+            return []
+        return [row for row in rows if isinstance(row, dict) and row.get('user_id') == user_id]
 
     # --- Visualization storage -----------------------------------------
 
@@ -761,6 +853,10 @@ class StorageService:
 
     def _preferences_path(self, user_id: str) -> Path:
         return self._data_dir / f'{user_id}_preferences.json'
+
+    def _normalized_path(self, category: str) -> Path:
+        safe = category.replace('/', '_')
+        return self._data_dir / f'normalized_{safe}.json'
 
     @staticmethod
     def _get_env_value(*names: str) -> Optional[str]:

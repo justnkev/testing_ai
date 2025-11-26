@@ -525,7 +525,6 @@ class StorageService:
                     self._supabase
                     .table('progress_logs')
                     .insert({'user_id': user_id, 'log_data': log_entry})
-                    .select('id, user_id, created_at, log_data')
                     .execute()
                 )
                 if response.data:

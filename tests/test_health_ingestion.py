@@ -76,6 +76,33 @@ class HealthIngestionTests(TestCase):
                 calories = ingestion.daily_calories("user-1")
                 self.assertEqual([{"date": "2024-01-02", "calories": 450}], calories)
 
+    def test_ingest_handles_list_meal_payload(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                record = {
+                    "id": 1,
+                    "user_id": "user-1",
+                    "created_at": "2024-01-02T08:00:00+00:00",
+                    "log_data": {"timestamp": "2024-01-02T08:00:00+00:00"},
+                }
+
+                with patch.object(
+                    ai_service,
+                    "interpret_health_log",
+                    return_value={"meals": [{"date_inferred": "2024-01-02", "meal_type": "lunch"}]},
+                ):
+                    ingestion.ingest_log(record)
+
+                meals = storage.list_normalized_records("meals", "user-1")
+                self.assertEqual(1, len(meals))
+                self.assertEqual("lunch", meals[0].get("meal_type"))
+                self.assertEqual("2024-01-02", meals[0].get("date_inferred"))
+
     def _patched_environ(self, updates):
         return patch.dict(os.environ, updates, clear=False)
 

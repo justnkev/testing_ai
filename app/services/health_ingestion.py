@@ -119,7 +119,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        meals_data = interpretation.get("meals") or {}
+        meals_data = self._normalize_section(interpretation.get("meals"))
         date_inferred = meals_data.get("date_inferred")
         if not date_inferred:
             date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
@@ -157,7 +157,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        sleep_data = interpretation.get("sleep") or {}
+        sleep_data = self._normalize_section(interpretation.get("sleep"))
         date_inferred = sleep_data.get("date_inferred") or self._infer_date(
             log_data.get("timestamp") or created_at
         )
@@ -200,7 +200,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        workout_data = interpretation.get("workout") or {}
+        workout_data = self._normalize_section(interpretation.get("workout"))
         date_inferred = workout_data.get("date_inferred") or self._infer_date(
             log_data.get("timestamp") or created_at
         )
@@ -239,6 +239,15 @@ class HealthDataIngestion:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.date().isoformat()
+
+    def _normalize_section(self, section: Any) -> Dict[str, Any]:
+        if isinstance(section, dict):
+            return section
+        if isinstance(section, list):
+            for item in section:
+                if isinstance(item, dict):
+                    return item
+        return {}
 
     def daily_calories(self, user_id: str) -> List[Dict[str, Any]]:
         meals = self._storage.list_normalized_records("meals", user_id)

@@ -321,6 +321,17 @@ label {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.viz-card {
+  overflow: hidden;
+}
+
+.viz-card canvas {
+  display: block;
+  width: 100%;
+  height: clamp(220px, 30vh, 360px);
+  max-height: 360px;
+}
+
 .stat-card {
   position: relative;
   overflow: hidden;

@@ -456,7 +456,18 @@ def progress() -> str | Response:
     user_id = session['user']['id']
 
     if request.method == 'POST':
-        meals = request.form.get('meals')
+        workout = (request.form.get('workout') or '').strip()
+        meals = (request.form.get('meals') or '').strip()
+        sleep = (request.form.get('sleep') or '').strip()
+        habits = (request.form.get('habits') or '').strip()
+
+        required_fields = {'Workout': workout, 'Meals': meals, 'Sleep': sleep, 'Habits': habits}
+        missing_fields = [name for name, value in required_fields.items() if not value]
+
+        if missing_fields:
+            flash(f"Please complete all fields: {', '.join(missing_fields)}.", 'warning')
+            return redirect(url_for('main.progress'))
+
         estimation: Optional[Dict[str, Any]] = None
         if meals:
             try:
@@ -466,10 +477,10 @@ def progress() -> str | Response:
 
         log_entry: Dict[str, Any] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
-            'workout': request.form.get('workout'),
+            'workout': workout,
             'meals': meals,
-            'sleep': request.form.get('sleep'),
-            'habits': request.form.get('habits'),
+            'sleep': sleep,
+            'habits': habits,
         }
 
         if estimation:

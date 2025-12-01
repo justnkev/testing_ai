@@ -43,9 +43,9 @@ Create a clean, modern dashboard that allows users to:
 #### 2. **Visualization Types**
 | Data Type | Chart Type   | Description                             |
 |-----------|--------------|-----------------------------------------|
-| Meals     | Bar Chart    | Daily caloric intake                    |
-| Workouts  | Line Chart   | Workout duration per day/week          |
-| Sleep     | Area Chart   | Hours of sleep tracked over 7 days     |
+| Meals     | Bar Chart    | Daily/weekly/monthly caloric intake     |
+| Workouts  | Line Chart   | Workouts per week/month                 |
+| Sleep     | Area Chart   | Hours of sleep tracked per week/month   |
 
 - Tooltips on hover for additional data
 - Toggle between **daily**, **weekly**, and **monthly** views
@@ -57,37 +57,104 @@ Create a clean, modern dashboard that allows users to:
 
 ---
 
-### Supabase Schema Recommendations
+### Supabase Schema
 
-#### Table: `meals`
-| Column        | Type     | Description                      |
-|---------------|----------|----------------------------------|
-| `id`          | `uuid`   | Primary key                      |
-| `user_id`     | `uuid`   | Foreign key to `auth.users.id`   |
-| `created_at`  | `timestamp` | Meal log timestamp            |
-| `meal_type`   | `text`   | e.g., breakfast, lunch, dinner   |
-| `calories`    | `int4`   | Caloric value                    |
-| `metadata`    | `jsonb`  | Optional macros, notes, etc.     |
+Database Schema Documentation
 
-#### Table: `workouts`
-| Column        | Type     | Description                      |
-|---------------|----------|----------------------------------|
-| `id`          | `uuid`   | Primary key                      |
-| `user_id`     | `uuid`   | Foreign key to `auth.users.id`   |
-| `created_at`  | `timestamp` | Workout timestamp             |
-| `workout_type`| `text`   | e.g., running, yoga, strength     |
-| `duration_min`| `int4`   | Duration in minutes              |
-| `metadata`    | `jsonb`  | Optional: calories burned, notes |
+Table: conversations
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| id                | int8        | Primary Key              |
+| user_id           | uuid        | FK -> auth.users.id      |
+| updated_at        | timestamptz |                          |
+| conversation_type | text        |                          |
+| history           | jsonb       |                          |
+| conversation_data | jsonb       |                          |
 
-#### Table: `sleep`
-| Column        | Type     | Description                      |
-|---------------|----------|----------------------------------|
-| `id`          | `uuid`   | Primary key                      |
-| `user_id`     | `uuid`   | Foreign key to `auth.users.id`   |
-| `start_time`  | `timestamp` | Sleep start time              |
-| `end_time`    | `timestamp` | Sleep end time                |
-| `quality`     | `text`   | Optional: subjective quality      |
-| `metadata`    | `jsonb`  | Device data, sleep phases, etc.  |
+Table: profiles
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| id                | uuid        | Primary Key, FK -> auth  |
+| created_at        | timestamptz |                          |
+| display_name      | text        |                          |
+| email             | varchar     |                          |
+
+Table: user_plans
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| id                | int8        | Primary Key              |
+| updated_at        | timestamptz |                          |
+| user_id           | uuid        | FK -> auth.users.id      |
+| plan_data         | jsonb       |                          |
+
+Table: user_onboarding
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| user_id           | uuid        | Primary Key, FK -> auth  |
+| is_complete       | bool        |                          |
+
+Table: visualizations
+--------------------------------------------------------------
+| Column Name          | Data Type   | Key / Relations       |
+|----------------------|-------------|-----------------------|
+| id                   | uuid        | Primary Key           |
+| user_id              | uuid        | FK -> auth.users.id   |
+| created_at           | timestamptz |                       |
+| original_image_url   | text        |                       |
+| generated_image_url  | text        |                       |
+| metadata             | jsonb       |                       |
+
+Table: workouts
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| id                | uuid        | Primary Key              |
+| user_id           | uuid        | FK -> auth.users.id      |
+| created_at        | timestamptz |                          |
+| workout_type      | text        |                          |
+| duration_min      | int4        |                          |
+| metadata          | jsonb       |                          |
+| date_inferred     | date        |                          |
+| progress_log_id   | int8        | FK -> progress_logs.id   |
+
+Table: sleep
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| user_id           | uuid        | FK -> auth.users.id      |
+| quality           | text        |                          |
+| metadata          | jsonb       |                          |
+| id                | int8        | Primary Key              |
+| time_asleep       | text        |                          |
+| created_at        | timestamptz |                          |
+| date_inferred     | date        |                          |
+| progress_log_id   | int8        | FK -> progress_logs.id   |
+
+Table: meals
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| user_id           | uuid        | FK -> auth.users.id      |
+| created_at        | timestamptz |                          |
+| meal_type         | text        |                          |
+| calories          | int4        |                          |
+| metadata          | jsonb       |                          |
+| id                | int8        | Primary Key              |
+| date_inferred     | date        |                          |
+| progress_log_id   | int8        | FK -> progress_logs.id   |
+
+Table: progress_logs
+--------------------------------------------------------------
+| Column Name       | Data Type   | Key / Relations          |
+|-------------------|-------------|--------------------------|
+| id                | int8        | Primary Key              |
+| created_at        | timestamptz |                          |
+| user_id           | uuid        | FK -> auth.users.id      |
+| log_data          | jsonb       |                          |
 
 ---
 

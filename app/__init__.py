@@ -75,10 +75,11 @@ def create_app() -> Flask:
     # Services discover their own credentials from the environment so the app
     # can run in environments where optional integrations (e.g. Supabase,
     # Gemini) are not configured.
-    from .routes import ai_service, storage_service
+    from .routes import ai_service, health_ingestion, storage_service
 
     app.storage_service = storage_service
     app.ai_service = ai_service
+    app.health_ingestion = health_ingestion
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
     redis_session_client = None
@@ -110,5 +111,10 @@ def create_app() -> Flask:
     from .routes import main_bp
 
     app.register_blueprint(main_bp)
+
+    try:
+        app.health_ingestion.start_background_tasks()
+    except Exception:
+        logger.warning("health_ingestion.start_failed", exc_info=True)
 
     return app

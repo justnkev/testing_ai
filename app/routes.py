@@ -26,12 +26,14 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from .services.ai_service import AIService
+from .services.health_ingestion import HealthDataIngestion
 from .services.storage_service import StorageService
 
 main_bp = Blueprint('main', __name__)
 
 ai_service = AIService()
 storage_service = StorageService()
+health_ingestion = HealthDataIngestion(storage_service, ai_service)
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +505,13 @@ def progress() -> str | Response:
             if notes:
                 log_entry['estimation_notes'] = str(notes)
 
-        current_app.storage_service.append_log(user_id, log_entry)
+        progress_log = current_app.storage_service.append_log(user_id, log_entry)
+        ingester = getattr(current_app, 'health_ingestion', None)
+        if ingester:
+            try:
+                ingester.enqueue_log_record(progress_log)
+            except Exception:
+                logger.warning('health_ingestion.enqueue_failed', exc_info=True)
         flash('Progress saved. Keep up the great work!', 'success')
         return redirect(url_for('main.progress'))
 
@@ -544,6 +552,18 @@ def weekly_prompt() -> Dict[str, Any]:
 
     prompt = current_app.storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
+
+
+@main_bp.route('/api/daily_calories')
+def daily_calories() -> Dict[str, Any]:
+    redirect_url = _require_login()
+    if redirect_url:
+        return {'error': 'Unauthorized'}, 401
+
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    data = ingester.daily_calories(user_id) if ingester else []
+    return {'data': data}
 
 
 @main_bp.route('/visualize', methods=['GET', 'POST'])

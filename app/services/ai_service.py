@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -150,6 +151,23 @@ class AIService:
                 return ai_reply
 
         return self._fallback_check_in(conversation, user)
+
+    def interpret_health_log(self, log_entry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Interpret a progress log into structured health insights."""
+
+        if not log_entry:
+            return None
+
+        timestamp = self._coerce_timestamp(log_entry.get("timestamp")) or datetime.now(timezone.utc)
+
+        if self._gemini_model:
+            prompt = self._build_health_prompt(log_entry, timestamp)
+            raw = self._call_gemini(prompt)
+            parsed = self._parse_health_response(raw)
+            if parsed:
+                return parsed
+
+        return self._heuristic_health(log_entry, timestamp)
 
     def estimate_meal_calories(self, meal_text: str) -> Optional[Dict[str, Any]]:
         """Estimate nutrition details for a meal description using Gemini."""
@@ -737,6 +755,103 @@ class AIService:
             lines = [line for line in cleaned.splitlines() if not line.strip().startswith('```')]
             return '\n'.join(lines).strip()
         return cleaned
+
+    def _build_health_prompt(self, log_entry: Dict[str, Any], timestamp: datetime) -> str:
+        return (
+            "You are a health data normalizer. Given a single progress log as JSON, "
+            "return structured JSON for meals, sleep, and workout fields. Use UTC date of the provided timestamp as 'today'. "
+            "Do not re-estimate calories or macros. Use null for unknowns. Strict JSON only.\n\n"
+            f"Timestamp reference (UTC): {timestamp.isoformat()}\n"
+            f"Log entry JSON: {json.dumps(log_entry)}\n"
+            "Respond with keys meals, sleep, workout."
+        )
+
+    def _parse_health_response(self, raw: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not raw:
+            return None
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+            return data if isinstance(data, dict) else None
+        except Exception:
+            return None
+
+    def _coerce_timestamp(self, raw: Optional[str]) -> Optional[datetime]:
+        if not raw:
+            return None
+        try:
+            dt = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    def _heuristic_health(self, log_entry: Dict[str, Any], timestamp: datetime) -> Dict[str, Any]:
+        date_iso = timestamp.date().isoformat()
+        meals_text = str(log_entry.get("meals", "") or "")
+        sleep_text = str(log_entry.get("sleep", "") or "")
+        workout_text = str(log_entry.get("workout", "") or "")
+
+        meal_type = "unknown"
+        lowered_meal = meals_text.lower()
+        if any(word in lowered_meal for word in ["breakfast", "morning"]):
+            meal_type = "breakfast"
+        elif "lunch" in lowered_meal:
+            meal_type = "lunch"
+        elif "dinner" in lowered_meal or "supper" in lowered_meal:
+            meal_type = "dinner"
+        elif meals_text:
+            meal_type = "snack"
+
+        hours_slept = None
+        match = re.search(r"(\d+(?:\.\d+)?)\s*(h|hours)", sleep_text.lower())
+        if match:
+            try:
+                hours_slept = float(match.group(1))
+            except Exception:
+                hours_slept = None
+
+        sleep_quality = "unknown"
+        if any(word in sleep_text.lower() for word in ["great", "rested"]):
+            sleep_quality = "great"
+        elif "good" in sleep_text.lower():
+            sleep_quality = "good"
+        elif "okay" in sleep_text.lower() or "ok" in sleep_text.lower():
+            sleep_quality = "okay"
+        elif "bad" in sleep_text.lower() or "poor" in sleep_text.lower():
+            sleep_quality = "poor"
+
+        duration = None
+        durations = re.findall(r"(\d+)\s*(?:min|minutes)", workout_text.lower())
+        if durations:
+            duration = sum(int(value) for value in durations)
+
+        workout_type = "other"
+        lower_workout = workout_text.lower()
+        if any(word in lower_workout for word in ["run", "cardio", "cycling", "bike"]):
+            workout_type = "cardio"
+        elif any(word in lower_workout for word in ["lift", "strength", "weights"]):
+            workout_type = "strength"
+        elif workout_text:
+            workout_type = "mixed"
+
+        return {
+            "meals": {
+                "date_inferred": date_iso,
+                "meal_type": meal_type,
+            },
+            "sleep": {
+                "date_inferred": date_iso,
+                "hours_slept": hours_slept,
+                "quality": sleep_quality,
+            },
+            "workout": {
+                "date_inferred": date_iso,
+                "workout_type": workout_type,
+                "duration_min": duration,
+            },
+        }
 
     def _coerce_section(self, section: Any) -> Dict[str, str]:
         if isinstance(section, dict):

@@ -42,6 +42,63 @@
     </article>
   </section>
 
+  <section
+    class="surface-card viz-hub"
+    data-dashboard-root
+    data-supabase-url="{{ supabase_url or '' }}"
+    data-supabase-key="{{ supabase_anon_key or '' }}"
+    data-user-id="{{ user_id or '' }}"
+  >
+    <div class="section-header viz-header">
+      <div>
+        <small>Dashboard visualizations</small>
+        <h3 style="margin:0.4rem 0 0;">Meals, workouts &amp; sleep</h3>
+        <p class="stat-detail" style="margin-top:0.6rem; max-width:520px;">Supabase-powered charts with daily, weekly, and monthly views.</p>
+      </div>
+      <div class="viz-range-toggle" role="group" aria-label="Select dashboard range">
+        <button type="button" class="viz-chip is-active" data-range="daily">Daily</button>
+        <button type="button" class="viz-chip" data-range="weekly">Weekly</button>
+        <button type="button" class="viz-chip" data-range="monthly">Monthly</button>
+      </div>
+    </div>
+    <div class="viz-grid">
+      <article class="viz-card">
+        <div class="viz-card__title">
+          <div>
+            <small>Meals</small>
+            <h4 style="margin:0.2rem 0 0;">Daily caloric intake</h4>
+          </div>
+          <span class="viz-pill">Bar</span>
+        </div>
+        <canvas id="meals-chart" data-chart-target="meals" aria-label="Meals chart" role="img"></canvas>
+      </article>
+      <article class="viz-card">
+        <div class="viz-card__title">
+          <div>
+            <small>Workouts</small>
+            <h4 style="margin:0.2rem 0 0;">Workout duration</h4>
+          </div>
+          <span class="viz-pill">Line</span>
+        </div>
+        <canvas id="workouts-chart" data-chart-target="workouts" aria-label="Workouts chart" role="img"></canvas>
+      </article>
+      <article class="viz-card">
+        <div class="viz-card__title">
+          <div>
+            <small>Sleep</small>
+            <h4 style="margin:0.2rem 0 0;">Hours of sleep</h4>
+          </div>
+          <span class="viz-pill">Area</span>
+        </div>
+        <canvas id="sleep-chart" data-chart-target="sleep" aria-label="Sleep chart" role="img"></canvas>
+      </article>
+    </div>
+    <p class="stat-detail viz-status" data-viz-status>Loading Supabase data…</p>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <div class="grid-responsive">
     <section class="trend-board">
       <div class="section-header" style="margin-bottom:0;">

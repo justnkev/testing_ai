@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 from datetime import datetime, timezone
 from functools import wraps
 import logging
@@ -333,6 +334,13 @@ def dashboard() -> str | Response:
     logs = current_app.storage_service.fetch_logs(user['id'])
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
+    supabase_url = os.getenv('SUPABASE_URL') or os.getenv('SUPABASE_PROJECT_URL')
+    supabase_anon_key = (
+        os.getenv('SUPABASE_ANON_KEY')
+        or os.getenv('SUPABASE_ANON_KEY_SECRET')
+        or os.getenv('SUPABASE_API_KEY')
+    )
+
     stats, trend = _derive_dashboard_stats(logs)
     recent_logs = list(reversed(logs[-3:])) if logs else []
 
@@ -344,6 +352,9 @@ def dashboard() -> str | Response:
         stats=stats,
         trend=trend,
         recent_logs=recent_logs,
+        supabase_url=supabase_url,
+        supabase_anon_key=supabase_anon_key,
+        user_id=user['id'],
     )
 
 

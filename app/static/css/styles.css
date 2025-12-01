@@ -1112,6 +1112,91 @@ input[type="file"] {
   width: 100%;
 }
 
+.viz-hub {
+  margin-top: 1.5rem;
+  border: 1px solid rgba(140, 123, 255, 0.2);
+  background: linear-gradient(135deg, rgba(20, 24, 42, 0.92), rgba(16, 21, 36, 0.88));
+  box-shadow: var(--shadow-soft);
+}
+
+.viz-header {
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.viz-range-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.viz-chip {
+  border: 1px solid rgba(140, 123, 255, 0.35);
+  background: rgba(140, 123, 255, 0.12);
+  color: var(--color-text);
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.viz-chip:hover,
+.viz-chip:focus {
+  background: rgba(140, 123, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.viz-chip.is-active {
+  background: rgba(61, 214, 208, 0.16);
+  border-color: rgba(61, 214, 208, 0.8);
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.1rem;
+  margin-top: 1.2rem;
+}
+
+.viz-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(140, 123, 255, 0.18);
+  border-radius: var(--radius-md);
+  padding: 1.2rem;
+  min-height: 280px;
+}
+
+.viz-card__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.viz-card canvas {
+  width: 100%;
+  height: 240px;
+}
+
+.viz-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.viz-status {
+  margin-top: 1rem;
+  color: var(--color-muted);
+}
+
 @media (max-width: 992px) {
   .fitvision-shell {
     flex-direction: column;

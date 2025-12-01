@@ -103,6 +103,33 @@ class HealthIngestionTests(TestCase):
                 self.assertEqual("lunch", meals[0].get("meal_type"))
                 self.assertEqual("2024-01-02", meals[0].get("date_inferred"))
 
+    def test_ingest_defaults_missing_workout_duration_to_zero(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                record = {
+                    "id": 2,
+                    "user_id": "user-1",
+                    "created_at": "2024-01-03T08:00:00+00:00",
+                    "log_data": {"timestamp": "2024-01-03T08:00:00+00:00"},
+                }
+
+                with patch.object(
+                    ai_service,
+                    "interpret_health_log",
+                    return_value={"workout": {"workout_type": "other"}},
+                ):
+                    ingestion.ingest_log(record)
+
+                workouts = storage.list_normalized_records("workouts", "user-1")
+                self.assertEqual(1, len(workouts))
+                self.assertEqual(0, workouts[0].get("duration_min"))
+                self.assertEqual("other", workouts[0].get("workout_type"))
+
     def _patched_environ(self, updates):
         return patch.dict(os.environ, updates, clear=False)
 

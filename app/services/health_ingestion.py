@@ -219,12 +219,21 @@ class HealthDataIngestion:
             }
         )
 
+        raw_duration = workout_data.get("duration_min")
+        try:
+            duration_min = int(raw_duration) if raw_duration is not None else 0
+        except (TypeError, ValueError):
+            duration_min = 0
+
+        if duration_min < 0:
+            duration_min = 0
+
         return {
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
             "workout_type": workout_data.get("workout_type") or "other",
-            "duration_min": workout_data.get("duration_min"),
+            "duration_min": duration_min,
             "metadata": metadata,
             "created_at": created_at,
         }

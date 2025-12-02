@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 from datetime import datetime, timezone
 from functools import wraps
 import logging
@@ -151,6 +152,26 @@ def _ensure_onboarding_complete() -> Optional[Response]:
     if not _onboarding_complete():
         flash('Complete onboarding to unlock your personalized dashboard.', 'info')
         return redirect(url_for('main.onboarding'))
+    return None
+
+
+def _get_env_value(*names: str) -> Optional[str]:
+    """Return the first truthy environment variable from ``names``."""
+
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _supabase_client_config() -> Optional[Dict[str, str]]:
+    """Expose the Supabase URL/key for the dashboard visualizations."""
+
+    url = _get_env_value('SUPABASE_URL', 'SUPABASE_URL_SECRET', 'SUPABASE_PROJECT_URL')
+    key = _get_env_value('SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY_SECRET', 'SUPABASE_API_KEY')
+    if url and key:
+        return {'url': url, 'key': key}
     return None
 
 
@@ -344,6 +365,7 @@ def dashboard() -> str | Response:
         stats=stats,
         trend=trend,
         recent_logs=recent_logs,
+        supabase_client_config=_supabase_client_config(),
     )
 
 

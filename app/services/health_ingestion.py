@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from collections import defaultdict
@@ -94,6 +95,71 @@ class HealthDataIngestion:
         )
         if workout_payload:
             self._storage.upsert_normalized_record("workouts", workout_payload)
+
+    def enrich_metadata_logs(self, user_id: str) -> Dict[str, int]:
+        """Process metadata-bearing progress logs into normalized tables."""
+
+        try:
+            records = self._storage.fetch_progress_logs_with_metadata(user_id)
+        except Exception:
+            logger.warning("health_ingestion.metadata_fetch_failed", exc_info=True)
+            return {"processed": 0, "sleep_updates": 0, "workout_updates": 0}
+
+        processed = 0
+        sleep_updates = 0
+        workout_updates = 0
+
+        for record in records:
+            metadata = self._coerce_metadata(record)
+            if not metadata:
+                continue
+
+            parsed = self._ai.extract_activity_from_metadata(metadata)
+            if not parsed:
+                continue
+
+            processed += 1
+            progress_log_id = record.get("id")
+            created_at = record.get("created_at")
+            date_inferred = self._infer_date(created_at)
+            base_metadata = {
+                "source_progress_log_id": progress_log_id,
+                "source_metadata": metadata,
+                "llm_method": "metadata_enrichment_v1",
+            }
+
+            sleep_hours = parsed.get("sleep_hours")
+            if sleep_hours is not None:
+                sleep_payload = {
+                    "user_id": record.get("user_id"),
+                    "progress_log_id": progress_log_id,
+                    "date_inferred": date_inferred,
+                    "time_asleep": f"{sleep_hours}h",
+                    "metadata": base_metadata,
+                    "created_at": created_at,
+                }
+                self._storage.upsert_normalized_record("sleep", sleep_payload)
+                sleep_updates += 1
+
+            workout_minutes = parsed.get("workout_minutes")
+            if workout_minutes is not None:
+                workout_payload = {
+                    "user_id": record.get("user_id"),
+                    "progress_log_id": progress_log_id,
+                    "date_inferred": date_inferred,
+                    "workout_type": "other",
+                    "duration_min": workout_minutes,
+                    "metadata": base_metadata,
+                    "created_at": created_at,
+                }
+                self._storage.upsert_normalized_record("workouts", workout_payload)
+                workout_updates += 1
+
+        return {
+            "processed": processed,
+            "sleep_updates": sleep_updates,
+            "workout_updates": workout_updates,
+        }
 
     def _base_metadata(
         self,
@@ -248,6 +314,20 @@ class HealthDataIngestion:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.date().isoformat()
+
+    def _coerce_metadata(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        metadata = record.get("metadata")
+        log_data = record.get("log_data") or {}
+        if metadata is None and isinstance(log_data, dict):
+            metadata = log_data.get("metadata")
+
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except Exception:
+                return {}
+
+        return metadata if isinstance(metadata, dict) else {}
 
     def _normalize_section(self, section: Any) -> Dict[str, Any]:
         if isinstance(section, dict):

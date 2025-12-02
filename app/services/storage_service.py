@@ -562,7 +562,11 @@ class StorageService:
     def fetch_progress_log_records(self, user_id: Optional[str] = None) -> List[Dict]:
         if self._supabase:
             try:
-                query = self._supabase.table('progress_logs').select('id, user_id, log_data, created_at').order('created_at', desc=False)
+                query = (
+                    self._supabase.table('progress_logs')
+                    .select('id, user_id, log_data, metadata, created_at')
+                    .order('created_at', desc=False)
+                )
                 if user_id:
                     query = query.eq('user_id', user_id)
                 response = query.execute()
@@ -581,6 +585,24 @@ class StorageService:
             if isinstance(data, list):
                 records.extend([item for item in data if isinstance(item, dict)])
         return records
+
+    def fetch_progress_logs_with_metadata(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return progress logs that carry a metadata payload."""
+
+        records = self.fetch_progress_log_records(user_id)
+        with_metadata: List[Dict[str, Any]] = []
+
+        for record in records:
+            metadata = record.get('metadata')
+            log_data = record.get('log_data') or {}
+            log_metadata = log_data.get('metadata') if isinstance(log_data, dict) else None
+
+            if metadata or log_metadata:
+                if metadata is None and log_metadata is not None:
+                    record['metadata'] = log_metadata
+                with_metadata.append(record)
+
+        return with_metadata
 
     def get_weekly_prompt(self, user_id: str) -> str:
         logs = self.fetch_logs(user_id)

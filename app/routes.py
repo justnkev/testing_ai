@@ -599,6 +599,21 @@ def daily_calories() -> Dict[str, Any]:
     return {'data': data}
 
 
+@main_bp.route('/api/enrich_metadata', methods=['POST'])
+def enrich_metadata() -> Dict[str, Any]:
+    redirect_url = _require_login()
+    if redirect_url:
+        return {'error': 'Unauthorized'}, 401
+
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    if not ingester:
+        return {'error': 'Ingestion unavailable'}, 503
+
+    result = ingester.enrich_metadata_logs(user_id)
+    return result
+
+
 @main_bp.route('/visualize', methods=['GET', 'POST'])
 def visualize() -> str | Response:
     redirect_url = _require_login()

@@ -169,6 +169,59 @@ class AIService:
 
         return self._heuristic_health(log_entry, timestamp)
 
+    def extract_activity_from_metadata(self, metadata: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
+        """Extract sleep hours and workout minutes from wearable metadata."""
+
+        if not metadata or not self._gemini_model:
+            return None
+
+        try:
+            metadata_json = json.dumps(metadata)
+        except Exception:
+            return None
+
+        prompt = (
+            "You are a health data analyst. Given structured metadata from a progress log, "
+            "extract total sleep hours (float) and workout duration minutes (int). "
+            "Respond with strict JSON using keys: sleep_hours (float or null) and workout_minutes (int or null). "
+            "Return null when a value is missing or cannot be inferred.\n\n"
+            f"Metadata JSON: {metadata_json}\n"
+            "JSON:"
+        )
+
+        raw = self._call_gemini(prompt)
+        if not raw:
+            return None
+
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+        except Exception:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        sleep_hours = data.get("sleep_hours")
+        workout_minutes = data.get("workout_minutes")
+
+        try:
+            sleep_hours_val: Optional[float] = float(sleep_hours) if sleep_hours is not None else None
+        except (TypeError, ValueError):
+            sleep_hours_val = None
+
+        try:
+            workout_minutes_val: Optional[int] = (
+                int(round(float(workout_minutes))) if workout_minutes is not None else None
+            )
+        except (TypeError, ValueError):
+            workout_minutes_val = None
+
+        if workout_minutes_val is not None and workout_minutes_val < 0:
+            workout_minutes_val = 0
+
+        return {"sleep_hours": sleep_hours_val, "workout_minutes": workout_minutes_val}
+
     def estimate_meal_calories(self, meal_text: str) -> Optional[Dict[str, Any]]:
         """Estimate nutrition details for a meal description using Gemini."""
 

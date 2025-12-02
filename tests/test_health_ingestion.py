@@ -130,6 +130,41 @@ class HealthIngestionTests(TestCase):
                 self.assertEqual(0, workouts[0].get("duration_min"))
                 self.assertEqual("other", workouts[0].get("workout_type"))
 
+    def test_enrich_metadata_logs_updates_sleep_and_workout(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                record = {
+                    "id": 3,
+                    "user_id": "user-1",
+                    "created_at": "2024-01-04T07:00:00+00:00",
+                    "metadata": {"sleep": {"duration_hours": 7.5}, "activity": {"minutes": 45}},
+                }
+
+                with patch.object(storage, "fetch_progress_logs_with_metadata", return_value=[record]):
+                    with patch.object(
+                        ai_service,
+                        "extract_activity_from_metadata",
+                        return_value={"sleep_hours": 7.5, "workout_minutes": 45},
+                    ):
+                        result = ingestion.enrich_metadata_logs("user-1")
+
+                self.assertEqual({"processed": 1, "sleep_updates": 1, "workout_updates": 1}, result)
+
+                sleep_rows = storage.list_normalized_records("sleep", "user-1")
+                self.assertEqual(1, len(sleep_rows))
+                self.assertEqual("3", str(sleep_rows[0].get("progress_log_id")))
+                self.assertIn("7.5h", sleep_rows[0].get("time_asleep"))
+
+                workouts = storage.list_normalized_records("workouts", "user-1")
+                self.assertEqual(1, len(workouts))
+                self.assertEqual(45, workouts[0].get("duration_min"))
+                self.assertEqual("3", str(workouts[0].get("progress_log_id")))
+
     def _patched_environ(self, updates):
         return patch.dict(os.environ, updates, clear=False)
 

@@ -42,6 +42,58 @@
     </article>
   </section>
 
+  <section class="surface-card chart-section" aria-label="Progress visualizations">
+    <div class="section-header chart-header">
+      <div>
+        <small>Visual pulse</small>
+        <h3 style="margin:0.4rem 0 0;">Nutrition, training, and recovery</h3>
+      </div>
+      <div class="chart-toggle" role="group" aria-label="Select chart interval">
+        <button type="button" class="fv-button fv-button--ghost is-active" data-range="daily">Daily</button>
+        <button type="button" class="fv-button fv-button--ghost" data-range="weekly">Weekly</button>
+        <button type="button" class="fv-button fv-button--ghost" data-range="monthly">Monthly</button>
+      </div>
+    </div>
+    <div class="chart-grid" role="list">
+      <figure class="chart-card" role="listitem" aria-labelledby="meals-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Meals</small>
+            <h4 id="meals-chart-title">Meals logged</h4>
+          </div>
+          <p class="stat-detail">Bar chart of captured meals</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Meals logged chart">
+          <canvas id="mealsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="workouts-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Training</small>
+            <h4 id="workouts-chart-title">Workout streak</h4>
+          </div>
+          <p class="stat-detail">Line chart of completed sessions</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Workouts completed chart">
+          <canvas id="workoutsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="sleep-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Recovery</small>
+            <h4 id="sleep-chart-title">Sleep rhythm</h4>
+          </div>
+          <p class="stat-detail">Area chart of nightly hours</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Sleep hours chart">
+          <canvas id="sleepChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+    </div>
+  </section>
+
   <div class="grid-responsive">
     <section class="trend-board">
       <div class="section-header" style="margin-bottom:0;">
@@ -129,5 +181,6 @@
     <p class="stat-detail">Complete onboarding to receive your personalized plan.</p>
     {% endif %}
   </section>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </div>
 {% endblock %}

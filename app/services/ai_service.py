@@ -169,6 +169,91 @@ class AIService:
 
         return self._heuristic_health(log_entry, timestamp)
 
+    def extract_activity_from_metadata(self, metadata: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
+        """Extract sleep hours and workout minutes from wearable metadata."""
+
+        if not metadata or not self._gemini_model:
+            return None
+
+        try:
+            metadata_json = json.dumps(metadata)
+        except Exception:
+            return None
+
+        prompt = (
+            "You are a health data analyst. Given structured metadata from a progress log, "
+            "extract total sleep hours (float) and workout duration minutes (int). "
+            "Respond with strict JSON using keys: sleep_hours (float or null) and workout_minutes (int or null). "
+            "Return null when a value is missing or cannot be inferred.\n\n"
+            f"Metadata JSON: {metadata_json}\n"
+            "JSON:"
+        )
+
+        raw = self._call_gemini(prompt)
+        if not raw:
+            return None
+
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+        except Exception:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        sleep_hours = data.get("sleep_hours")
+        workout_minutes = data.get("workout_minutes")
+
+        try:
+            sleep_hours_val: Optional[float] = float(sleep_hours) if sleep_hours is not None else None
+        except (TypeError, ValueError):
+            sleep_hours_val = None
+
+        try:
+            workout_minutes_val: Optional[int] = (
+                int(round(float(workout_minutes))) if workout_minutes is not None else None
+            )
+        except (TypeError, ValueError):
+            workout_minutes_val = None
+
+        if workout_minutes_val is not None and workout_minutes_val < 0:
+            workout_minutes_val = 0
+
+        return {"sleep_hours": sleep_hours_val, "workout_minutes": workout_minutes_val}
+
+    def interpret_sleep_log(self, sleep_text: str) -> Optional[Dict[str, Any]]:
+        """Interpret a sleep log into structured data like quality and duration."""
+        if not sleep_text or not self._gemini_model:
+            return None
+
+        prompt = (
+            "You are a sleep analyst. Given a free-text sleep description, "
+            "extract the total sleep duration in hours and a quality assessment. "
+            "Respond ONLY with valid JSON with keys: "
+            'time_asleep (float), quality ("poor", "okay", "good", "great", or "unknown"), '
+            'and notes (a short string for context or explanation). '
+            "Return null for values that cannot be determined.\n\n"
+            f"Sleep entry: {sleep_text}\n"
+            "JSON:"
+        )
+
+        raw = self._call_gemini(prompt)
+        if not raw:
+            return None
+
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+            if not isinstance(data, dict):
+                return None
+
+            if "time_asleep" in data and data["time_asleep"] is not None:
+                data["time_asleep"] = float(data["time_asleep"])
+            return data
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+
     def estimate_meal_calories(self, meal_text: str) -> Optional[Dict[str, Any]]:
         """Estimate nutrition details for a meal description using Gemini."""
 
@@ -179,7 +264,7 @@ class AIService:
             "You are a nutrition estimator. Given a free-text meal description, "
             "estimate total calories and macro grams. Respond ONLY valid JSON with keys: "
             'calories (int), protein_g (int), carbs_g (int), fat_g (int), confidence (0-1 float), notes (short string). '
-            "Assume common US servings; be conservative when uncertain.\n\n"
+            "Assume common US servings; be liberal when uncertain.\n\n"
             f"Meal: {meal_text}\n"
             "JSON:"
         )

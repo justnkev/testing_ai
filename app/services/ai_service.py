@@ -254,6 +254,37 @@ class AIService:
         except (json.JSONDecodeError, TypeError, ValueError):
             return None
 
+    def interpret_workout_log(self, workout_text: str) -> Optional[Dict[str, Any]]:
+        """Interpret a workout log into structured data like type and duration."""
+        if not workout_text or not self._gemini_model:
+            return None
+
+        prompt = (
+            "You are a fitness analyst. Given a free-text workout description, "
+            "extract the total workout duration in minutes and the workout type. "
+            "Respond ONLY with valid JSON with keys: "
+            'duration_min (int), workout_type ("strength", "cardio", "mixed", "yoga", "pilates", "other"), '
+            'and notes (a short string for context or explanation). '
+            "Return null for values that cannot be determined.\n\n"
+            f"Workout entry: {workout_text}\n"
+            "JSON:"
+        )
+
+        raw = self._call_gemini(prompt)
+        if not raw:
+            return None
+
+        try:
+            cleaned = self._strip_code_fences(raw)
+            data = json.loads(cleaned)
+            if not isinstance(data, dict):
+                return None
+            if "duration_min" in data and data["duration_min"] is not None:
+                data["duration_min"] = int(data["duration_min"])
+            return data
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+
     def estimate_meal_calories(self, meal_text: str) -> Optional[Dict[str, Any]]:
         """Estimate nutrition details for a meal description using Gemini."""
 

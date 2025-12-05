@@ -497,6 +497,22 @@ def progress() -> str | Response:
             except Exception:
                 estimation = None
 
+        workout_interpretation: Optional[Dict[str, Any]] = None
+        if workout:
+            try:
+                workout_interpretation = current_app.ai_service.interpret_workout_log(workout)
+            except Exception:
+                logger.warning('workout_interpretation.failed', exc_info=True)
+                workout_interpretation = None
+
+        sleep_interpretation: Optional[Dict[str, Any]] = None
+        if sleep:
+            try:
+                sleep_interpretation = current_app.ai_service.interpret_sleep_log(sleep)
+            except Exception:
+                logger.warning('sleep_interpretation.failed', exc_info=True)
+                sleep_interpretation = None
+
         log_entry: Dict[str, Any] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'workout': workout,
@@ -516,10 +532,13 @@ def progress() -> str | Response:
             fat = estimation.get('fat_g')
             if protein is not None:
                 macro_segments.append(f"P {protein}g")
+                log_entry['protein_g'] = protein
             if carbs is not None:
                 macro_segments.append(f"C {carbs}g")
+                log_entry['carbs_g'] = carbs
             if fat is not None:
                 macro_segments.append(f"F {fat}g")
+                log_entry['fat_g'] = fat
 
             confidence = estimation.get('confidence')
             confidence_text: Optional[str]
@@ -537,6 +556,22 @@ def progress() -> str | Response:
             notes = estimation.get('notes')
             if notes:
                 log_entry['estimation_notes'] = str(notes)
+
+        if workout_interpretation:
+            duration = workout_interpretation.get('duration_min')
+            if duration is not None:
+                log_entry['workout_duration_min'] = duration
+            workout_type = workout_interpretation.get('workout_type')
+            if workout_type:
+                log_entry['workout_type'] = workout_type
+
+        if sleep_interpretation:
+            time_asleep = sleep_interpretation.get('time_asleep')
+            if time_asleep is not None:
+                log_entry['time_asleep'] = time_asleep
+            quality = sleep_interpretation.get('quality')
+            if quality:
+                log_entry['sleep_quality'] = quality
 
         progress_log = current_app.storage_service.append_log(user_id, log_entry)
         ingester = getattr(current_app, 'health_ingestion', None)

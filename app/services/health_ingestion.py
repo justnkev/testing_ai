@@ -72,25 +72,20 @@ class HealthDataIngestion:
         progress_log_id = progress_log.get("id")
         created_at = progress_log.get("created_at")
 
-        interpretation = self._ai.interpret_health_log(log_data)
-        if not interpretation:
-            logger.info("health_ingestion.llm_unavailable", extra={"progress_log_id": progress_log_id})
-            return
-
         meals_payload = self._build_meals_record(
-            interpretation, log_data, user_id, progress_log_id, created_at
+            log_data, user_id, progress_log_id, created_at
         )
         if meals_payload:
             self._storage.upsert_normalized_record("meals", meals_payload)
 
         sleep_payload = self._build_sleep_record(
-            interpretation, log_data, user_id, progress_log_id, created_at
+            log_data, user_id, progress_log_id, created_at
         )
         if sleep_payload:
             self._storage.upsert_normalized_record("sleep", sleep_payload)
 
         workout_payload = self._build_workout_record(
-            interpretation, log_data, user_id, progress_log_id, created_at
+            log_data, user_id, progress_log_id, created_at
         )
         if workout_payload:
             self._storage.upsert_normalized_record("workouts", workout_payload)
@@ -113,31 +108,39 @@ class HealthDataIngestion:
 
     def _build_meals_record(
         self,
-        interpretation: Dict[str, Any],
         log_data: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        meals_data = self._normalize_section(interpretation.get("meals"))
-        date_inferred = meals_data.get("date_inferred")
-        if not date_inferred:
-            date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
+        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
 
         calories = log_data.get("calories")
-        meal_type = meals_data.get("meal_type") or "unknown"
-        if not any([calories, log_data.get("meals"), meals_data]):
+        protein_g = log_data.get("protein_g")
+        carbs_g = log_data.get("carbs_g")
+        fat_g = log_data.get("fat_g")
+        meal_type = "unknown" # This could be enhanced if meal interpretation adds a type
+        if not any([calories, log_data.get("meals")]):
             return None
 
         metadata = self._base_metadata(log_data, progress_log_id, created_at)
         metadata.update(
             {
                 "original_meals_text": log_data.get("meals"),
-                "llm_meal_type": meal_type,
-                "llm_date_phrase": meals_data.get("date_phrase"),
                 "llm_method": "health_interpretation_v1",
             }
         )
+
+        # Also update the macros object in metadata to be more comprehensive
+        macros_meta = metadata.get("macros", {})
+        if isinstance(macros_meta, dict):
+            if protein_g is not None:
+                macros_meta['protein_g'] = protein_g
+            if carbs_g is not None:
+                macros_meta['carbs_g'] = carbs_g
+            if fat_g is not None:
+                macros_meta['fat_g'] = fat_g
+            metadata['macros'] = macros_meta
 
         return {
             "user_id": user_id,
@@ -145,95 +148,78 @@ class HealthDataIngestion:
             "date_inferred": date_inferred,
             "meal_type": meal_type,
             "calories": calories,
+            "protein_g": protein_g,
+            "carbs_g": carbs_g,
+            "fat_g": fat_g,
             "metadata": metadata,
             "created_at": created_at,
         }
 
     def _build_sleep_record(
         self,
-        interpretation: Dict[str, Any],
         log_data: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        sleep_data = self._normalize_section(interpretation.get("sleep"))
-        date_inferred = sleep_data.get("date_inferred") or self._infer_date(
-            log_data.get("timestamp") or created_at
-        )
+        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
+        time_asleep_val = log_data.get("time_asleep")
+        quality = log_data.get("sleep_quality")
 
-        if not (log_data.get("sleep") or sleep_data):
+        if not log_data.get("sleep"):
             return None
 
         metadata = self._base_metadata(log_data, progress_log_id, created_at)
         metadata.update(
             {
                 "original_sleep_text": log_data.get("sleep"),
-                "hours_slept": sleep_data.get("hours_slept"),
-                "bedtime": sleep_data.get("bedtime"),
-                "wake_time": sleep_data.get("wake_time"),
-                "llm_quality_score": sleep_data.get("quality_score"),
-                "llm_date_phrase": sleep_data.get("date_phrase"),
+                "hours_slept": time_asleep_val,
                 "llm_method": "health_interpretation_v1",
             }
         )
 
-        time_asleep = sleep_data.get("hours_slept")
-        time_asleep_str = f"{time_asleep}h" if time_asleep is not None else None
-        quality = sleep_data.get("quality") or "unknown"
+        time_asleep_str = f"{time_asleep_val}h" if time_asleep_val is not None else None
+        final_quality = quality or "unknown"
 
         return {
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
             "time_asleep": time_asleep_str,
-            "quality": quality,
+            "quality": final_quality,
             "metadata": metadata,
             "created_at": created_at,
         }
 
     def _build_workout_record(
         self,
-        interpretation: Dict[str, Any],
         log_data: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
         created_at: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        workout_data = self._normalize_section(interpretation.get("workout"))
-        date_inferred = workout_data.get("date_inferred") or self._infer_date(
-            log_data.get("timestamp") or created_at
-        )
+        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
+        duration_min_val = log_data.get("workout_duration_min")
+        workout_type_val = log_data.get("workout_type")
 
-        if not (log_data.get("workout") or workout_data):
+        if not log_data.get("workout"):
             return None
 
         metadata = self._base_metadata(log_data, progress_log_id, created_at)
         metadata.update(
             {
                 "original_workout_text": log_data.get("workout"),
-                "activities": workout_data.get("activities"),
-                "intensity": workout_data.get("intensity"),
-                "primary_muscle_group": workout_data.get("muscle_group"),
                 "llm_method": "health_interpretation_v1",
             }
         )
 
-        raw_duration = workout_data.get("duration_min")
-        try:
-            duration_min = int(raw_duration) if raw_duration is not None else 0
-        except (TypeError, ValueError):
-            duration_min = 0
-
-        if duration_min < 0:
-            duration_min = 0
 
         return {
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
-            "workout_type": workout_data.get("workout_type") or "other",
-            "duration_min": duration_min,
+            "workout_type": workout_type_val or "other",
+            "duration_min": duration_min_val or 0,
             "metadata": metadata,
             "created_at": created_at,
         }

@@ -71,24 +71,25 @@ class HealthDataIngestion:
         user_id = progress_log.get("user_id")
         progress_log_id = progress_log.get("id")
         created_at = progress_log.get("created_at")
+        date_inferred = self._infer_date(created_at)
 
-        meals_payload = self._build_meals_record(
-            log_data, user_id, progress_log_id, created_at
-        )
-        if meals_payload:
-            self._storage.upsert_normalized_record("meals", meals_payload)
+        # Ingest each meal entry as a separate record
+        for meal_entry in log_data.get("meals_log", []):
+            payload = self._build_meal_entry_record(meal_entry, user_id, progress_log_id, date_inferred)
+            if payload:
+                self._storage.upsert_normalized_record("meals", payload, on_conflict='entry_id')
 
-        sleep_payload = self._build_sleep_record(
-            log_data, user_id, progress_log_id, created_at
-        )
-        if sleep_payload:
-            self._storage.upsert_normalized_record("sleep", sleep_payload)
+        # Ingest each sleep entry
+        for sleep_entry in log_data.get("sleep_log", []):
+            payload = self._build_sleep_entry_record(sleep_entry, user_id, progress_log_id, date_inferred)
+            if payload:
+                self._storage.upsert_normalized_record("sleep", payload, on_conflict='entry_id')
 
-        workout_payload = self._build_workout_record(
-            log_data, user_id, progress_log_id, created_at
-        )
-        if workout_payload:
-            self._storage.upsert_normalized_record("workouts", workout_payload)
+        # Ingest each workout entry
+        for workout_entry in log_data.get("workouts_log", []):
+            payload = self._build_workout_entry_record(workout_entry, user_id, progress_log_id, date_inferred)
+            if payload:
+                self._storage.upsert_normalized_record("workouts", payload, on_conflict='entry_id')
 
     def _base_metadata(
         self,
@@ -106,122 +107,107 @@ class HealthDataIngestion:
             metadata["macros"] = {"raw_string": log_data.get("macros")}
         return metadata
 
-    def _build_meals_record(
+    def _build_meal_entry_record(
         self,
-        log_data: Dict[str, Any],
+        meal_entry: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
-        created_at: Optional[str],
+        date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
-
-        calories = log_data.get("calories")
-        protein_g = log_data.get("protein_g")
-        carbs_g = log_data.get("carbs_g")
-        fat_g = log_data.get("fat_g")
-        meal_type = "unknown" # This could be enhanced if meal interpretation adds a type
-        if not any([calories, log_data.get("meals")]):
+        entry_id = meal_entry.get("entry_id")
+        if not entry_id:
             return None
 
-        metadata = self._base_metadata(log_data, progress_log_id, created_at)
-        metadata.update(
-            {
-                "original_meals_text": log_data.get("meals"),
-                "llm_method": "health_interpretation_v1",
-            }
-        )
+        calories = meal_entry.get("calories")
+        protein_g = meal_entry.get("protein_g")
+        carbs_g = meal_entry.get("carbs_g")
+        fat_g = meal_entry.get("fat_g")
 
-        # Also update the macros object in metadata to be more comprehensive
-        macros_meta = metadata.get("macros", {})
-        if isinstance(macros_meta, dict):
-            if protein_g is not None:
-                macros_meta['protein_g'] = protein_g
-            if carbs_g is not None:
-                macros_meta['carbs_g'] = carbs_g
-            if fat_g is not None:
-                macros_meta['fat_g'] = fat_g
-            metadata['macros'] = macros_meta
+        metadata = {
+            "source_progress_log_id": progress_log_id,
+            "source_log_timestamp": meal_entry.get("timestamp"),
+            "original_text": meal_entry.get("text"),
+            "estimation_notes": meal_entry.get("notes"),
+            "confidence": meal_entry.get("confidence"),
+            "llm_method": "meal_estimation_v1",
+        }
 
         return {
+            "entry_id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
-            "meal_type": meal_type,
+            "meal_type": "unknown", # Could be enhanced later
             "calories": calories,
             "protein_g": protein_g,
             "carbs_g": carbs_g,
             "fat_g": fat_g,
             "metadata": metadata,
-            "created_at": created_at,
+            "created_at": meal_entry.get("timestamp"),
         }
 
-    def _build_sleep_record(
+    def _build_sleep_entry_record(
         self,
-        log_data: Dict[str, Any],
+        sleep_entry: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
-        created_at: Optional[str],
+        date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
-        time_asleep_val = log_data.get("time_asleep")
-        quality = log_data.get("sleep_quality")
-
-        if not log_data.get("sleep"):
+        entry_id = sleep_entry.get("entry_id")
+        if not entry_id:
             return None
 
-        metadata = self._base_metadata(log_data, progress_log_id, created_at)
-        metadata.update(
-            {
-                "original_sleep_text": log_data.get("sleep"),
-                "hours_slept": time_asleep_val,
-                "llm_method": "health_interpretation_v1",
-            }
-        )
-
+        time_asleep_val = sleep_entry.get("time_asleep")
+        quality = sleep_entry.get("quality") or "unknown"
         time_asleep_str = f"{time_asleep_val}h" if time_asleep_val is not None else None
-        final_quality = quality or "unknown"
+
+        metadata = {
+            "source_progress_log_id": progress_log_id,
+            "source_log_timestamp": sleep_entry.get("timestamp"),
+            "original_text": sleep_entry.get("text"),
+            "notes": sleep_entry.get("notes"),
+            "llm_method": "sleep_interpretation_v1",
+        }
 
         return {
+            "entry_id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
             "time_asleep": time_asleep_str,
-            "quality": final_quality,
+            "quality": quality,
             "metadata": metadata,
-            "created_at": created_at,
+            "created_at": sleep_entry.get("timestamp"),
         }
 
-    def _build_workout_record(
+    def _build_workout_entry_record(
         self,
-        log_data: Dict[str, Any],
+        workout_entry: Dict[str, Any],
         user_id: Optional[str],
         progress_log_id: Optional[int],
-        created_at: Optional[str],
+        date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        date_inferred = self._infer_date(log_data.get("timestamp") or created_at)
-        duration_min_val = log_data.get("workout_duration_min")
-        workout_type_val = log_data.get("workout_type")
-
-        if not log_data.get("workout"):
+        entry_id = workout_entry.get("entry_id")
+        if not entry_id:
             return None
 
-        metadata = self._base_metadata(log_data, progress_log_id, created_at)
-        metadata.update(
-            {
-                "original_workout_text": log_data.get("workout"),
+        metadata = {
+            "source_progress_log_id": progress_log_id,
+            "source_log_timestamp": workout_entry.get("timestamp"),
+            "original_text": workout_entry.get("text"),
+            "notes": workout_entry.get("notes"),
                 "llm_method": "health_interpretation_v1",
-            }
-        )
-
+        }
 
         return {
+            "entry_id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
-            "workout_type": workout_type_val or "other",
-            "duration_min": duration_min_val or 0,
+            "workout_type": workout_entry.get("workout_type") or "other",
+            "duration_min": workout_entry.get("duration_min") or 0,
             "metadata": metadata,
-            "created_at": created_at,
+            "created_at": workout_entry.get("timestamp"),
         }
 
     def _infer_date(self, timestamp: Optional[str]) -> Optional[str]:

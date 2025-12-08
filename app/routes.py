@@ -483,104 +483,69 @@ def progress() -> str | Response:
         sleep = (request.form.get('sleep') or '').strip()
         habits = (request.form.get('habits') or '').strip()
 
-        required_fields = {'Workout': workout, 'Meals': meals, 'Sleep': sleep, 'Habits': habits}
-        missing_fields = [name for name, value in required_fields.items() if not value]
-
-        if missing_fields:
-            flash(f"Please complete all fields: {', '.join(missing_fields)}.", 'warning')
+        if not any([workout, meals, sleep, habits]):
+            flash("Please fill out at least one section to log your progress.", 'warning')
             return redirect(url_for('main.progress'))
 
-        estimation: Optional[Dict[str, Any]] = None
-        if meals:
-            try:
-                estimation = current_app.ai_service.estimate_meal_calories(meals)
-            except Exception:
-                estimation = None
-
-        workout_interpretation: Optional[Dict[str, Any]] = None
-        if workout:
-            try:
-                workout_interpretation = current_app.ai_service.interpret_workout_log(workout)
-            except Exception:
-                logger.warning('workout_interpretation.failed', exc_info=True)
-                workout_interpretation = None
-
-        sleep_interpretation: Optional[Dict[str, Any]] = None
-        if sleep:
-            try:
-                sleep_interpretation = current_app.ai_service.interpret_sleep_log(sleep)
-            except Exception:
-                logger.warning('sleep_interpretation.failed', exc_info=True)
-                sleep_interpretation = None
-
-        log_entry: Dict[str, Any] = {
+        # This dictionary will hold the new, individual entries to be added to the daily log.
+        new_entries: Dict[str, Any] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
-            'workout': workout,
-            'meals': meals,
-            'sleep': sleep,
-            'habits': habits,
         }
 
-        if estimation:
-            calories_value = estimation.get('calories')
-            if calories_value is not None:
-                log_entry['calories'] = calories_value
+        if meals:
+            meal_entry: Dict[str, Any] = {
+                'entry_id': uuid4().hex,
+                'text': meals,
+                'timestamp': new_entries['timestamp'],
+            }
+            try:
+                estimation = current_app.ai_service.estimate_meal_calories(meals)
+                if estimation:
+                    meal_entry.update(estimation)
+            except Exception:
+                logger.warning('meal_estimation.failed', exc_info=True)
+            new_entries['new_meal'] = meal_entry
 
-            macro_segments = []
-            protein = estimation.get('protein_g')
-            carbs = estimation.get('carbs_g')
-            fat = estimation.get('fat_g')
-            if protein is not None:
-                macro_segments.append(f"P {protein}g")
-                log_entry['protein_g'] = protein
-            if carbs is not None:
-                macro_segments.append(f"C {carbs}g")
-                log_entry['carbs_g'] = carbs
-            if fat is not None:
-                macro_segments.append(f"F {fat}g")
-                log_entry['fat_g'] = fat
+        if workout:
+            workout_entry: Dict[str, Any] = {
+                'entry_id': uuid4().hex,
+                'text': workout,
+                'timestamp': new_entries['timestamp'],
+            }
+            try:
+                interpretation = current_app.ai_service.interpret_workout_log(workout)
+                if interpretation:
+                    workout_entry.update(interpretation)
+            except Exception:
+                logger.warning('workout_interpretation.failed', exc_info=True)
+            new_entries['new_workout'] = workout_entry
 
-            confidence = estimation.get('confidence')
-            confidence_text: Optional[str]
-            if isinstance(confidence, (int, float)):
-                confidence_text = f"{confidence:.2f}".rstrip('0').rstrip('.') if confidence >= 0 else str(confidence)
-            else:
-                confidence_text = None
+        if sleep:
+            sleep_entry: Dict[str, Any] = {
+                'entry_id': uuid4().hex,
+                'text': sleep,
+                'timestamp': new_entries['timestamp'],
+            }
+            try:
+                interpretation = current_app.ai_service.interpret_sleep_log(sleep)
+                if interpretation:
+                    sleep_entry.update(interpretation)
+            except Exception:
+                logger.warning('sleep_interpretation.failed', exc_info=True)
+            new_entries['new_sleep'] = sleep_entry
 
-            if macro_segments:
-                macro_string = ' / '.join(macro_segments)
-                if confidence_text:
-                    macro_string = f"{macro_string} (conf {confidence_text})"
-                log_entry['macros'] = macro_string
+        if habits:
+            # Habits still overwrite the daily summary
+            new_entries['new_habits'] = habits
 
-            notes = estimation.get('notes')
-            if notes:
-                log_entry['estimation_notes'] = str(notes)
-
-        if workout_interpretation:
-            duration = workout_interpretation.get('duration_min')
-            if duration is not None:
-                log_entry['workout_duration_min'] = duration
-            workout_type = workout_interpretation.get('workout_type')
-            if workout_type:
-                log_entry['workout_type'] = workout_type
-
-        if sleep_interpretation:
-            time_asleep = sleep_interpretation.get('time_asleep')
-            if time_asleep is not None:
-                log_entry['time_asleep'] = time_asleep
-            quality = sleep_interpretation.get('quality')
-            if quality:
-                log_entry['sleep_quality'] = quality
-
-        progress_log = current_app.storage_service.append_log(user_id, log_entry)
+        progress_log = current_app.storage_service.append_log(user_id, new_entries)
         ingester = getattr(current_app, 'health_ingestion', None)
         if ingester:
             try:
                 ingester.enqueue_log_record(progress_log)
             except Exception:
                 logger.warning('health_ingestion.enqueue_failed', exc_info=True)
-        flash('Progress saved. Keep up the great work!', 'success')
+        flash('Your progress has been logged. Keep up the great work!', 'success')
         return redirect(url_for('main.progress'))
 
     logs = current_app.storage_service.fetch_logs(user_id)

@@ -4,7 +4,7 @@ import json
 import os
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -512,38 +512,105 @@ class StorageService:
             return bool(profile.get('onboarding_complete'))
         return None
 
+    def _recalculate_daily_totals(self, log_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate and update the daily_totals summary in the log data."""
+        totals = {
+            'calories': 0, 'protein_g': 0, 'carbs_g': 0, 'fat_g': 0,
+            'workout_min': 0, 'sleep_hours': 0.0,
+        }
+
+        for meal in log_data.get('meals_log', []):
+            if isinstance(meal, dict):
+                totals['calories'] += meal.get('calories', 0) or 0
+                totals['protein_g'] += meal.get('protein_g', 0) or 0
+                totals['carbs_g'] += meal.get('carbs_g', 0) or 0
+                totals['fat_g'] += meal.get('fat_g', 0) or 0
+
+        for workout in log_data.get('workouts_log', []):
+            if isinstance(workout, dict):
+                totals['workout_min'] += workout.get('duration_min', 0) or 0
+
+        for sleep in log_data.get('sleep_log', []):
+            if isinstance(sleep, dict):
+                totals['sleep_hours'] += sleep.get('time_asleep', 0.0) or 0.0
+
+        log_data['daily_totals'] = totals
+        return log_data
+
+    def _merge_log_data(self, existing_data: Dict, new_entries: Dict) -> Dict:
+        """Merge new entries into an existing daily log."""
+        merged = existing_data.copy()
+        merged['timestamp'] = new_entries['timestamp'] # Update to latest submission time
+
+        if 'new_meal' in new_entries:
+            merged.setdefault('meals_log', []).append(new_entries['new_meal'])
+
+        if 'new_workout' in new_entries:
+            merged.setdefault('workouts_log', []).append(new_entries['new_workout'])
+
+        if 'new_sleep' in new_entries:
+            merged.setdefault('sleep_log', []).append(new_entries['new_sleep'])
+
+        if 'new_habits' in new_entries:
+            merged['habits'] = new_entries['new_habits']
+
+        return self._recalculate_daily_totals(merged)
+
     def append_log(self, user_id: str, log_entry: Dict) -> Dict:
-        logs = self._read_json(self._log_path(user_id))
-        if not isinstance(logs, list):
-            logs = []
+        """Find today's log for the user, merge new data, and upsert it."""
+        now_utc = datetime.now(timezone.utc)
+        start_of_day = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+        end_of_day = start_of_day + timedelta(days=1)
 
         if self._supabase:
             try:
-                if 'timestamp' not in log_entry:
-                    log_entry['timestamp'] = datetime.now(timezone.utc).isoformat()
-                response = (
-                    self._supabase
-                    .table('progress_logs')
-                    .insert({'user_id': user_id, 'log_data': log_entry})
-                    .execute()
-                )
-                if response.data:
-                    record = response.data[0]
-                    return {
-                        'id': record.get('id'),
-                        'user_id': record.get('user_id', user_id),
-                        'created_at': record.get('created_at'),
-                        'log_data': record.get('log_data', log_entry),
-                    }
+                # Find if a log already exists for today
+                response = self._supabase.table('progress_logs').select('id, user_id, created_at, log_data').eq('user_id', user_id).gte('created_at', start_of_day.isoformat()).lt('created_at', end_of_day.isoformat()).limit(1).execute()
+                existing_record = response.data[0] if response.data else None
+
+                if existing_record:
+                    # Merge with existing log
+                    existing_log_data = existing_record.get('log_data', {})
+                    merged_data = self._merge_log_data(existing_log_data, log_entry)
+                    update_response = self._supabase.table('progress_logs').update({'log_data': merged_data, 'updated_at': now_utc.isoformat()}).eq('id', existing_record['id']).select().execute()
+                    return update_response.data[0] if update_response.data else existing_record
+                else:
+                    # Create a new log for today
+                    new_log_data = self._merge_log_data({}, log_entry)
+                    insert_response = self._supabase.table('progress_logs').insert({'user_id': user_id, 'log_data': new_log_data}).select().execute()
+                    return insert_response.data[0] if insert_response.data else {}
             except Exception:
                 logger.warning('Supabase log append failed; using fallback', exc_info=True)
 
-        next_id = max((item.get('id', 0) for item in logs if isinstance(item, dict)), default=0) + 1
-        created_at = datetime.now(timezone.utc).isoformat()
-        record = {'id': next_id, 'user_id': user_id, 'created_at': created_at, 'log_data': log_entry}
-        logs.append(record)
-        self._write_json(self._log_path(user_id), logs)
-        return record
+        # Fallback to local JSON storage
+        logs = self._read_json(self._log_path(user_id)) or []
+        today_str = now_utc.date().isoformat()
+        existing_log_index = -1
+
+        for i, log in enumerate(logs):
+            if isinstance(log, dict) and log.get('created_at', '').startswith(today_str):
+                existing_log_index = i
+                break
+
+        if existing_log_index != -1:
+            existing_record = logs[existing_log_index]
+            existing_log_data = existing_record.get('log_data', {})
+            merged_data = self._merge_log_data(existing_log_data, log_entry)
+            existing_record['log_data'] = merged_data
+            logs[existing_log_index] = existing_record
+            self._write_json(self._log_path(user_id), logs)
+            return existing_record
+        else:
+            new_log_data = self._merge_log_data({}, log_entry)
+            new_record = {
+                'id': max((item.get('id', 0) for item in logs if isinstance(item, dict)), default=0) + 1,
+                'user_id': user_id,
+                'created_at': now_utc.isoformat(),
+                'log_data': new_log_data,
+            }
+            logs.append(new_record)
+            self._write_json(self._log_path(user_id), logs)
+            return new_record
 
     def fetch_logs(self, user_id: str) -> List[Dict]:
         if self._supabase:
@@ -594,10 +661,10 @@ class StorageService:
 
     # --- Normalized health data --------------------------------------
 
-    def upsert_normalized_record(self, category: str, record: Dict[str, Any]) -> None:
+    def upsert_normalized_record(self, category: str, record: Dict[str, Any], on_conflict: str = 'progress_log_id') -> None:
         if self._supabase:
             try:
-                self._supabase.table(category).upsert(record, on_conflict='progress_log_id').execute()
+                self._supabase.table(category).upsert(record, on_conflict=on_conflict).execute()
                 return
             except Exception:
                 logger.warning('%s.upsert_failed', category, exc_info=True)
@@ -671,7 +738,7 @@ class StorageService:
                 record = {
                     'user_id': user_id,
                     'original_image_url': meta.get('original_url'),
-                    'generated_image_url': meta.get('generated_url'),
+                    'generated_image_url': meta.get('url'),
                     'metadata': meta,  # Store the full context in the metadata column
                 }
                 self._supabase.table('visualizations').insert(record).execute()
@@ -686,25 +753,36 @@ class StorageService:
 
     def list_visualizations(self, user_id: str, limit: int = 20) -> List[Dict]:
         """Return visualization metadata records for a user."""
+        raw_entries: List[Dict] = []
+        source_is_supabase = False
+
         if self._supabase:
             try:
                 response = self._supabase.table('visualizations').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(limit).execute()
                 if response.data:
                     # The 'metadata' column holds the original detailed object
-                    return [item.get('metadata', item) for item in response.data]
+                    raw_entries = [item.get('metadata', item) for item in response.data]
+                source_is_supabase = True
             except Exception:
                 logger.warning('Supabase visualization list failed; using fallback', exc_info=True)
-        # Fallback to local JSON storage
-        local_entries = [
+
+        if not source_is_supabase:
+            raw_entries = self._load_visualizations(user_id)
+
+        # Normalize all entries to handle legacy formats, regardless of source.
+        normalized_entries = [
             self._normalise_visualization_entry(user_id, item)
-            for item in self._load_visualizations(user_id)
+            for item in raw_entries
             if isinstance(item, dict)
         ]
 
-        local_entries.sort(key=lambda item: item.get("created_at", ""), reverse=True)
-        if limit and limit > 0:
-            return local_entries[:limit]
-        return local_entries
+        # Sort and limit if the source was not Supabase (which already sorted/limited).
+        if not source_is_supabase:
+            normalized_entries.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+            if limit and limit > 0:
+                normalized_entries = normalized_entries[:limit]
+
+        return normalized_entries
 
     def refresh_visualization_urls_if_needed(self, items: List[Dict]) -> List[Dict]:
         """Refresh signed URLs when required. Local filesystem is a no-op."""

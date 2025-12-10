@@ -77,19 +77,19 @@ class HealthDataIngestion:
         for meal_entry in log_data.get("meals_log", []):
             payload = self._build_meal_entry_record(meal_entry, user_id, progress_log_id, date_inferred)
             if payload:
-                self._storage.upsert_normalized_record("meals", payload, on_conflict='entry_id')
+                self._storage.upsert_normalized_record("meals", payload, on_conflict='id')
 
         # Ingest each sleep entry
         for sleep_entry in log_data.get("sleep_log", []):
             payload = self._build_sleep_entry_record(sleep_entry, user_id, progress_log_id, date_inferred)
             if payload:
-                self._storage.upsert_normalized_record("sleep", payload, on_conflict='entry_id')
+                self._storage.upsert_normalized_record("sleep", payload, on_conflict='id')
 
         # Ingest each workout entry
         for workout_entry in log_data.get("workouts_log", []):
             payload = self._build_workout_entry_record(workout_entry, user_id, progress_log_id, date_inferred)
             if payload:
-                self._storage.upsert_normalized_record("workouts", payload, on_conflict='entry_id')
+                self._storage.upsert_normalized_record("workouts", payload, on_conflict='id')
 
     def _base_metadata(
         self,
@@ -114,7 +114,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        entry_id = meal_entry.get("entry_id")
+        entry_id = meal_entry.get("id")
         if not entry_id:
             return None
 
@@ -133,7 +133,7 @@ class HealthDataIngestion:
         }
 
         return {
-            "entry_id": entry_id,
+            "id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
@@ -153,7 +153,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        entry_id = sleep_entry.get("entry_id")
+        entry_id = sleep_entry.get("id")
         if not entry_id:
             return None
 
@@ -170,7 +170,7 @@ class HealthDataIngestion:
         }
 
         return {
-            "entry_id": entry_id,
+            "id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
@@ -187,7 +187,7 @@ class HealthDataIngestion:
         progress_log_id: Optional[int],
         date_inferred: Optional[str],
     ) -> Optional[Dict[str, Any]]:
-        entry_id = workout_entry.get("entry_id")
+        entry_id = workout_entry.get("id")
         if not entry_id:
             return None
 
@@ -200,7 +200,7 @@ class HealthDataIngestion:
         }
 
         return {
-            "entry_id": entry_id,
+            "id": entry_id,
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
@@ -220,6 +220,71 @@ class HealthDataIngestion:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.date().isoformat()
+
+    def workout_duration_by_type(self, user_id: str) -> List[Dict[str, Any]]:
+        """Aggregates total workout duration by workout type for a user."""
+        workouts = self._storage.list_normalized_records("workouts", user_id)
+        totals: Dict[str, int] = defaultdict(int)
+        for workout in workouts:
+            workout_type = workout.get("workout_type", "other")
+            duration = workout.get("duration_min", 0)
+            if isinstance(duration, (int, float)):
+                totals[workout_type] += int(duration)
+        
+        return [
+            {"type": workout_type, "duration_minutes": duration}
+            for workout_type, duration in totals.items()
+            if duration > 0
+        ]
+
+    def daily_macros(self, user_id: str) -> List[Dict[str, Any]]:
+        """Aggregates daily macronutrient consumption for a user."""
+        meals = self._storage.list_normalized_records("meals", user_id)
+        daily_totals: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+
+        for meal in meals:
+            date = meal.get("date_inferred")
+            if date:
+                daily_totals[date]["protein_g"] += meal.get("protein_g", 0) or 0
+                daily_totals[date]["carbs_g"] += meal.get("carbs_g", 0) or 0
+                daily_totals[date]["fat_g"] += meal.get("fat_g", 0) or 0
+                daily_totals[date]["calories"] += meal.get("calories", 0) or 0
+        
+        # Convert defaultdict to regular dicts and sort by date
+        sorted_dates = sorted(daily_totals.keys())
+        result = []
+        for date in sorted_dates:
+            entry = {"date": date}
+            entry.update(daily_totals[date])
+            result.append(entry)
+        return result
+
+    def sleep_hours_by_quality(self, user_id: str) -> List[Dict[str, Any]]:
+        """Aggregates total sleep hours by quality for a user."""
+        sleep_records = self._storage.list_normalized_records("sleep", user_id)
+        totals: Dict[str, float] = defaultdict(float)
+
+        for sleep_entry in sleep_records:
+            quality = sleep_entry.get("quality", "unknown")
+            time_asleep_str = sleep_entry.get("time_asleep") # e.g., "7.5h"
+            
+            hours = 0.0
+            if time_asleep_str and isinstance(time_asleep_str, str):
+                try:
+                    # Extract numeric part and convert to float
+                    hours = float(time_asleep_str.replace('h', ''))
+                except ValueError:
+                    logger.warning(f"Could not parse sleep_hours: {time_asleep_str}")
+            elif isinstance(time_asleep_str, (int, float)): # Handle if it's already numeric
+                hours = float(time_asleep_str)
+
+            totals[quality] += hours
+        
+        return [
+            {"quality": quality, "total_hours": round(hours, 1)}
+            for quality, hours in totals.items()
+            if hours > 0
+        ]
 
     def _normalize_section(self, section: Any) -> Dict[str, Any]:
         if isinstance(section, dict):
@@ -242,3 +307,19 @@ class HealthDataIngestion:
             {"date": date, "calories": calories}
             for date, calories in sorted(totals.items())
         ]
+
+    def get_daily_progress_summary(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Fetches all progress logs for a user and returns a list of daily summaries.
+        """
+        logs = self._storage.fetch_progress_log_records(user_id=user_id)
+        summaries = []
+        for log in logs:
+            log_data = log.get("log_data", {})
+            daily_totals = log_data.get("daily_totals", {})
+            summary = {
+                "date": self._infer_date(log.get("created_at")),
+                "totals": daily_totals
+            }
+            summaries.append(summary)
+        return summaries

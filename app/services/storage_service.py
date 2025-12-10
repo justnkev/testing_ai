@@ -572,13 +572,13 @@ class StorageService:
                     # Merge with existing log
                     existing_log_data = existing_record.get('log_data', {})
                     merged_data = self._merge_log_data(existing_log_data, log_entry)
-                    update_response = self._supabase.table('progress_logs').update({'log_data': merged_data, 'updated_at': now_utc.isoformat()}).eq('id', existing_record['id']).select().execute()
-                    return update_response.data[0] if update_response.data else existing_record
+                    update_response = self._supabase.table('progress_logs').update({'log_data': merged_data, 'updated_at': now_utc.isoformat()}).eq('id', existing_record['id']).execute()
+                    return update_response.data[0] if hasattr(update_response, 'data') and update_response.data else existing_record
                 else:
                     # Create a new log for today
                     new_log_data = self._merge_log_data({}, log_entry)
-                    insert_response = self._supabase.table('progress_logs').insert({'user_id': user_id, 'log_data': new_log_data}).select().execute()
-                    return insert_response.data[0] if insert_response.data else {}
+                    insert_response = self._supabase.table('progress_logs').insert({'user_id': user_id, 'log_data': new_log_data}).execute()
+                    return insert_response.data[0] if hasattr(insert_response, 'data') and insert_response.data else {}
             except Exception:
                 logger.warning('Supabase log append failed; using fallback', exc_info=True)
 
@@ -695,13 +695,20 @@ class StorageService:
 
     def list_normalized_records(self, category: str, user_id: str) -> List[Dict[str, Any]]:
         if self._supabase:
+            logger.info("Attempting to list normalized records for category '%s' for user '%s' from Supabase.", category, user_id)
             try:
                 response = self._supabase.table(category).select('*').eq('user_id', user_id).order('date_inferred', desc=False).execute()
                 if response.data:
                     return [item for item in response.data if isinstance(item, dict)]
             except Exception:
                 logger.warning('%s.list_failed', category, exc_info=True)
+                else:
+                    logger.info("Supabase returned no data for category '%s' for user '%s'.", category, user_id)
+            except Exception as exc:
+                # Use logger.error for higher visibility and include the exception message directly.
+                logger.error("Supabase query failed for category '%s': %s", category, exc, exc_info=True)
 
+        logger.info("Falling back to local JSON storage for category '%s'.", category)
         rows = self._read_json(self._normalized_path(category)) or []
         if not isinstance(rows, list):
             return []

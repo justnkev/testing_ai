@@ -275,46 +275,68 @@ def verify_email_status() -> Dict[str, Any] | Response:
     return {'verified': bool(verified)}
 
 
-def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
+    """
+    Transforms the new log data structure (with lists of entries) into a
+    flattened format that legacy templates can display. This is a compatibility
+    layer to make data visible in the UI without modifying the templates.
+    """
+    processed_logs = []
+    for log_data in logs:
+        # Create a copy to avoid modifying the original data which is used elsewhere
+        compatible_log = log_data.copy()
+
+        # Combine multiple meal entries into a single text block
+        compatible_log['meals'] = "\n".join(
+            [entry.get('text', '') for entry in log_data.get('meals_log', [])]
+        ).strip()
+
+        # Combine multiple workout entries
+        compatible_log['workout'] = "\n".join(
+            [entry.get('text', '') for entry in log_data.get('workouts_log', [])]
+        ).strip()
+
+        # Combine multiple sleep entries
+        compatible_log['sleep'] = "\n".join(
+            [entry.get('text', '') for entry in log_data.get('sleep_log', [])]
+        ).strip()
+
+        processed_logs.append(compatible_log)
+    return processed_logs
+
+
+def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
     """Return summarized metrics and a lightweight activity trend."""
 
-    window = logs[-7:]
+    # Filter logs to only include those with 'daily_totals' and take the last 7
+    daily_logs_with_totals = [log for log in logs if log.get('daily_totals')]
+    daily_logs_with_totals = [log for log in logs if isinstance(log, dict) and log.get('daily_totals')]
+    window = daily_logs_with_totals[-7:]
+
     totals = {
         'workouts': 0,
         'meals': 0,
         'sleep_hours': 0.0,
         'habits': 0,
     }
-    calories_total = 0
+    calories_total = 0.0
 
     for entry in window:
-        if entry.get('workout'):
-            totals['workouts'] += 1
-        if entry.get('meals'):
-            totals['meals'] += 1
-        if entry.get('habits'):
-            totals['habits'] += 1
-        sleep_value = entry.get('sleep', '') or ''
-        if sleep_value:
-            numbers = re.findall(r"\d+(?:\.\d+)?", str(sleep_value))
-            if numbers:
-                try:
-                    totals['sleep_hours'] += float(numbers[0])
-                except ValueError:
-                    continue
-        calories_value = entry.get('calories')
-        if calories_value is not None:
-            try:
-                calories_total += int(round(float(calories_value)))
-            except (TypeError, ValueError):
-                pass
+        daily_totals = entry.get('daily_totals', {})
+        totals['workouts'] += len(entry.get('workouts_log', []))
+        totals['meals'] += len(entry.get('meals_log', []))
+        totals['habits'] += 1 if entry.get('habits') else 0  # Assuming habits are still a single entry per day
+        totals['sleep_hours'] += daily_totals.get('sleep_hours', 0.0)
+        calories_total += daily_totals.get('calories', 0.0)
 
     trend: List[Dict[str, Any]] = []
     for entry in window:
-        intensity = sum(1 for key in ('workout', 'meals', 'sleep', 'habits') if entry.get(key))
+        # Use the presence of any log type to indicate activity for the trend
+        intensity = sum(1 for key in ('meals_log', 'workouts_log', 'sleep_log') if entry.get(key))
+        intensity += 1 if entry.get('habits') else 0
         trend.append(
             {
-                'label': entry.get('timestamp', 'Recent'),
+                'label': entry.get('timestamp', 'Recent').split('T')[0], # Date only
                 'value': intensity,
             }
         )
@@ -327,7 +349,7 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
         'total_workouts': totals['workouts'],
         'total_meals': totals['meals'],
         'total_habits': totals['habits'],
-        'hours_sleep': round(totals['sleep_hours'], 1),
+        'hours_sleep': round(totals['sleep_hours'], 1), # Sum of all sleep entries
         'calories_estimate': calories_total,
         'calories_burned': totals['workouts'] * 320,
         'workout_completion': min(100, int((totals['workouts'] / workout_goal) * 100)) if workout_goal else 0,
@@ -354,13 +376,18 @@ def dashboard() -> str | Response:
     logs = current_app.storage_service.fetch_logs(user['id'])
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
+    # Derive stats from the raw, structured logs
     stats, trend = _derive_dashboard_stats(logs)
     recent_logs = list(reversed(logs[-3:])) if logs else []
+
+    # Create a version of logs compatible with templates expecting flat data
+    template_logs = _create_template_compatible_logs(logs)
+    recent_logs = list(reversed(template_logs[-3:])) if template_logs else []
 
     return render_template(
         'dashboard.html',
         plan=plan,
-        logs=logs,
+        logs=template_logs,
         weekly_prompt=weekly_prompt,
         stats=stats,
         trend=trend,
@@ -492,9 +519,13 @@ def progress() -> str | Response:
             'timestamp': datetime.now(timezone.utc).isoformat(),
         }
 
+        # Generate a unique integer ID using the current timestamp in microseconds.
+        # This will serve as the base for multiple entries in the same request.
+        unique_id_counter = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+
         if meals:
             meal_entry: Dict[str, Any] = {
-                'entry_id': uuid4().hex,
+                'id': unique_id_counter,
                 'text': meals,
                 'timestamp': new_entries['timestamp'],
             }
@@ -505,10 +536,11 @@ def progress() -> str | Response:
             except Exception:
                 logger.warning('meal_estimation.failed', exc_info=True)
             new_entries['new_meal'] = meal_entry
+            unique_id_counter += 1
 
         if workout:
             workout_entry: Dict[str, Any] = {
-                'entry_id': uuid4().hex,
+                'id': unique_id_counter,
                 'text': workout,
                 'timestamp': new_entries['timestamp'],
             }
@@ -519,10 +551,11 @@ def progress() -> str | Response:
             except Exception:
                 logger.warning('workout_interpretation.failed', exc_info=True)
             new_entries['new_workout'] = workout_entry
+            unique_id_counter += 1
 
         if sleep:
             sleep_entry: Dict[str, Any] = {
-                'entry_id': uuid4().hex,
+                'id': unique_id_counter,
                 'text': sleep,
                 'timestamp': new_entries['timestamp'],
             }
@@ -533,6 +566,7 @@ def progress() -> str | Response:
             except Exception:
                 logger.warning('sleep_interpretation.failed', exc_info=True)
             new_entries['new_sleep'] = sleep_entry
+            unique_id_counter += 1
 
         if habits:
             # Habits still overwrite the daily summary
@@ -549,7 +583,8 @@ def progress() -> str | Response:
         return redirect(url_for('main.progress'))
 
     logs = current_app.storage_service.fetch_logs(user_id)
-    return render_template('progress.html', logs=logs)
+    template_logs = _create_template_compatible_logs(logs)
+    return render_template('progress.html', logs=template_logs)
 
 
 @main_bp.route('/replan', methods=['POST'])
@@ -596,6 +631,54 @@ def daily_calories() -> Dict[str, Any]:
     user_id = session['user']['id']
     ingester = getattr(current_app, 'health_ingestion', None)
     data = ingester.daily_calories(user_id) if ingester else []
+    return {'data': data}
+
+
+@main_bp.route('/api/workout_summary_by_type')
+@login_required
+def workout_summary_by_type() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    if not ingester:
+        return {'error': 'Ingestion service not available'}, 500
+    
+    data = ingester.workout_duration_by_type(user_id)
+    return {'data': data}
+
+
+@main_bp.route('/api/daily_macros')
+@login_required
+def daily_macros() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    if not ingester:
+        return {'error': 'Ingestion service not available'}, 500
+    
+    data = ingester.daily_macros(user_id)
+    return {'data': data}
+
+
+@main_bp.route('/api/sleep_summary_by_quality')
+@login_required
+def sleep_summary_by_quality() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    if not ingester:
+        return {'error': 'Ingestion service not available'}, 500
+    
+    data = ingester.sleep_hours_by_quality(user_id)
+    return {'data': data}
+
+
+@main_bp.route('/api/daily_progress_summary')
+@login_required
+def daily_progress_summary() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    ingester = getattr(current_app, 'health_ingestion', None)
+    if not ingester:
+        return {'error': 'Ingestion service not available'}, 500
+    
+    data = ingester.get_daily_progress_summary(user_id)
     return {'data': data}
 
 

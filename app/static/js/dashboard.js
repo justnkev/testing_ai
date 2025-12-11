@@ -109,6 +109,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
+    const parseDateOnly = (value) => {
+      if (!value) return null;
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        if (Number.isNaN(date.getTime())) return null;
+        return startOfDay(date);
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return startOfDay(date);
+    };
+
+    const formatDateOnly = (date) => {
+      const year = date.getFullYear();
+      const month = `${date.getMonth() + 1}`.padStart(2, '0');
+      const day = `${date.getDate()}`.padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     const formatLabel = (date, rangeKey) => {
       if (rangeKey === 'daily') {
         return date.toLocaleDateString(undefined, { weekday: 'short' });
@@ -153,13 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return buckets;
     };
 
-    const parseDate = (value) => {
-      if (!value) return null;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
-      return startOfDay(date);
-    };
-
     const parseFloatFromValue = (value) => {
       const match = String(value || '').match(/\d+(?:\.\d+)?/);
       return match ? parseFloat(match[0]) : 0;
@@ -168,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bucketize = (entries, buckets, valueResolver) => {
       const totals = new Array(buckets.length).fill(0);
       entries.forEach((entry) => {
-        const date = parseDate(entry.date_inferred || entry.created_at);
+        const date = parseDateOnly(entry.date_inferred || entry.created_at);
         if (!date) return;
         const bucketIndex = buckets.findIndex((bucket) => date >= bucket.start && date < bucket.end);
         if (bucketIndex === -1) return;
@@ -195,12 +209,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const buckets = buildBuckets(rangeKey);
       const earliest = buckets[0]?.start;
-      const lowerBound = earliest ? earliest.toISOString().split('T')[0] : null;
+      const latestEnd = buckets[buckets.length - 1]?.end;
+      const lowerBound = earliest ? formatDateOnly(earliest) : null;
+      const upperBound = latestEnd ? formatDateOnly(new Date(latestEnd.getTime() - 1)) : null;
 
       const baseFilter = (query) => {
         let filtered = query.eq('user_id', supabaseConfig.userId).order('date_inferred', { ascending: true });
         if (lowerBound) {
           filtered = filtered.gte('date_inferred', lowerBound);
+        }
+        if (upperBound) {
+          filtered = filtered.lte('date_inferred', upperBound);
         }
         return filtered;
       };

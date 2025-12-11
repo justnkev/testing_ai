@@ -700,12 +700,9 @@ class StorageService:
                 response = self._supabase.table(category).select('*').eq('user_id', user_id).order('date_inferred', desc=False).execute()
                 if response.data:
                     return [item for item in response.data if isinstance(item, dict)]
-            except Exception:
-                logger.warning('%s.list_failed', category, exc_info=True)
                 else:
                     logger.info("Supabase returned no data for category '%s' for user '%s'.", category, user_id)
             except Exception as exc:
-                # Use logger.error for higher visibility and include the exception message directly.
                 logger.error("Supabase query failed for category '%s': %s", category, exc, exc_info=True)
 
         logger.info("Falling back to local JSON storage for category '%s'.", category)

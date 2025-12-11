@@ -309,10 +309,8 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
     """Return summarized metrics and a lightweight activity trend."""
 
     # Filter logs to only include those with 'daily_totals' and take the last 7
-    daily_logs_with_totals = [log for log in logs if log.get('daily_totals')]
-    daily_logs_with_totals = [log for log in logs if isinstance(log, dict) and log.get('daily_totals')]
+    daily_logs_with_totals = [log for log in logs if isinstance(log, dict) and log.get('daily_totals')] # noqa: E501
     window = daily_logs_with_totals[-7:]
-
     totals = {
         'workouts': 0,
         'meals': 0,
@@ -378,7 +376,6 @@ def dashboard() -> str | Response:
 
     # Derive stats from the raw, structured logs
     stats, trend = _derive_dashboard_stats(logs)
-    recent_logs = list(reversed(logs[-3:])) if logs else []
 
     # Create a version of logs compatible with templates expecting flat data
     template_logs = _create_template_compatible_logs(logs)

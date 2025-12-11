@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 import logging
 from pathlib import Path
@@ -305,55 +305,82 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
     return processed_logs
 
 
-def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
+def _parse_sleep_hours(value: Any) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        match = re.search(r"([0-9]+(?:\.[0-9]+)?)", value)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+def _derive_dashboard_stats(user_id: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
     """Return summarized metrics and a lightweight activity trend."""
 
-    # Filter logs to only include those with 'daily_totals' and take the last 7
-    daily_logs_with_totals = [log for log in logs if isinstance(log, dict) and log.get('daily_totals')] # noqa: E501
-    window = daily_logs_with_totals[-7:]
-    totals = {
-        'workouts': 0,
-        'meals': 0,
-        'sleep_hours': 0.0,
-        'habits': 0,
+    today = datetime.now(timezone.utc).date()
+    recent_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    day_buckets: Dict[str, Dict[str, float]] = {
+        day.isoformat(): {'meals': 0, 'workouts': 0, 'sleep_hours': 0.0}
+        for day in recent_days
     }
+
+    meals = current_app.storage_service.list_normalized_records('meals', user_id)
+    workouts = current_app.storage_service.list_normalized_records('workouts', user_id)
+    sleep_entries = current_app.storage_service.list_normalized_records('sleep', user_id)
+
     calories_total = 0.0
 
-    for entry in window:
-        daily_totals = entry.get('daily_totals', {})
-        totals['workouts'] += len(entry.get('workouts_log', []))
-        totals['meals'] += len(entry.get('meals_log', []))
-        totals['habits'] += 1 if entry.get('habits') else 0  # Assuming habits are still a single entry per day
-        totals['sleep_hours'] += daily_totals.get('sleep_hours', 0.0)
-        calories_total += daily_totals.get('calories', 0.0)
+    for meal in meals:
+        date_key = meal.get('date_inferred')
+        if date_key in day_buckets:
+            day_buckets[date_key]['meals'] += 1
+            calories_total += meal.get('calories', 0.0) or 0.0
+
+    for workout in workouts:
+        date_key = workout.get('date_inferred')
+        if date_key in day_buckets:
+            day_buckets[date_key]['workouts'] += 1
+
+    for sleep_entry in sleep_entries:
+        date_key = sleep_entry.get('date_inferred')
+        time_asleep = sleep_entry.get('time_asleep')
+        if date_key in day_buckets and time_asleep:
+            hours = _parse_sleep_hours(time_asleep)
+            day_buckets[date_key]['sleep_hours'] += hours
+
+    totals = {
+        'workouts': sum(bucket['workouts'] for bucket in day_buckets.values()),
+        'meals': sum(bucket['meals'] for bucket in day_buckets.values()),
+        'sleep_hours': sum(bucket['sleep_hours'] for bucket in day_buckets.values()),
+        'habits': 0,
+    }
 
     trend: List[Dict[str, Any]] = []
-    for entry in window:
-        # Use the presence of any log type to indicate activity for the trend
-        intensity = sum(1 for key in ('meals_log', 'workouts_log', 'sleep_log') if entry.get(key))
-        intensity += 1 if entry.get('habits') else 0
-        trend.append(
-            {
-                'label': entry.get('timestamp', 'Recent').split('T')[0], # Date only
-                'value': intensity,
-            }
-        )
+    for day in recent_days:
+        key = day.isoformat()
+        bucket = day_buckets[key]
+        intensity = bucket['meals'] + bucket['workouts'] + bucket['sleep_hours']
+        trend.append({'label': key, 'value': intensity})
 
     workout_goal = 5
     meal_goal = 14
     sleep_goal = 49  # 7 nights * 7 hours
 
     stats = {
-        'total_workouts': totals['workouts'],
-        'total_meals': totals['meals'],
+        'total_workouts': int(totals['workouts']),
+        'total_meals': int(totals['meals']),
         'total_habits': totals['habits'],
-        'hours_sleep': round(totals['sleep_hours'], 1), # Sum of all sleep entries
+        'hours_sleep': round(totals['sleep_hours'], 1),
         'calories_estimate': calories_total,
-        'calories_burned': totals['workouts'] * 320,
+        'calories_burned': int(totals['workouts'] * 320),
         'workout_completion': min(100, int((totals['workouts'] / workout_goal) * 100)) if workout_goal else 0,
         'meal_completion': min(100, int((totals['meals'] / meal_goal) * 100)) if meal_goal else 0,
         'sleep_completion': min(100, int((totals['sleep_hours'] / sleep_goal) * 100)) if sleep_goal else 0,
-        'has_data': bool(window),
+        'has_data': any(value for bucket in day_buckets.values() for value in bucket.values()),
     }
 
     return stats, trend
@@ -375,7 +402,7 @@ def dashboard() -> str | Response:
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
     # Derive stats from the raw, structured logs
-    stats, trend = _derive_dashboard_stats(logs)
+    stats, trend = _derive_dashboard_stats(user['id'])
 
     # Create a version of logs compatible with templates expecting flat data
     template_logs = _create_template_compatible_logs(logs)

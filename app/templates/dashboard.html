@@ -135,7 +135,17 @@
         <article class="timeline-item">
           <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
           {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
-          {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+          {% if log.meals %}
+          <p>
+            <strong>Meals:</strong> {{ log.meals }}
+            {% if log.calories is not none or log.macros %}
+            <span class="stat-detail" style="margin-left:0.5rem;">
+              {% if log.calories is not none %}~{{ log.calories }} kcal{% if log.macros %} · {% endif %}{% endif %}
+              {% if log.macros %}{{ log.macros }}{% endif %}
+            </span>
+            {% endif %}
+          </p>
+          {% endif %}
           {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
           {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
         </article>

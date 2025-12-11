@@ -137,7 +137,7 @@ class HealthDataIngestion:
             "user_id": user_id,
             "progress_log_id": progress_log_id,
             "date_inferred": date_inferred,
-            "meal_type": "unknown", # Could be enhanced later
+            "meal_type": meal_entry.get("meal_type") or "unknown",
             "calories": calories,
             "protein_g": protein_g,
             "carbs_g": carbs_g,
@@ -312,14 +312,55 @@ class HealthDataIngestion:
         """
         Fetches all progress logs for a user and returns a list of daily summaries.
         """
-        logs = self._storage.fetch_progress_log_records(user_id=user_id)
-        summaries = []
-        for log in logs:
-            log_data = log.get("log_data", {})
-            daily_totals = log_data.get("daily_totals", {})
-            summary = {
-                "date": self._infer_date(log.get("created_at")),
-                "totals": daily_totals
+        meals = self._storage.list_normalized_records("meals", user_id)
+        workouts = self._storage.list_normalized_records("workouts", user_id)
+        sleep_entries = self._storage.list_normalized_records("sleep", user_id)
+
+        daily_totals: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {
+                "meals": {"count": 0, "calories": 0},
+                "workouts": {"count": 0, "duration_min": 0},
+                "sleep": {"hours": 0.0},
             }
-            summaries.append(summary)
-        return summaries
+        )
+
+        for meal in meals:
+            date = meal.get("date_inferred")
+            if not date:
+                continue
+            calories = meal.get("calories")
+            if isinstance(calories, (int, float)):
+                daily_totals[date]["meals"]["calories"] += calories
+            daily_totals[date]["meals"]["count"] += 1
+
+        for workout in workouts:
+            date = workout.get("date_inferred")
+            if not date:
+                continue
+            duration = workout.get("duration_min")
+            if isinstance(duration, (int, float)):
+                daily_totals[date]["workouts"]["duration_min"] += duration
+            daily_totals[date]["workouts"]["count"] += 1
+
+        for sleep in sleep_entries:
+            date = sleep.get("date_inferred")
+            if not date:
+                continue
+            hours = self._parse_sleep_hours(sleep.get("time_asleep"))
+            if hours > 0:
+                daily_totals[date]["sleep"]["hours"] += hours
+
+        return [
+            {"date": date, "totals": totals}
+            for date, totals in sorted(daily_totals.items())
+        ]
+
+    def _parse_sleep_hours(self, value: Any) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.replace("h", ""))
+            except ValueError:
+                logger.warning("Could not parse sleep_hours: %s", value)
+        return 0.0

@@ -276,12 +276,70 @@ def verify_email_status() -> Dict[str, Any] | Response:
     return {'verified': bool(verified)}
 
 
-def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
+def _infer_log_date(log: Dict[str, Any]) -> Optional[str]:
+    timestamp = log.get('timestamp') or log.get('created_at')
+    if not timestamp:
+        return None
+
+    try:
+        dt = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.date().isoformat()
+
+
+def _daily_meal_nutrition(storage_service: StorageService, user_id: str) -> Dict[str, Dict[str, Any]]:
+    totals: Dict[str, Dict[str, float]] = defaultdict(lambda: {
+        'calories': 0.0,
+        'protein_g': 0.0,
+        'carbs_g': 0.0,
+        'fat_g': 0.0,
+    })
+
+    meals = storage_service.list_normalized_records('meals', user_id)
+    for meal in meals:
+        date = meal.get('date_inferred')
+        if not date:
+            continue
+
+        for field in ('calories', 'protein_g', 'carbs_g', 'fat_g'):
+            value = meal.get(field)
+            if isinstance(value, (int, float)):
+                totals[date][field] += float(value)
+
+    summaries: Dict[str, Dict[str, Any]] = {}
+    for date, metrics in totals.items():
+        macro_parts = []
+        for label, key in (('Protein', 'protein_g'), ('Carbs', 'carbs_g'), ('Fat', 'fat_g')):
+            grams = metrics.get(key, 0.0)
+            if grams:
+                macro_parts.append(f"{label} {int(round(grams))}g")
+
+        macros_text = ' • '.join(macro_parts) if macro_parts else None
+        calories_total = metrics.get('calories') or 0.0
+        summaries[date] = {
+            'calories': int(round(calories_total)) if calories_total else None,
+            'macros': macros_text,
+        }
+
+    return summaries
+
+
+def _create_template_compatible_logs(logs: List[Dict], storage_service: Optional[StorageService] = None, user_id: Optional[str] = None) -> List[Dict]:
     """
     Transforms the new log data structure (with lists of entries) into a
     flattened format that legacy templates can display. This is a compatibility
     layer to make data visible in the UI without modifying the templates.
     """
+    nutrition_by_date: Dict[str, Dict[str, Any]] = {}
+    if storage_service and user_id:
+        try:
+            nutrition_by_date = _daily_meal_nutrition(storage_service, user_id)
+        except Exception:
+            logger.warning('nutrition_lookup.failed', exc_info=True)
     processed_logs = []
     for log_data in logs:
         # Create a copy to avoid modifying the original data which is used elsewhere
@@ -301,6 +359,14 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
         compatible_log['sleep'] = "\n".join(
             [entry.get('text', '') for entry in log_data.get('sleep_log', [])]
         ).strip()
+
+        date_inferred = _infer_log_date(log_data)
+        nutrition = nutrition_by_date.get(date_inferred) if date_inferred else None
+        if nutrition:
+            if nutrition.get('calories') is not None:
+                compatible_log['calories'] = nutrition['calories']
+            if nutrition.get('macros'):
+                compatible_log['macros'] = nutrition['macros']
 
         processed_logs.append(compatible_log)
     return processed_logs
@@ -416,7 +482,7 @@ def dashboard() -> str | Response:
     stats, trend = _derive_dashboard_stats(current_app.storage_service, user['id'])
 
     # Create a version of logs compatible with templates expecting flat data
-    template_logs = _create_template_compatible_logs(logs)
+    template_logs = _create_template_compatible_logs(logs, current_app.storage_service, user['id'])
     recent_logs = list(reversed(template_logs[-3:])) if template_logs else []
 
     return render_template(
@@ -618,7 +684,7 @@ def progress() -> str | Response:
         return redirect(url_for('main.progress'))
 
     logs = current_app.storage_service.fetch_logs(user_id)
-    template_logs = _create_template_compatible_logs(logs)
+    template_logs = _create_template_compatible_logs(logs, current_app.storage_service, user_id)
     return render_template('progress.html', logs=template_logs)
 
 

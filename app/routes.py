@@ -355,12 +355,60 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
     return processed_logs
 
 
-def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
+def _derive_dashboard_stats(user_id: str, storage: Optional[StorageService] = None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
     """Return summarized metrics and a lightweight activity trend."""
 
-    # Filter logs to only include those with 'daily_totals' and take the last 7
-    daily_logs_with_totals = [log for log in logs if isinstance(log, dict) and log.get('daily_totals')] # noqa: E501
-    window = daily_logs_with_totals[-7:]
+    storage_service = storage or current_app.storage_service
+
+    meals = storage_service.list_normalized_records('meals', user_id)
+    workouts = storage_service.list_normalized_records('workouts', user_id)
+    sleep_entries = storage_service.list_normalized_records('sleep', user_id)
+
+    daily_buckets: Dict[str, Dict[str, Any]] = {}
+
+    def _ensure_bucket(date: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not date:
+            return None
+        return daily_buckets.setdefault(
+            date,
+            {'meals': 0, 'workouts': 0, 'sleep_hours': 0.0, 'calories': 0.0},
+        )
+
+    def _parse_sleep_hours(value: Any) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            cleaned = value.strip().lower().rstrip('h')
+            try:
+                return float(cleaned)
+            except ValueError:
+                return 0.0
+        return 0.0
+
+    for meal in meals:
+        bucket = _ensure_bucket(meal.get('date_inferred'))
+        if not bucket:
+            continue
+        bucket['meals'] += 1
+        calories = meal.get('calories')
+        if isinstance(calories, (int, float)):
+            bucket['calories'] += float(calories)
+
+    for workout in workouts:
+        bucket = _ensure_bucket(workout.get('date_inferred'))
+        if not bucket:
+            continue
+        bucket['workouts'] += 1
+
+    for sleep_entry in sleep_entries:
+        bucket = _ensure_bucket(sleep_entry.get('date_inferred'))
+        if not bucket:
+            continue
+        bucket['sleep_hours'] += _parse_sleep_hours(sleep_entry.get('time_asleep'))
+
+    sorted_dates = sorted(daily_buckets.keys())
+    recent_dates = sorted_dates[-7:]
+
     totals = {
         'workouts': 0,
         'meals': 0,
@@ -369,25 +417,18 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
     }
     calories_total = 0.0
 
-    for entry in window:
-        daily_totals = entry.get('daily_totals', {})
-        totals['workouts'] += len(entry.get('workouts_log', []))
-        totals['meals'] += len(entry.get('meals_log', []))
-        totals['habits'] += 1 if entry.get('habits') else 0  # Assuming habits are still a single entry per day
-        totals['sleep_hours'] += daily_totals.get('sleep_hours', 0.0)
-        calories_total += daily_totals.get('calories', 0.0)
+    for date in recent_dates:
+        bucket = daily_buckets[date]
+        totals['workouts'] += bucket['workouts']
+        totals['meals'] += bucket['meals']
+        totals['sleep_hours'] += bucket['sleep_hours']
+        calories_total += bucket['calories']
 
     trend: List[Dict[str, Any]] = []
-    for entry in window:
-        # Use the presence of any log type to indicate activity for the trend
-        intensity = sum(1 for key in ('meals_log', 'workouts_log', 'sleep_log') if entry.get(key))
-        intensity += 1 if entry.get('habits') else 0
-        trend.append(
-            {
-                'label': entry.get('timestamp', 'Recent').split('T')[0], # Date only
-                'value': intensity,
-            }
-        )
+    for date in recent_dates:
+        bucket = daily_buckets[date]
+        intensity = int(bucket['meals'] > 0) + int(bucket['workouts'] > 0) + int(bucket['sleep_hours'] > 0)
+        trend.append({'label': date, 'value': intensity})
 
     workout_goal = 5
     meal_goal = 14
@@ -397,13 +438,13 @@ def _derive_dashboard_stats(logs: List[Dict[str, Any]]) -> Tuple[Dict[str, Any],
         'total_workouts': totals['workouts'],
         'total_meals': totals['meals'],
         'total_habits': totals['habits'],
-        'hours_sleep': round(totals['sleep_hours'], 1), # Sum of all sleep entries
+        'hours_sleep': round(totals['sleep_hours'], 1),
         'calories_estimate': calories_total,
         'calories_burned': totals['workouts'] * 320,
         'workout_completion': min(100, int((totals['workouts'] / workout_goal) * 100)) if workout_goal else 0,
         'meal_completion': min(100, int((totals['meals'] / meal_goal) * 100)) if meal_goal else 0,
         'sleep_completion': min(100, int((totals['sleep_hours'] / sleep_goal) * 100)) if sleep_goal else 0,
-        'has_data': bool(window),
+        'has_data': bool(daily_buckets),
     }
 
     return stats, trend
@@ -425,7 +466,7 @@ def dashboard() -> str | Response:
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
     # Derive stats from the raw, structured logs
-    stats, trend = _derive_dashboard_stats(logs)
+    stats, trend = _derive_dashboard_stats(user['id'], current_app.storage_service)
 
     # Create a version of logs compatible with templates expecting flat data
     template_logs = _create_template_compatible_logs(logs)

@@ -542,6 +542,12 @@ class StorageService:
         merged = existing_data.copy()
         merged['timestamp'] = new_entries['timestamp'] # Update to latest submission time
 
+        for key in (
+            'meals', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'sleep', 'workout', 'duration_min'
+        ):
+            if key in new_entries:
+                merged[key] = new_entries[key]
+
         if 'new_meal' in new_entries:
             merged.setdefault('meals_log', []).append(new_entries['new_meal'])
 

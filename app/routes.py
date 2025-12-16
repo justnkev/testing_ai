@@ -286,6 +286,56 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
         # Create a copy to avoid modifying the original data which is used elsewhere
         compatible_log = log_data.copy()
 
+        def _as_number(value: Any) -> float:
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        # Aggregate nutrition data from normalized meals when present
+        normalized_meals: List[Dict[str, Any]] = []
+
+        normalized_entries = log_data.get('normalized_entries')
+        if isinstance(normalized_entries, dict):
+            meals_from_normalized = normalized_entries.get('meals')
+            if isinstance(meals_from_normalized, list):
+                normalized_meals.extend(
+                    [meal for meal in meals_from_normalized if isinstance(meal, dict)]
+                )
+
+        for meals_key in ('normalized_meal_entries', 'normalized_meals'):
+            meals = log_data.get(meals_key)
+            if isinstance(meals, list):
+                normalized_meals.extend([meal for meal in meals if isinstance(meal, dict)])
+
+        calories_total = 0.0
+        protein_total = 0.0
+        carbs_total = 0.0
+        fat_total = 0.0
+
+        if normalized_meals:
+            for meal in normalized_meals:
+                calories_total += _as_number(meal.get('calories'))
+                protein_total += _as_number(meal.get('protein_g'))
+                carbs_total += _as_number(meal.get('carbs_g'))
+                fat_total += _as_number(meal.get('fat_g'))
+        else:
+            daily_totals = log_data.get('daily_totals', {})
+            if isinstance(daily_totals, dict):
+                calories_total = _as_number(daily_totals.get('calories'))
+                protein_total = _as_number(daily_totals.get('protein_g'))
+                carbs_total = _as_number(daily_totals.get('carbs_g'))
+                fat_total = _as_number(daily_totals.get('fat_g'))
+
+        compatible_log['calories'] = int(round(calories_total))
+        compatible_log['macros'] = (
+            f"P {int(round(protein_total))}g / "
+            f"C {int(round(carbs_total))}g / "
+            f"F {int(round(fat_total))}g"
+        )
+
         # Combine multiple meal entries into a single text block
         compatible_log['meals'] = "\n".join(
             [entry.get('text', '') for entry in log_data.get('meals_log', [])]

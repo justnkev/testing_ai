@@ -838,13 +838,22 @@ class StorageService:
             'SUPABASE_ANON_KEY_SECRET',
             'SUPABASE_API_KEY',
         )
-        if not url or not key or create_client is None:
-            logger.info("Supabase disabled (missing package or env)")
+        if create_client is None:
+            logger.error("Supabase disabled: 'supabase-py' package not installed.")
             return None
+        if not url:
+            logger.error("Supabase disabled: SUPABASE_URL not found in environment variables.")
+            return None
+        if not key:
+            logger.error("Supabase disabled: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY not found.")
+            return None
+
+        logger.info("Supabase URL and Key found. Attempting to create client.")
         try:
             return create_client(url, key)  # returns a SupabaseClient
         except Exception as exc:
-            logger.warning("Supabase init failed: %s", exc)
+            # Use logger.error for higher visibility and include the full traceback
+            logger.error("Supabase client initialization failed: %s", exc, exc_info=True)
             return None
 
     def _init_redis(self) -> Optional[Any]:

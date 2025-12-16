@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 import logging
 from pathlib import Path
@@ -152,26 +152,6 @@ def _ensure_onboarding_complete() -> Optional[Response]:
     if not _onboarding_complete():
         flash('Complete onboarding to unlock your personalized dashboard.', 'info')
         return redirect(url_for('main.onboarding'))
-    return None
-
-
-def _get_env_value(*names: str) -> Optional[str]:
-    """Return the first truthy environment variable from ``names``."""
-
-    for name in names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return None
-
-
-def _supabase_client_config() -> Optional[Dict[str, str]]:
-    """Expose the Supabase URL/key for the dashboard visualizations."""
-
-    url = _get_env_value('SUPABASE_URL', 'SUPABASE_URL_SECRET', 'SUPABASE_PROJECT_URL')
-    key = _get_env_value('SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY_SECRET', 'SUPABASE_API_KEY')
-    if url and key:
-        return {'url': url, 'key': key}
     return None
 
 
@@ -386,6 +366,113 @@ def _derive_dashboard_stats(user_id: str) -> Tuple[Dict[str, Any], List[Dict[str
     return stats, trend
 
 
+def _parse_date_only(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith('Z'):
+            text = text[:-1] + '+00:00'
+        try:
+            return datetime.fromisoformat(text).date()
+        except ValueError:
+            if 'T' in text:
+                text = text.split('T', 1)[0]
+            try:
+                return datetime.strptime(text, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+    return None
+
+
+def _month_shift(base: date, offset_months: int) -> date:
+    month = base.month + offset_months
+    year = base.year + (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    return date(year, month, 1)
+
+
+def _chart_buckets(range_key: str) -> List[Dict[str, Any]]:
+    today = datetime.now(timezone.utc).date()
+
+    if range_key == 'weekly':
+        start_of_week = today - timedelta(days=today.weekday())
+        buckets = []
+        for offset in range(3, -1, -1):
+            start = start_of_week - timedelta(days=7 * offset)
+            end = start + timedelta(days=7)
+            label = start.strftime('Week of %b %d')
+            buckets.append({'label': label, 'start': start, 'end': end})
+        return buckets
+
+    if range_key == 'monthly':
+        base = date(today.year, today.month, 1)
+        buckets = []
+        for offset in range(5, -1, -1):
+            start = _month_shift(base, -offset)
+            end = _month_shift(start, 1)
+            label = start.strftime("%b '%y")
+            buckets.append({'label': label, 'start': start, 'end': end})
+        return buckets
+
+    buckets = []
+    for offset in range(6, -1, -1):
+        start = today - timedelta(days=offset)
+        end = start + timedelta(days=1)
+        label = start.strftime('%a')
+        buckets.append({'label': label, 'start': start, 'end': end})
+    return buckets
+
+
+def _bucketize(entries: List[Dict[str, Any]], buckets: List[Dict[str, Any]], value_resolver) -> List[float]:
+    totals = [0.0 for _ in buckets]
+    for entry in entries:
+        parsed = _parse_date_only(entry.get('date_inferred') or entry.get('created_at'))
+        if not parsed:
+            continue
+        for index, bucket in enumerate(buckets):
+            if bucket['start'] <= parsed < bucket['end']:
+                totals[index] += value_resolver(entry)
+                break
+    return [round(value, 1) for value in totals]
+
+
+def _parse_float(value: Any) -> float:
+    match = re.search(r'\d+(?:\.\d+)?', str(value or ''))
+    return float(match.group(0)) if match else 0.0
+
+
+def _build_dashboard_range_data(range_key: str, user_id: str, storage: StorageService) -> Dict[str, Any]:
+    buckets = _chart_buckets(range_key)
+    meals = storage.list_normalized_records('meals', user_id)
+    workouts = storage.list_normalized_records('workouts', user_id)
+    sleep_entries = storage.list_normalized_records('sleep', user_id)
+
+    sleep_hours = _bucketize(
+        sleep_entries,
+        buckets,
+        lambda entry: _parse_float(entry.get('time_asleep'))
+        or _parse_float((entry.get('metadata') or {}).get('hours'))
+        or _parse_float((entry.get('metadata') or {}).get('time_asleep')),
+    )
+
+    return {
+        'labels': [bucket['label'] for bucket in buckets],
+        'meals': _bucketize(meals, buckets, lambda _entry: 1),
+        'workouts': _bucketize(workouts, buckets, lambda _entry: 1),
+        'sleep': sleep_hours,
+    }
+
+
 @main_bp.route('/dashboard')
 def dashboard() -> str | Response:
     redirect_url = _require_login()
@@ -416,7 +503,6 @@ def dashboard() -> str | Response:
         stats=stats,
         trend=trend,
         recent_logs=recent_logs,
-        supabase_client_config=_supabase_client_config(),
     )
 
 
@@ -644,6 +730,18 @@ def weekly_prompt() -> Dict[str, Any]:
 
     prompt = current_app.storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
+
+
+@main_bp.route('/api/dashboard_range')
+@login_required
+def dashboard_range() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    range_key = (request.args.get('range') or 'daily').lower()
+    if range_key not in {'daily', 'weekly', 'monthly'}:
+        range_key = 'daily'
+
+    data = _build_dashboard_range_data(range_key, user_id, current_app.storage_service)
+    return {'data': data}
 
 
 @main_bp.route('/api/daily_calories')

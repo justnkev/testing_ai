@@ -38,12 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
       },
     };
 
-    const supabaseConfig = {
-      url: chartSection.dataset.supabaseUrl,
-      key: chartSection.dataset.supabaseKey,
-      userId: chartSection.dataset.userId,
-    };
-
     const cache = new Map();
     const inFlight = new Map();
     const lastFetchTime = {};
@@ -87,110 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
       error: (msg) => updateStatus('error', msg || 'Unable to load latest data.'),
     };
 
-    const supabaseClient = (() => {
-      let client = null;
-      return () => {
-        if (client) return client;
-        if (!supabaseConfig.url || !supabaseConfig.key) return null;
-        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-          return null;
-        }
-        client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.key);
-        return client;
-      };
-    })();
-
-    const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const addDays = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-    const startOfWeek = (date) => {
-      const day = date.getDay();
-      const diff = (day === 0 ? -6 : 1) - day; // Monday as start
-      return startOfDay(addDays(date, diff));
-    };
-    const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
-
-    const parseDateOnly = (value) => {
-      if (!value) return null;
-      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-        if (Number.isNaN(date.getTime())) return null;
-        return startOfDay(date);
-      }
-
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
-      return startOfDay(date);
-    };
-
-    const formatDateOnly = (date) => {
-      const year = date.getFullYear();
-      const month = `${date.getMonth() + 1}`.padStart(2, '0');
-      const day = `${date.getDate()}`.padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const formatLabel = (date, rangeKey) => {
-      if (rangeKey === 'daily') {
-        return date.toLocaleDateString(undefined, { weekday: 'short' });
-      }
-      if (rangeKey === 'weekly') {
-        const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-        return `Week of ${formatter.format(date)}`;
-      }
-      const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' });
-      return formatter.format(date);
-    };
-
-    const buildBuckets = (rangeKey) => {
-      const today = startOfDay(new Date());
-      if (rangeKey === 'weekly') {
-        const buckets = [];
-        for (let i = 3; i >= 0; i -= 1) {
-          const start = addDays(startOfWeek(today), -7 * i);
-          const end = addDays(start, 7);
-          buckets.push({ label: formatLabel(start, rangeKey), start, end });
-        }
-        return buckets;
-      }
-
-      if (rangeKey === 'monthly') {
-        const buckets = [];
-        for (let i = 5; i >= 0; i -= 1) {
-          const pivot = new Date(today.getFullYear(), today.getMonth() - i, 1);
-          const start = startOfMonth(pivot);
-          const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-          buckets.push({ label: formatLabel(start, rangeKey), start, end });
-        }
-        return buckets;
-      }
-
-      const buckets = [];
-      for (let i = 6; i >= 0; i -= 1) {
-        const start = addDays(today, -i);
-        const end = addDays(start, 1);
-        buckets.push({ label: formatLabel(start, 'daily'), start, end });
-      }
-      return buckets;
-    };
-
-    const parseFloatFromValue = (value) => {
-      const match = String(value || '').match(/\d+(?:\.\d+)?/);
-      return match ? parseFloat(match[0]) : 0;
-    };
-
-    const bucketize = (entries, buckets, valueResolver) => {
-      const totals = new Array(buckets.length).fill(0);
-      entries.forEach((entry) => {
-        const date = parseDateOnly(entry.date_inferred || entry.created_at);
-        if (!date) return;
-        const bucketIndex = buckets.findIndex((bucket) => date >= bucket.start && date < bucket.end);
-        if (bucketIndex === -1) return;
-        totals[bucketIndex] += valueResolver(entry);
-      });
-      return totals.map((value) => Math.round(value * 10) / 10);
-    };
-
     const defaultRangeData = (rangeKey) => {
       const source = sampleRanges[rangeKey] || sampleRanges.daily;
       return {
@@ -201,52 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     };
 
-    const querySupabase = async (rangeKey) => {
-      const client = supabaseClient();
-      if (!client || !supabaseConfig.userId) {
-        throw new Error('Supabase client unavailable.');
+    const queryDashboard = async (rangeKey) => {
+      const response = await fetch(`/api/dashboard_range?range=${encodeURIComponent(rangeKey)}`);
+      if (!response.ok) {
+        throw new Error(`Dashboard data request failed: ${response.status}`);
       }
-
-      const buckets = buildBuckets(rangeKey);
-      const earliest = buckets[0]?.start;
-      const latestEnd = buckets[buckets.length - 1]?.end;
-      const lowerBound = earliest ? formatDateOnly(earliest) : null;
-      const upperBound = latestEnd ? formatDateOnly(new Date(latestEnd.getTime() - 1)) : null;
-
-      const baseFilter = (query) => {
-        let filtered = query.eq('user_id', supabaseConfig.userId).order('date_inferred', { ascending: true });
-        if (lowerBound) {
-          filtered = filtered.gte('date_inferred', lowerBound);
-        }
-        if (upperBound) {
-          filtered = filtered.lte('date_inferred', upperBound);
-        }
-        return filtered;
-      };
-
-      const [mealsResult, workoutsResult, sleepResult] = await Promise.all([
-        baseFilter(client.from('meals').select('id, date_inferred, created_at')),
-        baseFilter(client.from('workouts').select('id, date_inferred, created_at')),
-        baseFilter(client.from('sleep').select('id, date_inferred, created_at, time_asleep, metadata')),
-      ]);
-
-      const supabaseError = mealsResult.error || workoutsResult.error || sleepResult.error;
-      if (supabaseError) {
-        throw new Error(supabaseError.message || 'Supabase query failed.');
+      const payload = await response.json();
+      if (!payload || !payload.data) {
+        throw new Error('Dashboard data missing.');
       }
-
-      const sleepHours = bucketize(sleepResult.data || [], buckets, (entry) => {
-        const fromMetadata = entry.metadata && parseFloatFromValue(entry.metadata.hours || entry.metadata.time_asleep);
-        const parsed = parseFloatFromValue(entry.time_asleep);
-        return parsed || fromMetadata || 0;
-      });
-
-      return {
-        labels: buckets.map((bucket) => bucket.label),
-        meals: bucketize(mealsResult.data || [], buckets, () => 1),
-        workouts: bucketize(workoutsResult.data || [], buckets, () => 1),
-        sleep: sleepHours,
-      };
+      return payload.data;
     };
 
     const fetchRangeData = async (rangeKey) => {
@@ -269,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const promise = (async () => {
         try {
-          const data = await querySupabase(rangeKey);
+          const data = await queryDashboard(rangeKey);
           const payload = { data, isFallback: false, timestamp: Date.now() };
           cache.set(rangeKey, payload);
           return payload;

@@ -1,4 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const supabaseConfig = (() => {
+    const node = document.querySelector('[data-supabase-config]');
+    if (!node) return null;
+    try {
+      const parsed = JSON.parse(node.textContent || '{}');
+      if (parsed && typeof parsed === 'object') {
+        window.fvSupabaseConfig = parsed;
+        return parsed;
+      }
+    } catch (error) {
+      console.warn('supabase.config.parse_failed', error);
+    }
+    return null;
+  })();
+
   const promptTarget = document.querySelector('[data-weekly-prompt]');
   if (promptTarget) {
     fetch('/api/weekly_prompt')

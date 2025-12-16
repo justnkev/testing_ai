@@ -185,5 +185,8 @@
     {% endif %}
   </section>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script type="application/json" data-supabase-config>
+    {{ supabase_config | tojson }}
+  </script>
 </div>
 {% endblock %}

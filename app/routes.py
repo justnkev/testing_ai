@@ -299,10 +299,14 @@ def _parse_sleep_hours(value: Any) -> float:
 
 
 def _derive_dashboard_stats(user_id: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
-    """Return summarized metrics and a lightweight activity trend."""
+    """Return summarized metrics and a lightweight activity trend.
+
+    All calculations use ``timezone.utc`` to ensure consistent week boundaries
+    across environments. """
 
     today = datetime.now(timezone.utc).date()
-    recent_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    start_of_week = today - timedelta(days=today.weekday())
+    recent_days = [start_of_week + timedelta(days=offset) for offset in range(0, 7)]
     day_buckets: Dict[str, Dict[str, float]] = {
         day.isoformat(): {'meals': 0, 'workouts': 0, 'sleep_hours': 0.0}
         for day in recent_days

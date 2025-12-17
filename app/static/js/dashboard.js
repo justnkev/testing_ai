@@ -107,9 +107,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const queryDashboard = async (rangeKey) => {
-      const response = await fetch(`/api/dashboard_range?range=${encodeURIComponent(rangeKey)}`);
+      const response = await fetch(`/api/dashboard_range?range=${encodeURIComponent(rangeKey)}`, {
+        credentials: 'same-origin',
+      });
+      if (response.redirected) {
+        throw new Error('Dashboard API redirected; session may be missing.');
+      }
       if (!response.ok) {
         throw new Error(`Dashboard data request failed: ${response.status}`);
+      }
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+      if (contentType.includes('text/html')) {
+        throw new Error('Dashboard API returned HTML. Check login/session.');
       }
       const payload = await response.json();
       if (!payload || !payload.data) {
@@ -313,7 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await fetchRangeData(rangeKey);
       renderCharts(result.data);
       if (result.isFallback) {
-        chartStatus.error('Showing cached sample data while Supabase is unreachable.');
+        const errorMessage = (result.error && result.error.message) || '';
+        const sessionIssue = /401|redirect/i.test(errorMessage);
+        const statusMessage = sessionIssue
+          ? 'Session expired or missing. Log in locally and verify SUPABASE_URL and SUPABASE_ANON_KEY are set.'
+          : 'Showing cached sample data while Supabase is unreachable.';
+        chartStatus.error(statusMessage);
       } else {
         chartStatus.ready();
       }

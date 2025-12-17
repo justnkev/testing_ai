@@ -492,14 +492,7 @@ def dashboard() -> str | Response:
     logs = current_app.storage_service.fetch_logs(user['id'])
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
 
-    supabase_config = {
-        'url': StorageService._get_env_value(
-            'SUPABASE_URL', 'SUPABASE_URL_SECRET', 'SUPABASE_PROJECT_URL'
-        ),
-        'anon_key': StorageService._get_env_value(
-            'SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY_SECRET', 'SUPABASE_API_KEY'
-        ),
-    }
+    supabase_config = StorageService.supabase_client_config()
 
     # Derive stats from the raw, structured logs
     stats, trend = _derive_dashboard_stats(user['id'])

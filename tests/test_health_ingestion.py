@@ -130,6 +130,89 @@ class HealthIngestionTests(TestCase):
                 self.assertEqual(0, workouts[0].get("duration_min"))
                 self.assertEqual("other", workouts[0].get("workout_type"))
 
+    def test_ingest_normalizes_macro_fields(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                progress_log = {
+                    "id": 7,
+                    "user_id": "user-1",
+                    "created_at": "2024-01-05T12:00:00+00:00",
+                    "log_data": {
+                        "meals_log": [
+                            {
+                                "id": 101,
+                                "timestamp": "2024-01-05T12:00:00+00:00",
+                                "calories": "650",
+                                "protein_g": "45",
+                                "carbs_g": 70.2,
+                                "fat_g": "20g",
+                            }
+                        ]
+                    },
+                }
+
+                ingestion.ingest_log(progress_log)
+
+                meals = storage.list_normalized_records("meals", "user-1")
+                self.assertEqual(1, len(meals))
+                self.assertEqual(650, meals[0]["calories"])
+                self.assertEqual(45, meals[0]["protein_g"])
+                self.assertEqual(70, meals[0]["carbs_g"])
+                self.assertEqual(20, meals[0]["fat_g"])
+
+                macros = ingestion.daily_macros("user-1")
+                self.assertEqual(
+                    [{
+                        "date": "2024-01-05",
+                        "protein_g": 45,
+                        "carbs_g": 70,
+                        "fat_g": 20,
+                        "calories": 650,
+                    }],
+                    macros,
+                )
+
+    def test_ingest_defaults_missing_calories_when_ai_unavailable(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                progress_log = {
+                    "id": 8,
+                    "user_id": "user-2",
+                    "created_at": "2024-01-06T12:00:00+00:00",
+                    "log_data": {
+                        "timestamp": "2024-01-06T12:00:00+00:00",
+                        "meals_log": [
+                            {
+                                "id": 201,
+                                "timestamp": "2024-01-06T12:00:00+00:00",
+                                "text": "Grilled chicken",
+                                "notes": "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                            }
+                        ]
+                    },
+                }
+
+                ingestion.ingest_log(progress_log)
+
+                meals = storage.list_normalized_records("meals", "user-2")
+                self.assertEqual(1, len(meals))
+                self.assertEqual(0, meals[0]["calories"])
+                self.assertEqual(0, meals[0]["protein_g"])
+                self.assertEqual(0, meals[0]["carbs_g"])
+                self.assertEqual(0, meals[0]["fat_g"])
+                metadata = meals[0].get("metadata") or {}
+                self.assertTrue(metadata.get("nutrition_fallback"))
+                self.assertIn("placeholder nutrition values", metadata.get("estimation_notes", ""))
+
     def _patched_environ(self, updates):
         return patch.dict(os.environ, updates, clear=False)
-

@@ -42,3 +42,19 @@ class StorageServiceRedisTests(TestCase):
         self.assertFalse(Path("/tmp/fitvision-test-data/user@example.com_plan.json").exists())
 
         service.clear_conversation("user@example.com")  # should not raise when using Redis
+
+
+class StorageServiceConfigTests(TestCase):
+    def test_supabase_client_config_reads_env_priority(self) -> None:
+        environ = {
+            "SUPABASE_URL_SECRET": "https://secret.example.com",
+            "SUPABASE_PROJECT_URL": "https://project.example.com",
+            "SUPABASE_ANON_KEY_SECRET": "anon-secret",
+            "SUPABASE_API_KEY": "anon-api",
+        }
+
+        with patch.dict(os.environ, environ, clear=False):
+            config = StorageService.supabase_client_config()
+
+        self.assertEqual("https://secret.example.com", config["url"])
+        self.assertEqual("anon-secret", config["anon_key"])

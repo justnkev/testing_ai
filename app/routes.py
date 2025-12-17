@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 import logging
 from pathlib import Path
@@ -155,26 +155,6 @@ def _ensure_onboarding_complete() -> Optional[Response]:
     return None
 
 
-def _get_env_value(*names: str) -> Optional[str]:
-    """Return the first truthy environment variable from ``names``."""
-
-    for name in names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return None
-
-
-def _supabase_client_config() -> Optional[Dict[str, str]]:
-    """Expose the Supabase URL/key for the dashboard visualizations."""
-
-    url = _get_env_value('SUPABASE_URL', 'SUPABASE_URL_SECRET', 'SUPABASE_PROJECT_URL')
-    key = _get_env_value('SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY_SECRET', 'SUPABASE_API_KEY')
-    if url and key:
-        return {'url': url, 'key': key}
-    return None
-
-
 @main_bp.route('/')
 def index() -> str:
     return render_template('index.html')
@@ -285,6 +265,39 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
     for log_data in logs:
         # Create a copy to avoid modifying the original data which is used elsewhere
         compatible_log = log_data.copy()
+        meals_log = [entry for entry in log_data.get('meals_log', []) if isinstance(entry, dict)]
+        daily_totals = log_data.get('daily_totals') or {}
+
+        calories_total: Optional[int] = None
+        macro_totals = {'protein_g': 0, 'carbs_g': 0, 'fat_g': 0}
+        if meals_log:
+            calories_total = 0
+            for meal in meals_log:
+                calories_total += meal.get('calories', 0) or 0
+                macro_totals['protein_g'] += meal.get('protein_g', 0) or 0
+                macro_totals['carbs_g'] += meal.get('carbs_g', 0) or 0
+                macro_totals['fat_g'] += meal.get('fat_g', 0) or 0
+        elif daily_totals:
+            calories_total = daily_totals.get('calories')
+            macro_totals['protein_g'] = daily_totals.get('protein_g', 0) or 0
+            macro_totals['carbs_g'] = daily_totals.get('carbs_g', 0) or 0
+            macro_totals['fat_g'] = daily_totals.get('fat_g', 0) or 0
+
+        macro_text = None
+        if any(macro_totals.values()):
+            macro_text = (
+                f"P{int(macro_totals['protein_g'])}/"
+                f"C{int(macro_totals['carbs_g'])}/"
+                f"F{int(macro_totals['fat_g'])}"
+            )
+        if calories_total is not None:
+            compatible_log['calories'] = calories_total
+        if macro_text:
+            compatible_log['macros'] = macro_text
+
+        notes = [entry.get('notes') for entry in meals_log if entry.get('notes')]
+        if notes and not compatible_log.get('estimation_notes'):
+            compatible_log['estimation_notes'] = " | ".join(notes)
 
         # Combine multiple meal entries into a single text block
         compatible_log['meals'] = "\n".join(
@@ -319,10 +332,14 @@ def _parse_sleep_hours(value: Any) -> float:
 
 
 def _derive_dashboard_stats(user_id: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]: # noqa: E501
-    """Return summarized metrics and a lightweight activity trend."""
+    """Return summarized metrics and a lightweight activity trend.
+
+    All calculations use ``timezone.utc`` to ensure consistent week boundaries
+    across environments. """
 
     today = datetime.now(timezone.utc).date()
-    recent_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    start_of_week = today - timedelta(days=today.weekday())
+    recent_days = [start_of_week + timedelta(days=offset) for offset in range(0, 7)]
     day_buckets: Dict[str, Dict[str, float]] = {
         day.isoformat(): {'meals': 0, 'workouts': 0, 'sleep_hours': 0.0}
         for day in recent_days
@@ -386,6 +403,113 @@ def _derive_dashboard_stats(user_id: str) -> Tuple[Dict[str, Any], List[Dict[str
     return stats, trend
 
 
+def _parse_date_only(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith('Z'):
+            text = text[:-1] + '+00:00'
+        try:
+            return datetime.fromisoformat(text).date()
+        except ValueError:
+            if 'T' in text:
+                text = text.split('T', 1)[0]
+            try:
+                return datetime.strptime(text, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+    return None
+
+
+def _month_shift(base: date, offset_months: int) -> date:
+    month = base.month + offset_months
+    year = base.year + (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    return date(year, month, 1)
+
+
+def _chart_buckets(range_key: str) -> List[Dict[str, Any]]:
+    today = datetime.now(timezone.utc).date()
+
+    if range_key == 'weekly':
+        start_of_week = today - timedelta(days=today.weekday())
+        buckets = []
+        for offset in range(3, -1, -1):
+            start = start_of_week - timedelta(days=7 * offset)
+            end = start + timedelta(days=7)
+            label = start.strftime('Week of %b %d')
+            buckets.append({'label': label, 'start': start, 'end': end})
+        return buckets
+
+    if range_key == 'monthly':
+        base = date(today.year, today.month, 1)
+        buckets = []
+        for offset in range(5, -1, -1):
+            start = _month_shift(base, -offset)
+            end = _month_shift(start, 1)
+            label = start.strftime("%b '%y")
+            buckets.append({'label': label, 'start': start, 'end': end})
+        return buckets
+
+    buckets = []
+    for offset in range(6, -1, -1):
+        start = today - timedelta(days=offset)
+        end = start + timedelta(days=1)
+        label = start.strftime('%a')
+        buckets.append({'label': label, 'start': start, 'end': end})
+    return buckets
+
+
+def _bucketize(entries: List[Dict[str, Any]], buckets: List[Dict[str, Any]], value_resolver) -> List[float]:
+    totals = [0.0 for _ in buckets]
+    for entry in entries:
+        parsed = _parse_date_only(entry.get('date_inferred') or entry.get('created_at'))
+        if not parsed:
+            continue
+        for index, bucket in enumerate(buckets):
+            if bucket['start'] <= parsed < bucket['end']:
+                totals[index] += value_resolver(entry)
+                break
+    return [round(value, 1) for value in totals]
+
+
+def _parse_float(value: Any) -> float:
+    match = re.search(r'\d+(?:\.\d+)?', str(value or ''))
+    return float(match.group(0)) if match else 0.0
+
+
+def _build_dashboard_range_data(range_key: str, user_id: str, storage: StorageService) -> Dict[str, Any]:
+    buckets = _chart_buckets(range_key)
+    meals = storage.list_normalized_records('meals', user_id)
+    workouts = storage.list_normalized_records('workouts', user_id)
+    sleep_entries = storage.list_normalized_records('sleep', user_id)
+
+    sleep_hours = _bucketize(
+        sleep_entries,
+        buckets,
+        lambda entry: _parse_float(entry.get('time_asleep'))
+        or _parse_float((entry.get('metadata') or {}).get('hours'))
+        or _parse_float((entry.get('metadata') or {}).get('time_asleep')),
+    )
+
+    return {
+        'labels': [bucket['label'] for bucket in buckets],
+        'meals': _bucketize(meals, buckets, lambda _entry: 1),
+        'workouts': _bucketize(workouts, buckets, lambda _entry: 1),
+        'sleep': sleep_hours,
+    }
+
+
 @main_bp.route('/dashboard')
 def dashboard() -> str | Response:
     redirect_url = _require_login()
@@ -400,6 +524,8 @@ def dashboard() -> str | Response:
     plan = current_app.storage_service.fetch_plan(user['id'])
     logs = current_app.storage_service.fetch_logs(user['id'])
     weekly_prompt = current_app.storage_service.get_weekly_prompt(user['id'])
+
+    supabase_config = StorageService.supabase_client_config()
 
     # Derive stats from the raw, structured logs
     stats, trend = _derive_dashboard_stats(user['id'])
@@ -416,7 +542,7 @@ def dashboard() -> str | Response:
         stats=stats,
         trend=trend,
         recent_logs=recent_logs,
-        supabase_client_config=_supabase_client_config(),
+        supabase_config=supabase_config,
     )
 
 
@@ -552,13 +678,23 @@ def progress() -> str | Response:
                 'id': unique_id_counter,
                 'text': meals,
                 'timestamp': new_entries['timestamp'],
+                'llm_method': 'meal_estimation_v1',
             }
             try:
                 estimation = current_app.ai_service.estimate_meal_calories(meals)
                 if estimation:
                     meal_entry.update(estimation)
+                else:
+                    meal_entry.setdefault(
+                        "notes",
+                        "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                    )
             except Exception:
                 logger.warning('meal_estimation.failed', exc_info=True)
+                meal_entry.setdefault(
+                    "notes",
+                    "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                )
             new_entries['new_meal'] = meal_entry
             unique_id_counter += 1
 
@@ -644,6 +780,18 @@ def weekly_prompt() -> Dict[str, Any]:
 
     prompt = current_app.storage_service.get_weekly_prompt(session['user']['id'])
     return {'prompt': prompt}
+
+
+@main_bp.route('/api/dashboard_range')
+@login_required
+def dashboard_range() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    range_key = (request.args.get('range') or 'daily').lower()
+    if range_key not in {'daily', 'weekly', 'monthly'}:
+        range_key = 'daily'
+
+    data = _build_dashboard_range_data(range_key, user_id, current_app.storage_service)
+    return {'data': data}
 
 
 @main_bp.route('/api/daily_calories')

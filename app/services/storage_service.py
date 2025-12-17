@@ -542,6 +542,12 @@ class StorageService:
         merged = existing_data.copy()
         merged['timestamp'] = new_entries['timestamp'] # Update to latest submission time
 
+        for key in (
+            'meals', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'sleep', 'workout', 'duration_min'
+        ):
+            if key in new_entries:
+                merged[key] = new_entries[key]
+
         if 'new_meal' in new_entries:
             merged.setdefault('meals_log', []).append(new_entries['new_meal'])
 
@@ -823,6 +829,22 @@ class StorageService:
         path = self._data_dir / 'visualizations' / user_id
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
+
+    @classmethod
+    def supabase_client_config(cls) -> Dict[str, Optional[str]]:
+        """Expose Supabase URL/key in one place for client and server callers.
+
+        This keeps compatibility with callers that rely on env-backed config
+        helpers rather than reaching into `_get_env_value` directly.
+        """
+        return {
+            'url': cls._get_env_value(
+                'SUPABASE_URL', 'SUPABASE_URL_SECRET', 'SUPABASE_PROJECT_URL'
+            ),
+            'anon_key': cls._get_env_value(
+                'SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY_SECRET', 'SUPABASE_API_KEY'
+            ),
+        }
 
     # --- Private helpers -------------------------------------------------
 

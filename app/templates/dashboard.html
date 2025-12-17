@@ -45,9 +45,6 @@
   <section
     class="surface-card chart-section"
     aria-label="Progress visualizations"
-    data-supabase-url="{{ supabase_client_config.url if supabase_client_config else '' }}"
-    data-supabase-key="{{ supabase_client_config.key if supabase_client_config else '' }}"
-    data-user-id="{{ session['user']['id'] }}"
   >
     <div class="section-header chart-header">
       <div>
@@ -187,10 +184,9 @@
     <p class="stat-detail">Complete onboarding to receive your personalized plan.</p>
     {% endif %}
   </section>
-  <script
-    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js"
-    defer
-  ></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script type="application/json" data-supabase-config>
+    {{ supabase_config | tojson }}
+  </script>
 </div>
 {% endblock %}

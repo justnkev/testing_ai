@@ -224,14 +224,34 @@ class HealthDataIngestion:
         carbs_g = self._coerce_int(meal_entry.get("carbs_g"))
         fat_g = self._coerce_int(meal_entry.get("fat_g"))
 
+        missing_nutrition = calories is None
+        fallback_reason = None
+        if missing_nutrition:
+            fallback_reason = meal_entry.get("estimation_notes") or "Calories/macros unavailable; defaulted to 0 due to estimation failure."
+            logger.warning(
+                "health_ingestion.meal_missing_calories",
+                extra={
+                    "progress_log_id": progress_log_id,
+                    "meal_id": entry_id,
+                    "text_preview": (meal_entry.get("text") or "")[:80],
+                },
+            )
+            calories = 0
+            protein_g = 0 if protein_g is None else protein_g
+            carbs_g = 0 if carbs_g is None else carbs_g
+            fat_g = 0 if fat_g is None else fat_g
+
         metadata = {
             "source_progress_log_id": progress_log_id,
             "source_log_timestamp": meal_entry.get("timestamp"),
             "original_text": meal_entry.get("text"),
             "estimation_notes": meal_entry.get("notes"),
             "confidence": meal_entry.get("confidence"),
-            "llm_method": "meal_estimation_v1",
+            "llm_method": meal_entry.get("llm_method") or "meal_estimation_v1",
         }
+        if fallback_reason:
+            metadata["nutrition_fallback"] = True
+            metadata["estimation_notes"] = metadata.get("estimation_notes") or fallback_reason
 
         return {
             "id": entry_id,

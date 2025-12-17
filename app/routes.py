@@ -265,6 +265,39 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
     for log_data in logs:
         # Create a copy to avoid modifying the original data which is used elsewhere
         compatible_log = log_data.copy()
+        meals_log = [entry for entry in log_data.get('meals_log', []) if isinstance(entry, dict)]
+        daily_totals = log_data.get('daily_totals') or {}
+
+        calories_total: Optional[int] = None
+        macro_totals = {'protein_g': 0, 'carbs_g': 0, 'fat_g': 0}
+        if meals_log:
+            calories_total = 0
+            for meal in meals_log:
+                calories_total += meal.get('calories', 0) or 0
+                macro_totals['protein_g'] += meal.get('protein_g', 0) or 0
+                macro_totals['carbs_g'] += meal.get('carbs_g', 0) or 0
+                macro_totals['fat_g'] += meal.get('fat_g', 0) or 0
+        elif daily_totals:
+            calories_total = daily_totals.get('calories')
+            macro_totals['protein_g'] = daily_totals.get('protein_g', 0) or 0
+            macro_totals['carbs_g'] = daily_totals.get('carbs_g', 0) or 0
+            macro_totals['fat_g'] = daily_totals.get('fat_g', 0) or 0
+
+        macro_text = None
+        if any(macro_totals.values()):
+            macro_text = (
+                f"P{int(macro_totals['protein_g'])}/"
+                f"C{int(macro_totals['carbs_g'])}/"
+                f"F{int(macro_totals['fat_g'])}"
+            )
+        if calories_total is not None:
+            compatible_log['calories'] = calories_total
+        if macro_text:
+            compatible_log['macros'] = macro_text
+
+        notes = [entry.get('notes') for entry in meals_log if entry.get('notes')]
+        if notes and not compatible_log.get('estimation_notes'):
+            compatible_log['estimation_notes'] = " | ".join(notes)
 
         # Combine multiple meal entries into a single text block
         compatible_log['meals'] = "\n".join(
@@ -645,13 +678,23 @@ def progress() -> str | Response:
                 'id': unique_id_counter,
                 'text': meals,
                 'timestamp': new_entries['timestamp'],
+                'llm_method': 'meal_estimation_v1',
             }
             try:
                 estimation = current_app.ai_service.estimate_meal_calories(meals)
                 if estimation:
                     meal_entry.update(estimation)
+                else:
+                    meal_entry.setdefault(
+                        "notes",
+                        "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                    )
             except Exception:
                 logger.warning('meal_estimation.failed', exc_info=True)
+                meal_entry.setdefault(
+                    "notes",
+                    "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                )
             new_entries['new_meal'] = meal_entry
             unique_id_counter += 1
 

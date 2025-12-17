@@ -177,6 +177,42 @@ class HealthIngestionTests(TestCase):
                     macros,
                 )
 
+    def test_ingest_defaults_missing_calories_when_ai_unavailable(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            environ = {"STORAGE_DATA_DIR": tmpdir}
+            with self._patched_environ(environ):
+                storage = StorageService()
+                ai_service = AIService()
+                ingestion = HealthDataIngestion(storage, ai_service)
+
+                progress_log = {
+                    "id": 8,
+                    "user_id": "user-2",
+                    "created_at": "2024-01-06T12:00:00+00:00",
+                    "log_data": {
+                        "timestamp": "2024-01-06T12:00:00+00:00",
+                        "meals_log": [
+                            {
+                                "id": 201,
+                                "timestamp": "2024-01-06T12:00:00+00:00",
+                                "text": "Grilled chicken",
+                                "notes": "Calorie estimation unavailable; saved with placeholder nutrition values.",
+                            }
+                        ]
+                    },
+                }
+
+                ingestion.ingest_log(progress_log)
+
+                meals = storage.list_normalized_records("meals", "user-2")
+                self.assertEqual(1, len(meals))
+                self.assertEqual(0, meals[0]["calories"])
+                self.assertEqual(0, meals[0]["protein_g"])
+                self.assertEqual(0, meals[0]["carbs_g"])
+                self.assertEqual(0, meals[0]["fat_g"])
+                metadata = meals[0].get("metadata") or {}
+                self.assertTrue(metadata.get("nutrition_fallback"))
+                self.assertIn("placeholder nutrition values", metadata.get("estimation_notes", ""))
+
     def _patched_environ(self, updates):
         return patch.dict(os.environ, updates, clear=False)
-

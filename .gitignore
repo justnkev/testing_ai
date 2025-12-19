@@ -9,3 +9,4 @@ instance/
 .idea/
 .vscode/
 .vercel/
+node_modules/

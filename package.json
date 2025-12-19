@@ -1,0 +1,13 @@
+{
+  "name": "fitvision-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:dashboard": "esbuild app/static/js/dashboard_v3.jsx --bundle --format=esm --loader:.jsx=jsx --external:https://* --outfile=app/static/js/dashboard_v3.bundle.js",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "jest": "^29.7.0"
+  }
+}

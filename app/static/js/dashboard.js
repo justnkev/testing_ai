@@ -344,4 +344,301 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadRange('daily');
   }
+
+  // --- Health trends charts --------------------------------------------
+  const trendsSection = document.querySelector('[data-trends-section]');
+  if (trendsSection && typeof Chart !== 'undefined' && typeof FVTrends !== 'undefined') {
+    const rangeStore = FVTrends.createRangeStore('weekly');
+    const macrosCanvas = document.getElementById('macrosTrendsChart');
+    const sleepCanvas = document.getElementById('sleepQualityChart');
+    const workoutCanvas = document.getElementById('workoutBreakdownChart');
+    const statusEl = trendsSection.querySelector('[data-trends-status]');
+    const workoutEmptyState = trendsSection.querySelector('[data-workout-empty]');
+    const toggleButtons = trendsSection.querySelectorAll('[data-trends-range]');
+
+    const sampleData = {
+      daily: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        macros: {
+          protein: [120, 135, 118, 130, 140, 110, 125],
+          carbs: [180, 190, 175, 185, 200, 170, 190],
+          fat: [70, 65, 72, 68, 75, 60, 70],
+          calories: [2100, 2200, 2050, 2150, 2300, 1950, 2100],
+        },
+        sleep: {
+          qualities: ['good', 'fair'],
+          series: { good: [7.2, 7.5, 7.1, 7.4, 7.6, 7.0, 7.3], fair: [0.8, 0.5, 0.6, 0.4, 0.3, 0.6, 0.5] },
+        },
+        workouts: {
+          types: ['strength', 'cardio'],
+          counts: { strength: [1, 0, 1, 0, 1, 0, 0], cardio: [0, 1, 0, 1, 0, 1, 0] },
+          durations: { strength: [45, 0, 50, 0, 40, 0, 0], cardio: [0, 25, 0, 30, 0, 35, 0] },
+        },
+      },
+      weekly: {
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+        macros: {
+          protein: [770, 790, 810, 780],
+          carbs: [1220, 1240, 1260, 1210],
+          fat: [410, 420, 430, 405],
+          calories: [14800, 15000, 15200, 14850],
+        },
+        sleep: {
+          qualities: ['good', 'fair'],
+          series: { good: [52, 54, 53, 52], fair: [5, 4, 6, 5] },
+        },
+        workouts: {
+          types: ['strength', 'mobility'],
+          counts: { strength: [3, 3, 4, 3], mobility: [1, 1, 1, 2] },
+          durations: { strength: [150, 160, 170, 155], mobility: [40, 35, 38, 45] },
+        },
+      },
+      monthly: {
+        labels: ["Jun '24", "Jul '24", "Aug '24", "Sep '24", "Oct '24", "Nov '24"],
+        macros: {
+          protein: [3200, 3300, 3400, 3350, 3450, 3500],
+          carbs: [5100, 5200, 5300, 5250, 5400, 5450],
+          fat: [2200, 2250, 2300, 2280, 2350, 2380],
+          calories: [62000, 63500, 64800, 64200, 65500, 66000],
+        },
+        sleep: {
+          qualities: ['good', 'fair', 'poor'],
+          series: {
+            good: [215, 218, 220, 219, 221, 223],
+            fair: [14, 15, 16, 15, 14, 15],
+            poor: [5, 4, 3, 5, 4, 3],
+          },
+        },
+        workouts: {
+          types: ['strength', 'cardio', 'mobility'],
+          counts: { strength: [14, 15, 16, 15, 17, 18], cardio: [8, 7, 8, 9, 8, 9], mobility: [6, 6, 6, 7, 7, 7] },
+          durations: { strength: [720, 750, 780, 760, 820, 840], cardio: [320, 300, 330, 360, 340, 360], mobility: [210, 220, 215, 225, 230, 235] },
+        },
+      },
+    };
+
+    const cache = new Map();
+    const CACHE_TTL = 60_000;
+
+    const chartInstances = {
+      macros: null,
+      sleep: null,
+      workouts: null,
+    };
+
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuad' },
+      plugins: {
+        legend: { position: 'top', labels: { color: '#c7d2fe' } },
+        tooltip: {
+          backgroundColor: 'rgba(12, 16, 31, 0.92)',
+          borderColor: 'rgba(140, 123, 255, 0.3)',
+          borderWidth: 1,
+          padding: 10,
+          titleFont: { weight: '600' },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(140, 123, 255, 0.12)' },
+          ticks: { color: '#9ba7c6', font: { weight: '600' } },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(140, 123, 255, 0.12)' },
+          ticks: { color: '#9ba7c6' },
+        },
+      },
+    };
+
+    const setStatus = (state, message = '') => {
+      trendsSection.dataset.state = state;
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      statusEl.hidden = !message;
+    };
+
+    const fetchTrends = async (rangeKey) => {
+      const cached = cache.get(rangeKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached;
+      }
+      try {
+        const response = await fetch(`/api/dashboard_trends?range=${encodeURIComponent(rangeKey)}`, {
+          credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error(`status_${response.status}`);
+        const payload = await response.json();
+        const data = payload.data || payload;
+        const entry = { data, isFallback: false, timestamp: Date.now() };
+        cache.set(rangeKey, entry);
+        return entry;
+      } catch (error) {
+        console.warn('dashboard.trends.fetch_failed', error);
+        const fallback = { data: sampleData[rangeKey] || sampleData.weekly, isFallback: true, timestamp: Date.now() };
+        cache.set(rangeKey, fallback);
+        return fallback;
+      }
+    };
+
+    const ensureToggleState = (rangeKey) => {
+      toggleButtons.forEach((btn) => {
+        const isActive = btn.dataset.trendsRange === rangeKey;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    };
+
+    const renderMacros = (labels, macros) => {
+      if (!macrosCanvas) return;
+      const datasets = FVTrends.buildMacroDatasets(macros);
+      const calories = macros?.calories || [];
+
+      if (!chartInstances.macros) {
+        chartInstances.macros = new Chart(macrosCanvas, {
+          type: 'bar',
+          data: { labels, datasets },
+          options: {
+            ...baseOptions,
+            plugins: {
+              ...baseOptions.plugins,
+              tooltip: {
+                ...baseOptions.plugins.tooltip,
+                callbacks: {
+                  footer: (items) => {
+                    const idx = items[0]?.dataIndex ?? 0;
+                    const caloriesForBucket = calories[idx] || 0;
+                    return `Calories: ${Math.round(caloriesForBucket)} kcal`;
+                  },
+                },
+              },
+            },
+            scales: {
+              ...baseOptions.scales,
+              x: { ...baseOptions.scales.x, stacked: true },
+              y: { ...baseOptions.scales.y, stacked: true },
+            },
+          },
+        });
+      } else {
+        chartInstances.macros.data.labels = labels;
+        chartInstances.macros.data.datasets = datasets;
+        chartInstances.macros.options.plugins.tooltip.callbacks.footer = (items) => {
+          const idx = items[0]?.dataIndex ?? 0;
+          const caloriesForBucket = calories[idx] || 0;
+          return `Calories: ${Math.round(caloriesForBucket)} kcal`;
+        };
+        chartInstances.macros.update();
+      }
+    };
+
+    const renderSleep = (labels, sleep) => {
+      if (!sleepCanvas) return;
+      const datasets = FVTrends.buildSleepDatasets(sleep.qualities || [], sleep.series || {});
+
+      if (!chartInstances.sleep) {
+        chartInstances.sleep = new Chart(sleepCanvas, {
+          type: 'bar',
+          data: { labels, datasets },
+          options: baseOptions,
+        });
+      } else {
+        chartInstances.sleep.data.labels = labels;
+        chartInstances.sleep.data.datasets = datasets;
+        chartInstances.sleep.update();
+      }
+    };
+
+    const renderWorkouts = (workouts) => {
+      if (!workoutCanvas) return;
+      const { labels, data, backgroundColor } = FVTrends.buildWorkoutChartData(
+        workouts?.durations || {},
+        workouts?.counts || {}
+      );
+
+      const hasData = labels.length > 0 && data.some((value) => value > 0);
+      if (workoutEmptyState) workoutEmptyState.hidden = hasData;
+      workoutCanvas.hidden = !hasData;
+
+      if (!hasData) {
+        if (chartInstances.workouts) {
+          chartInstances.workouts.destroy();
+          chartInstances.workouts = null;
+        }
+        return;
+      }
+
+      if (!chartInstances.workouts) {
+        chartInstances.workouts = new Chart(workoutCanvas, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [
+              {
+                data,
+                backgroundColor,
+                borderWidth: 2,
+                borderColor: '#0f1527',
+              },
+            ],
+          },
+          options: {
+            ...baseOptions,
+            cutout: '55%',
+            plugins: {
+              ...baseOptions.plugins,
+              legend: { position: 'right', labels: { color: '#c7d2fe' } },
+              tooltip: {
+                ...baseOptions.plugins.tooltip,
+                callbacks: {
+                  label: (context) => {
+                    const label = context.label || 'Workout';
+                    const value = context.raw || 0;
+                    return `${label}: ${value} min total`;
+                  },
+                },
+              },
+            },
+            scales: undefined,
+          },
+        });
+      } else {
+        chartInstances.workouts.data.labels = labels;
+        chartInstances.workouts.data.datasets[0].data = data;
+        chartInstances.workouts.data.datasets[0].backgroundColor = backgroundColor;
+        chartInstances.workouts.update();
+      }
+    };
+
+    const loadTrends = async (rangeKey) => {
+      setStatus('loading', 'Loading health trends...');
+      ensureToggleState(rangeKey);
+
+      const result = await fetchTrends(rangeKey);
+      const { labels, macros, sleep, workouts } = result.data || {};
+
+      renderMacros(labels || [], macros || {});
+      renderSleep(labels || [], sleep || { qualities: [], series: {} });
+      renderWorkouts(workouts || {});
+
+      if (result.isFallback) {
+        setStatus('error', 'Using cached sample data while Supabase is unreachable.');
+      } else {
+        setStatus('ready', '');
+      }
+    };
+
+    toggleButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const desiredRange = FVTrends.normalizeRangeKey(button.dataset.trendsRange);
+        rangeStore.set(desiredRange);
+      });
+    });
+
+    rangeStore.subscribe((rangeKey) => loadTrends(rangeKey));
+    ensureToggleState(rangeStore.get());
+    loadTrends(rangeStore.get());
+  }
 });

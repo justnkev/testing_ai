@@ -97,6 +97,60 @@
     </div>
   </section>
 
+  <section class="surface-card chart-section trends-section" data-trends-section aria-label="Health trend visualizations">
+    <div class="section-header chart-header">
+      <div>
+        <small>Your Health Trends</small>
+        <h3 style="margin:0.4rem 0 0;">Macro, sleep, and workout patterns</h3>
+      </div>
+      <div class="chart-toggle" role="group" aria-label="Select trend interval">
+        <button type="button" class="fv-button fv-button--ghost" data-trends-range="daily">Day</button>
+        <button type="button" class="fv-button fv-button--ghost is-active" data-trends-range="weekly" aria-pressed="true">Week</button>
+        <button type="button" class="fv-button fv-button--ghost" data-trends-range="monthly">Month</button>
+      </div>
+    </div>
+    <p class="stat-detail" data-trends-status hidden>Loading health trends...</p>
+    <div class="chart-grid" role="list">
+      <figure class="chart-card" role="listitem" aria-labelledby="macros-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Macros</small>
+            <h4 id="macros-chart-title">Macros overview</h4>
+          </div>
+          <p class="stat-detail">Stacked bars by protein, carbs, fat</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Stacked bar chart of macros by time range">
+          <canvas id="macrosTrendsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="sleep-quality-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Sleep</small>
+            <h4 id="sleep-quality-chart-title">Sleep duration by quality</h4>
+          </div>
+          <p class="stat-detail">Grouped bars for hours asleep by quality</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Grouped bar chart of sleep duration by quality">
+          <canvas id="sleepQualityChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="workout-breakdown-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Workouts</small>
+            <h4 id="workout-breakdown-chart-title">Sessions by type</h4>
+          </div>
+          <p class="stat-detail">Donut showing session mix by type</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Workout breakdown chart">
+          <canvas id="workoutBreakdownChart" aria-hidden="true"></canvas>
+          <p class="stat-detail" data-workout-empty hidden>No workouts logged in this range yet.</p>
+        </div>
+      </figure>
+    </div>
+  </section>
+
   <div class="grid-responsive">
     <section class="trend-board">
       <div class="section-header" style="margin-bottom:0;">

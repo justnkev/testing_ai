@@ -488,6 +488,88 @@ def _parse_float(value: Any) -> float:
     return float(match.group(0)) if match else 0.0
 
 
+def _bucket_index(value_date: Optional[date], buckets: List[Dict[str, Any]]) -> Optional[int]:
+    if not value_date:
+        return None
+    for index, bucket in enumerate(buckets):
+        if bucket['start'] <= value_date < bucket['end']:
+            return index
+    return None
+
+
+def _aggregate_trend_series(range_key: str, user_id: str, storage: StorageService) -> Dict[str, Any]:
+    buckets = _chart_buckets(range_key)
+    labels = [bucket['label'] for bucket in buckets]
+
+    meals = storage.list_normalized_records('meals', user_id)
+    workouts = storage.list_normalized_records('workouts', user_id)
+    sleep_entries = storage.list_normalized_records('sleep', user_id)
+
+    macro_series = {
+        'protein': [0.0 for _ in buckets],
+        'carbs': [0.0 for _ in buckets],
+        'fat': [0.0 for _ in buckets],
+        'calories': [0.0 for _ in buckets],
+    }
+
+    sleep_series: Dict[str, List[float]] = {}
+    workout_counts: Dict[str, List[int]] = {}
+    workout_durations: Dict[str, List[float]] = {}
+
+    for meal in meals:
+        parsed_date = _parse_date_only(meal.get('date_inferred'))
+        bucket_idx = _bucket_index(parsed_date, buckets)
+        if bucket_idx is None:
+            continue
+        macro_series['protein'][bucket_idx] += meal.get('protein_g') or 0.0
+        macro_series['carbs'][bucket_idx] += meal.get('carbs_g') or 0.0
+        macro_series['fat'][bucket_idx] += meal.get('fat_g') or 0.0
+        macro_series['calories'][bucket_idx] += meal.get('calories') or 0.0
+
+    for sleep_entry in sleep_entries:
+        parsed_date = _parse_date_only(sleep_entry.get('date_inferred') or sleep_entry.get('created_at'))
+        bucket_idx = _bucket_index(parsed_date, buckets)
+        if bucket_idx is None:
+            continue
+        quality = (sleep_entry.get('quality') or 'unknown').strip() or 'unknown'
+        hours = _parse_sleep_hours(sleep_entry.get('time_asleep') or (sleep_entry.get('metadata') or {}).get('hours'))
+        if quality not in sleep_series:
+            sleep_series[quality] = [0.0 for _ in buckets]
+        sleep_series[quality][bucket_idx] += hours
+
+    for workout in workouts:
+        parsed_date = _parse_date_only(workout.get('date_inferred') or workout.get('created_at'))
+        bucket_idx = _bucket_index(parsed_date, buckets)
+        if bucket_idx is None:
+            continue
+        workout_type = (workout.get('workout_type') or 'other').strip() or 'other'
+        duration = _parse_float(workout.get('duration_min') or (workout.get('metadata') or {}).get('duration'))
+        if workout_type not in workout_counts:
+            workout_counts[workout_type] = [0 for _ in buckets]
+            workout_durations[workout_type] = [0.0 for _ in buckets]
+        workout_counts[workout_type][bucket_idx] += 1
+        workout_durations[workout_type][bucket_idx] += duration
+
+    # Sort qualities/types for stable ordering
+    sorted_sleep = {quality: values for quality, values in sorted(sleep_series.items())}
+    sorted_workout_counts = {wt: counts for wt, counts in sorted(workout_counts.items())}
+    sorted_workout_durations = {wt: durations for wt, durations in sorted(workout_durations.items())}
+
+    return {
+        'labels': labels,
+        'macros': {key: [round(value, 2) for value in series] for key, series in macro_series.items()},
+        'sleep': {
+            'qualities': list(sorted_sleep.keys()),
+            'series': {quality: [round(v, 2) for v in values] for quality, values in sorted_sleep.items()},
+        },
+        'workouts': {
+            'types': list(sorted_workout_counts.keys()),
+            'counts': sorted_workout_counts,
+            'durations': {key: [round(v, 2) for v in values] for key, values in sorted_workout_durations.items()},
+        },
+    }
+
+
 def _build_dashboard_range_data(range_key: str, user_id: str, storage: StorageService) -> Dict[str, Any]:
     buckets = _chart_buckets(range_key)
     meals = storage.list_normalized_records('meals', user_id)
@@ -792,6 +874,18 @@ def dashboard_range() -> Dict[str, Any]:
 
     data = _build_dashboard_range_data(range_key, user_id, current_app.storage_service)
     return {'data': data}
+
+
+@main_bp.route('/api/dashboard_trends')
+@login_required
+def dashboard_trends() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    range_key = (request.args.get('range') or 'weekly').lower()
+    if range_key not in {'daily', 'weekly', 'monthly'}:
+        range_key = 'weekly'
+
+    data = _aggregate_trend_series(range_key, user_id, current_app.storage_service)
+    return {'data': data, 'range': range_key}
 
 
 @main_bp.route('/api/daily_calories')

@@ -1153,6 +1153,53 @@ input[type="file"] {
   border: 1px solid rgba(140, 123, 255, 0.1);
 }
 
+.dashboard-v3 {
+  gap: 1.6rem;
+}
+
+.dashboard-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.2rem;
+}
+
+.dashboard-react-layout {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.dashboard-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stat-card--compact .stat-value {
+  font-size: 1.8rem;
+}
+
+.chart-tooltip {
+  background: rgba(12, 16, 31, 0.92);
+  border: 1px solid rgba(140, 123, 255, 0.45);
+  padding: 0.75rem 0.95rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.chart-tooltip__row {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
 .chart-card canvas {
   width: 100%;
   height: 260px;
@@ -1189,6 +1236,12 @@ input[type="file"] {
 @media (max-width: 992px) {
   .fitvision-shell {
     flex-direction: column;
+  }
+
+  .dashboard-intro,
+  .dashboard-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .chart-toggle {

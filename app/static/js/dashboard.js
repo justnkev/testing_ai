@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('[data-dashboard-react-root]')) {
+    return;
+  }
+
   const supabaseConfig = (() => {
     const node = document.querySelector('[data-supabase-config]');
     if (!node) return null;

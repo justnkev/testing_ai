@@ -319,15 +319,40 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
 
 
 def _parse_sleep_hours(value: Any) -> float:
+    """Parse a sleep duration string into hours.
+
+    Examples handled:
+    - "7.5h"
+    - "7h 30m"
+    - "8 hours"
+    - numeric values
+    """
+
     if isinstance(value, (int, float)):
         return float(value)
-    if isinstance(value, str):
-        match = re.search(r"([0-9]+(?:\.[0-9]+)?)", value)
-        if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                return 0.0
+
+    if not value:
+        return 0.0
+
+    text = str(value).strip().lower()
+    if not text:
+        return 0.0
+
+    hours_match = re.search(r"(\d+(?:\.\d+)?)\s*h", text)
+    minutes_match = re.search(r"(\d+(?:\.\d+)?)\s*m", text)
+
+    hours = float(hours_match.group(1)) if hours_match else None
+    minutes = float(minutes_match.group(1)) / 60 if minutes_match else 0.0
+
+    if hours is not None:
+        return round(hours + minutes, 2)
+
+    numeric_fallback = re.search(r"\d+(?:\.\d+)?", text)
+    if numeric_fallback:
+        try:
+            return float(numeric_fallback.group(0))
+        except ValueError:
+            return 0.0
     return 0.0
 
 
@@ -508,6 +533,18 @@ def _build_dashboard_range_data(range_key: str, user_id: str, storage: StorageSe
         'workouts': _bucketize(workouts, buckets, lambda _entry: 1),
         'sleep': sleep_hours,
     }
+
+
+def _normalize_date_string(entry: Dict[str, Any]) -> Optional[str]:
+    parsed = _parse_date_only(entry.get('date_inferred') or entry.get('created_at'))
+    return parsed.isoformat() if parsed else None
+
+
+def _numeric(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 @main_bp.route('/dashboard')
@@ -849,9 +886,61 @@ def daily_progress_summary() -> Dict[str, Any]:
     ingester = getattr(current_app, 'health_ingestion', None)
     if not ingester:
         return {'error': 'Ingestion service not available'}, 500
-    
+
     data = ingester.get_daily_progress_summary(user_id)
     return {'data': data}
+
+
+@main_bp.route('/api/dashboard_data')
+@login_required
+def dashboard_data() -> Dict[str, Any]:
+    user_id = session['user']['id']
+    storage = current_app.storage_service
+
+    meals_raw = storage.list_normalized_records('meals', user_id)
+    sleep_raw = storage.list_normalized_records('sleep', user_id)
+    workouts_raw = storage.list_normalized_records('workouts', user_id)
+
+    meals: List[Dict[str, Any]] = []
+    for meal in meals_raw:
+        meals.append(
+            {
+                'date_inferred': _normalize_date_string(meal),
+                'protein_g': _numeric(meal.get('protein_g')),
+                'carbs_g': _numeric(meal.get('carbs_g')),
+                'fat_g': _numeric(meal.get('fat_g')),
+                'calories': _numeric(meal.get('calories')),
+                'meal_type': meal.get('meal_type') or 'Meal',
+            }
+        )
+
+    sleep_entries: List[Dict[str, Any]] = []
+    for entry in sleep_raw:
+        parsed_hours = _parse_sleep_hours(
+            entry.get('time_asleep')
+            or (entry.get('metadata') or {}).get('hours')
+            or (entry.get('metadata') or {}).get('time_asleep')
+        )
+        sleep_entries.append(
+            {
+                'date_inferred': _normalize_date_string(entry),
+                'quality': entry.get('quality') or 'Unknown',
+                'time_asleep': entry.get('time_asleep'),
+                'hours': round(parsed_hours, 2),
+            }
+        )
+
+    workouts: List[Dict[str, Any]] = []
+    for workout in workouts_raw:
+        workouts.append(
+            {
+                'date_inferred': _normalize_date_string(workout),
+                'workout_type': workout.get('workout_type') or 'Other',
+                'duration_min': _numeric(workout.get('duration_min')),
+            }
+        )
+
+    return {'data': {'meals': meals, 'sleep': sleep_entries, 'workouts': workouts}}
 
 
 @main_bp.route('/visualize', methods=['GET', 'POST'])

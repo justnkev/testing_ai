@@ -347,14 +347,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Health trends charts --------------------------------------------
   const trendsSection = document.querySelector('[data-trends-section]');
-  if (trendsSection && typeof Chart !== 'undefined' && typeof FVTrends !== 'undefined') {
-    const rangeStore = FVTrends.createRangeStore('weekly');
+  if (trendsSection) {
     const macrosCanvas = document.getElementById('macrosTrendsChart');
     const sleepCanvas = document.getElementById('sleepQualityChart');
     const workoutCanvas = document.getElementById('workoutBreakdownChart');
     const statusEl = trendsSection.querySelector('[data-trends-status]');
     const workoutEmptyState = trendsSection.querySelector('[data-workout-empty]');
     const toggleButtons = trendsSection.querySelectorAll('[data-trends-range]');
+
+    const setStatus = (state, message = '') => {
+      trendsSection.dataset.state = state;
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      statusEl.hidden = !message;
+    };
+
+    if (typeof Chart === 'undefined' || typeof FVTrends === 'undefined') {
+      setStatus('error', 'Charts unavailable. Hard refresh to load the latest dashboard scripts.');
+      console.warn('dashboard.trends.missing_deps', {
+        chart: typeof Chart,
+        fvTrends: typeof FVTrends,
+        hint: 'Clear cache / hard refresh to ensure dashboard.js and dashboard_trends_utils.js are current.',
+      });
+      return;
+    }
+
+    const rangeStore = FVTrends.createRangeStore('weekly');
 
     const sampleData = {
       daily: {
@@ -451,13 +469,6 @@ document.addEventListener('DOMContentLoaded', () => {
           ticks: { color: '#9ba7c6' },
         },
       },
-    };
-
-    const setStatus = (state, message = '') => {
-      trendsSection.dataset.state = state;
-      if (!statusEl) return;
-      statusEl.textContent = message;
-      statusEl.hidden = !message;
     };
 
     const fetchTrends = async (rangeKey) => {

@@ -82,6 +82,7 @@ def create_app() -> Flask:
     app.health_ingestion = health_ingestion
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
+    app.config["ASSET_VERSION"] = os.environ.get("ASSET_VERSION", "1")
     redis_session_client = None
     redis_url = os.environ.get("UPSTASH_REDIS_URL")
     if redis_url and redis is not None:

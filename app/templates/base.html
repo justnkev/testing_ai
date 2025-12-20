@@ -98,8 +98,8 @@
         </main>
       </div>
     </div>
-    <script src="{{ url_for('static', filename='js/dashboard_trends_utils.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/dashboard_trends_utils.js', v=config.get('ASSET_VERSION', '1')) }}" defer></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js', v=config.get('ASSET_VERSION', '1')) }}" defer></script>
     <script
       defer
       data-sw-path="{{ url_for('main.service_worker') }}"

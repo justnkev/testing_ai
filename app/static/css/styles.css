@@ -390,6 +390,7 @@ label {
 
 .trend-bar {
   flex: 1;
+  min-height: 140px;
   background: linear-gradient(180deg, rgba(140, 123, 255, 0.85), rgba(140, 123, 255, 0.25));
   border-radius: 12px 12px 4px 4px;
   position: relative;
@@ -1247,6 +1248,10 @@ input[type="file"] {
 
   .trend-bars {
     gap: 0.6rem;
+  }
+
+  .trend-bar {
+    min-height: 120px;
   }
 
   .timeline-item {

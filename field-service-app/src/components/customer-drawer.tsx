@@ -1,17 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Drawer } from 'vaul';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { createCustomer } from '@/lib/actions/customers';
-import { customerSchema, type CustomerFormData } from '@/lib/validations/customer';
+import { type CustomerFormData } from '@/lib/validations/customer';
 import { toast } from 'sonner';
-import { Plus, Loader2, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { CustomerForm } from '@/components/customer-form';
 
 interface CustomerDrawerProps {
     onSuccess?: () => void;
@@ -21,25 +18,6 @@ export function CustomerDrawer({ onSuccess }: CustomerDrawerProps) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
-
-    const {
-        register,
-        handleSubmit,
-        reset,
-        formState: { errors },
-    } = useForm<CustomerFormData>({
-        resolver: zodResolver(customerSchema),
-        defaultValues: {
-            name: '',
-            email: '',
-            phone: '',
-            address: '',
-            city: '',
-            state: '',
-            zip_code: '',
-            notes: '',
-        },
-    });
 
     const onSubmit = async (data: CustomerFormData) => {
         setIsSubmitting(true);
@@ -56,7 +34,6 @@ export function CustomerDrawer({ onSuccess }: CustomerDrawerProps) {
 
                 if (result.success) {
                     toast.success('Customer created successfully!');
-                    reset();
                     setOpen(false);
                     router.refresh();
                     onSuccess?.();
@@ -114,123 +91,11 @@ export function CustomerDrawer({ onSuccess }: CustomerDrawerProps) {
                             </Button>
                         </div>
 
-                        {/* Form */}
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name" className="text-slate-300">
-                                    Name <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                    id="name"
-                                    {...register('name')}
-                                    placeholder="John Smith"
-                                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                />
-                                {errors.name && (
-                                    <p className="text-sm text-red-400">{errors.name.message}</p>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="address" className="text-slate-300">
-                                    Address <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                    id="address"
-                                    {...register('address')}
-                                    placeholder="123 Main Street"
-                                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                />
-                                {errors.address && (
-                                    <p className="text-sm text-red-400">{errors.address.message}</p>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="city" className="text-slate-300">City</Label>
-                                    <Input
-                                        id="city"
-                                        {...register('city')}
-                                        placeholder="New York"
-                                        className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="state" className="text-slate-300">State</Label>
-                                    <Input
-                                        id="state"
-                                        {...register('state')}
-                                        placeholder="NY"
-                                        className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="zip_code" className="text-slate-300">ZIP Code</Label>
-                                <Input
-                                    id="zip_code"
-                                    {...register('zip_code')}
-                                    placeholder="10001"
-                                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-slate-300">Email</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        {...register('email')}
-                                        placeholder="john@example.com"
-                                        className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                    />
-                                    {errors.email && (
-                                        <p className="text-sm text-red-400">{errors.email.message}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="phone" className="text-slate-300">Phone</Label>
-                                    <Input
-                                        id="phone"
-                                        type="tel"
-                                        {...register('phone')}
-                                        placeholder="(555) 123-4567"
-                                        className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="notes" className="text-slate-300">Notes</Label>
-                                <Input
-                                    id="notes"
-                                    {...register('notes')}
-                                    placeholder="Any special instructions..."
-                                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
-                                />
-                            </div>
-
-                            <Button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600"
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Creating...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        Create Customer
-                                    </>
-                                )}
-                            </Button>
-                        </form>
+                        <CustomerForm
+                            onSubmit={onSubmit}
+                            onCancel={() => setOpen(false)}
+                            isLoading={isSubmitting}
+                        />
                     </div>
                 </Drawer.Content>
             </Drawer.Portal>

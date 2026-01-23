@@ -1,6 +1,5 @@
 import { getAllJobs } from '@/lib/actions/jobs';
-import { JobCardList } from '@/components/job-card-list';
-import { JobTable } from '@/components/job-table';
+import { JobList } from '@/components/job-list';
 import { Button } from '@/components/ui/button';
 import { Plus, ArrowLeft, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
@@ -57,17 +56,7 @@ export default async function JobsPage() {
 
             {/* Job List */}
             {jobs.length > 0 && (
-                <>
-                    {/* Mobile: Card List */}
-                    <div className="block md:hidden">
-                        <JobCardList jobs={jobs} />
-                    </div>
-
-                    {/* Desktop: Data Table */}
-                    <div className="hidden md:block">
-                        <JobTable jobs={jobs} />
-                    </div>
-                </>
+                <JobList initialJobs={jobs} />
             )}
         </div>
     );

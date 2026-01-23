@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import { Button } from '@/components/ui/button';
-import { uploadJobPhoto, deleteJobPhoto, getPhotoUrl } from '@/lib/actions/job-execution';
+import { deleteJobPhoto } from '@/lib/actions/job-execution';
 import { toast } from 'sonner';
 import { Camera, Trash2, Loader2, ImagePlus, X } from 'lucide-react';
 import Image from 'next/image';
@@ -60,16 +60,27 @@ export function PhotoGallery({ jobId, photos, onPhotosChange }: PhotoGalleryProp
 
                 setUploadProgress(70);
 
-                // Upload to Supabase
-                const result = await uploadJobPhoto(jobId, activeTab, compressedFile);
+                // Create FormData for upload
+                const formData = new FormData();
+                formData.append('file', compressedFile, file.name);
+                formData.append('jobId', jobId);
+                formData.append('photoType', activeTab);
+
+                // Upload via API route
+                const response = await fetch('/api/photos/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
 
                 setUploadProgress(100);
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     toast.success(`${activeTab} photo uploaded!`);
                     onPhotosChange();
                 } else {
-                    toast.error(result.error);
+                    toast.error(result.error || 'Failed to upload photo');
                 }
             } catch (error) {
                 console.error('Upload error:', error);
@@ -116,8 +127,8 @@ export function PhotoGallery({ jobId, photos, onPhotosChange }: PhotoGalleryProp
                             key={type}
                             onClick={() => setActiveTab(type)}
                             className={`flex-1 py-3 px-2 text-sm font-medium transition-colors relative ${activeTab === type
-                                    ? 'text-white bg-slate-700'
-                                    : 'text-slate-400 hover:text-white'
+                                ? 'text-white bg-slate-700'
+                                : 'text-slate-400 hover:text-white'
                                 }`}
                         >
                             {label}

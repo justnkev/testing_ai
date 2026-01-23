@@ -26,4 +26,6 @@ export interface Customer {
     notes: string | null;
     created_at: string;
     updated_at: string;
+    deleted_at?: string | null;
+    last_modified_by?: string | null;
 }

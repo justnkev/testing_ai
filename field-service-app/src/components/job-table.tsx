@@ -11,11 +11,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Navigation, Phone } from 'lucide-react';
+import { Navigation, Phone, Eye, Edit, Trash2 } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
+import Link from 'next/link';
 
 interface JobTableProps {
     jobs: JobWithCustomer[];
+    onEdit?: (job: JobWithCustomer) => void;
+    onDelete?: (job: JobWithCustomer) => void;
 }
 
 function getMapUrl(address: string, city?: string | null, state?: string | null, zipCode?: string | null): string {
@@ -60,7 +63,7 @@ function formatScheduledDate(dateStr: string): string {
     return format(date, 'EEE, MMM d');
 }
 
-export function JobTable({ jobs }: JobTableProps) {
+export function JobTable({ jobs, onEdit, onDelete }: JobTableProps) {
     return (
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div className="p-4 border-b border-slate-700">
@@ -133,6 +136,31 @@ export function JobTable({ jobs }: JobTableProps) {
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-2">
+                                        {onEdit && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-slate-400 hover:text-white hover:bg-slate-700"
+                                                onClick={() => onEdit(job)}
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                        {onDelete && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                                onClick={() => onDelete(job)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                        <Link href={`/dashboard/jobs/${job.id}`}>
+                                            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-700">
+                                                <Eye className="w-4 h-4" />
+                                            </Button>
+                                        </Link>
                                         {job.customer.phone && (
                                             <a href={`tel:${job.customer.phone}`}>
                                                 <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-700">

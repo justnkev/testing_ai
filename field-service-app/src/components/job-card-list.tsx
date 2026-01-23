@@ -10,12 +10,17 @@ import {
     Phone,
     Calendar,
     Navigation,
-    ChevronRight
+    ChevronRight,
+    Edit,
+    Trash2
 } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
+import Link from 'next/link';
 
 interface JobCardProps {
     job: JobWithCustomer;
+    onEdit?: (job: JobWithCustomer) => void;
+    onDelete?: (job: JobWithCustomer) => void;
 }
 
 function getMapUrl(address: string, city?: string | null, state?: string | null, zipCode?: string | null): string {
@@ -60,7 +65,7 @@ function formatScheduledDate(dateStr: string): string {
     return format(date, 'EEE, MMM d');
 }
 
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({ job, onEdit, onDelete }: JobCardProps) {
     const mapUrl = getMapUrl(
         job.customer.address,
         job.customer.city,
@@ -69,86 +74,123 @@ export function JobCard({ job }: JobCardProps) {
     );
 
     return (
-        <Card className="bg-slate-800 border-slate-700 overflow-hidden">
-            <CardContent className="p-4">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">{job.title}</h3>
-                        <p className="text-sm text-slate-400 truncate">{job.customer.name}</p>
+        <Link href={`/dashboard/jobs/${job.id}`} className="block">
+            <Card className="bg-slate-800 border-slate-700 overflow-hidden hover:border-slate-600 transition-colors cursor-pointer">
+                <CardContent className="p-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-white truncate">{job.title}</h3>
+                            <p className="text-sm text-slate-400 truncate">{job.customer.name}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {onEdit && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-white"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        onEdit(job);
+                                    }}
+                                >
+                                    <Edit className="w-4 h-4" />
+                                </Button>
+                            )}
+                            {onDelete && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        onDelete(job);
+                                    }}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            )}
+                            <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                        </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                </div>
 
-                {/* Badges */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                    <Badge variant="outline" className={getStatusColor(job.status)}>
-                        {job.status.replace('_', ' ')}
-                    </Badge>
-                    {job.priority !== 'normal' && (
-                        <Badge variant="outline" className={getPriorityColor(job.priority)}>
-                            {job.priority}
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <Badge variant="outline" className={getStatusColor(job.status)}>
+                            {job.status.replace('_', ' ')}
                         </Badge>
-                    )}
-                </div>
-
-                {/* Details */}
-                <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <Calendar className="w-4 h-4 flex-shrink-0" />
-                        <span>{formatScheduledDate(job.scheduled_date)}</span>
-                        {job.scheduled_time && (
-                            <>
-                                <Clock className="w-4 h-4 ml-2 flex-shrink-0" />
-                                <span>{job.scheduled_time.slice(0, 5)}</span>
-                            </>
+                        {job.priority !== 'normal' && (
+                            <Badge variant="outline" className={getPriorityColor(job.priority)}>
+                                {job.priority}
+                            </Badge>
                         )}
                     </div>
-                    <a
-                        href={mapUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-start gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
-                    >
-                        <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">
-                            {[job.customer.address, job.customer.city, job.customer.state]
-                                .filter(Boolean)
-                                .join(', ')}
-                        </span>
-                    </a>
-                    {job.customer.phone && (
-                        <a
-                            href={`tel:${job.customer.phone}`}
-                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
-                        >
-                            <Phone className="w-4 h-4 flex-shrink-0" />
-                            <span>{job.customer.phone}</span>
-                        </a>
-                    )}
-                </div>
 
-                {/* Navigate Button */}
-                <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                    <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600">
-                        <Navigation className="w-4 h-4 mr-2" />
-                        Click to Navigate
-                    </Button>
-                </a>
-            </CardContent>
-        </Card>
+                    {/* Details */}
+                    <div className="space-y-2 mb-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-400">
+                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                            <span>{formatScheduledDate(job.scheduled_date)}</span>
+                            {job.scheduled_time && (
+                                <>
+                                    <Clock className="w-4 h-4 ml-2 flex-shrink-0" />
+                                    <span>{job.scheduled_time.slice(0, 5)}</span>
+                                </>
+                            )}
+                        </div>
+                        <div
+                            onClick={(e) => { e.preventDefault(); window.open(mapUrl, '_blank'); }}
+                            className="flex items-start gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
+                        >
+                            <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">
+                                {[job.customer.address, job.customer.city, job.customer.state]
+                                    .filter(Boolean)
+                                    .join(', ')}
+                            </span>
+                        </div>
+                        {job.customer.phone && (
+                            <div
+                                onClick={(e) => { e.preventDefault(); window.location.href = `tel:${job.customer.phone}`; }}
+                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
+                            >
+                                <Phone className="w-4 h-4 flex-shrink-0" />
+                                <span>{job.customer.phone}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Navigate Button */}
+                    <div
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(mapUrl, '_blank'); }}
+                    >
+                        <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600">
+                            <Navigation className="w-4 h-4 mr-2" />
+                            Click to Navigate
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </Link>
     );
 }
 
 interface JobCardListProps {
     jobs: JobWithCustomer[];
+    onEdit?: (job: JobWithCustomer) => void;
+    onDelete?: (job: JobWithCustomer) => void;
 }
 
-export function JobCardList({ jobs }: JobCardListProps) {
+export function JobCardList({ jobs, onEdit, onDelete }: JobCardListProps) {
     return (
         <div className="space-y-4">
             {jobs.map((job) => (
-                <JobCard key={job.id} job={job} />
+                <JobCard
+                    key={job.id}
+                    job={job}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                />
             ))}
         </div>
     );

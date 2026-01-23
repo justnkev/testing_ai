@@ -48,7 +48,7 @@ export function JobEditSheet({
         setIsLoading(true);
 
         // Load job and customers in parallel
-        const [/* jobResult, */ customersResult] = await Promise.all([
+        const [jobStub, customersResult] = await Promise.all([
             // getJobById(jobId),
             Promise.resolve({ success: false }),
             getCustomers(),

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getUpcomingJobs } from '@/lib/actions/jobs';
 import { getCustomers } from '@/lib/actions/customers';
 import { JobCardList } from '@/components/job-card-list';

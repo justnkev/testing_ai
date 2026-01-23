@@ -45,6 +45,29 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
+    // Role-based access control
+    if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+        // Fetch user role
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        const role = profile?.role;
+
+        // Technician Restrictions
+        if (role === 'technician') {
+            const restrictedRoutes = ['/dashboard/analytics'];
+            if (restrictedRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
+                const url = request.nextUrl.clone();
+                url.pathname = '/dashboard';
+                url.searchParams.set('error', 'access_denied');
+                return NextResponse.redirect(url);
+            }
+        }
+    }
+
     // Redirect authenticated users away from login page
     if (user && request.nextUrl.pathname === '/login') {
         const url = request.nextUrl.clone();

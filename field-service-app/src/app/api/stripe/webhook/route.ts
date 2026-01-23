@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { markInvoicePaid } from '@/lib/actions/portal-invoices';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-12-18.acacia',
+    apiVersion: '2025-12-15.clover',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -45,9 +45,7 @@ export async function POST(request: NextRequest) {
                 if (invoiceId) {
                     // Fetch the payment intent to get the charge ID
                     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-                    const chargeId = Array.isArray(paymentIntent.charges.data) && paymentIntent.charges.data[0]
-                        ? paymentIntent.charges.data[0].id
-                        : '';
+                    const chargeId = (paymentIntent.latest_charge as string) || '';
 
                     // Mark invoice as paid
                     const result = await markInvoicePaid(

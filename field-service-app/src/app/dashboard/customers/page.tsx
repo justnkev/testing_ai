@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getCustomers } from '@/lib/actions/customers';
 import { CustomerDrawer } from '@/components/customer-drawer';
 import { Card, CardContent } from '@/components/ui/card';

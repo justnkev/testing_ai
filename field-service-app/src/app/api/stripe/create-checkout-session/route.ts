@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getInvoiceById } from '@/lib/actions/portal-invoices';
+import { validatePortalToken } from '@/lib/actions/portal-auth';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-12-18.acacia',
+    apiVersion: '2025-12-15.clover',
 });
 
 export async function POST(request: NextRequest) {
@@ -18,9 +19,21 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Note: We'll validate the customer via the invoice fetch
-        // The portal token is used for return URLs
-        const { success, invoice, error } = await getInvoiceById(invoiceId, '');
+        // Validate the portal token to get the customer ID
+        const tokenValidation = await validatePortalToken(portalToken);
+
+        if (!tokenValidation.valid || !tokenValidation.customerId) {
+            return NextResponse.json(
+                { error: 'Invalid or expired portal session' },
+                { status: 401 }
+            );
+        }
+
+        // Fetch invoice ensuring it belongs to the authenticated customer
+        const { success, invoice, error } = await getInvoiceById(
+            invoiceId,
+            tokenValidation.customerId
+        );
 
         if (!success || !invoice) {
             return NextResponse.json(

@@ -6,60 +6,60 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // Types
 interface JobRecord {
-    id: string;
-    customer_id: string;
-    title: string;
-    status: string;
-    scheduled_date: string;
-    scheduled_time: string | null;
-    user_id: string;
+  id: string;
+  customer_id: string;
+  title: string;
+  status: string;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  user_id: string;
 }
 
 interface Customer {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    marketing_opt_in: boolean;
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  marketing_opt_in: boolean;
 }
 
 interface WebhookPayload {
-    type: "INSERT" | "UPDATE";
-    table: string;
-    schema: string;
-    record: JobRecord;
-    old_record: JobRecord | null;
+  type: "INSERT" | "UPDATE";
+  table: string;
+  schema: string;
+  record: JobRecord;
+  old_record: JobRecord | null;
 }
 
 interface NotificationResult {
-    channel: "sms" | "email";
-    success: boolean;
-    messageId?: string;
-    error?: string;
+  channel: "sms" | "email";
+  success: boolean;
+  messageId?: string;
+  error?: string;
 }
 
 // Template rendering with {{variable}} substitution
 function renderTemplate(template: string, data: Record<string, string>): string {
-    return template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "");
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "");
 }
 
 // Check if current time is within quiet hours (9 PM - 8 AM)
 function isQuietHours(): boolean {
-    const now = new Date();
-    const hour = now.getHours();
-    return hour >= 21 || hour < 8;
+  const now = new Date();
+  const hour = now.getHours();
+  return hour >= 21 || hour < 8;
 }
 
 // SMS Templates
 const SMS_TEMPLATES = {
-    en_route: "Hi {{customer_name}}, your technician is on the way! Track your job here: {{tracking_url}}",
+  en_route: "Hi {{customer_name}}, your technician is on the way! Track your job here: {{tracking_url}}",
 };
 
 // Email Templates
 const EMAIL_TEMPLATES = {
-    scheduled: {
-        subject: "Job Confirmed - {{job_title}}",
-        html: `
+  scheduled: {
+    subject: "Job Confirmed - {{job_title}}",
+    html: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -120,10 +120,10 @@ const EMAIL_TEMPLATES = {
   </table>
 </body>
 </html>`,
-    },
-    completed: {
-        subject: "Job Complete - {{job_title}}",
-        html: `
+  },
+  completed: {
+    subject: "Job Complete - {{job_title}}",
+    html: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -192,237 +192,237 @@ const EMAIL_TEMPLATES = {
   </table>
 </body>
 </html>`,
-    },
+  },
 };
 
 // Send SMS via Twilio
 async function sendSMS(
-    phone: string,
-    message: string
+  phone: string,
+  message: string
 ): Promise<NotificationResult> {
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const fromNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
 
-    if (!accountSid || !authToken || !fromNumber) {
-        return { channel: "sms", success: false, error: "Twilio credentials not configured" };
+  if (!accountSid || !authToken || !fromNumber) {
+    return { channel: "sms", success: false, error: "Twilio credentials not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+        },
+        body: new URLSearchParams({
+          To: phone,
+          From: fromNumber,
+          Body: message,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { channel: "sms", success: false, error: data.message || "Twilio API error" };
     }
 
-    try {
-        const response = await fetch(
-            `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-                },
-                body: new URLSearchParams({
-                    To: phone,
-                    From: fromNumber,
-                    Body: message,
-                }),
-            }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            return { channel: "sms", success: false, error: data.message || "Twilio API error" };
-        }
-
-        return { channel: "sms", success: true, messageId: data.sid };
-    } catch (error) {
-        return { channel: "sms", success: false, error: String(error) };
-    }
+    return { channel: "sms", success: true, messageId: data.sid };
+  } catch (error) {
+    return { channel: "sms", success: false, error: String(error) };
+  }
 }
 
 // Send Email via Resend
 async function sendEmail(
-    to: string,
-    subject: string,
-    html: string
+  to: string,
+  subject: string,
+  html: string
 ): Promise<NotificationResult> {
-    const apiKey = Deno.env.get("RESEND_API_KEY");
+  const apiKey = Deno.env.get("RESEND_API_KEY");
 
-    if (!apiKey) {
-        return { channel: "email", success: false, error: "Resend API key not configured" };
+  if (!apiKey) {
+    return { channel: "email", success: false, error: "Resend API key not configured" };
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: "notifications@resend.dev", // Change to your verified domain
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { channel: "email", success: false, error: data.message || "Resend API error" };
     }
 
-    try {
-        const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                from: "notifications@resend.dev", // Change to your verified domain
-                to: [to],
-                subject,
-                html,
-            }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            return { channel: "email", success: false, error: data.message || "Resend API error" };
-        }
-
-        return { channel: "email", success: true, messageId: data.id };
-    } catch (error) {
-        return { channel: "email", success: false, error: String(error) };
-    }
+    return { channel: "email", success: true, messageId: data.id };
+  } catch (error) {
+    return { channel: "email", success: false, error: String(error) };
+  }
 }
 
 // Main handler
 Deno.serve(async (req) => {
-    try {
-        // Parse webhook payload
-        const payload: WebhookPayload = await req.json();
-        console.log("Received webhook:", JSON.stringify(payload, null, 2));
+  try {
+    // Parse webhook payload
+    const payload: WebhookPayload = await req.json();
+    console.log("Received webhook:", JSON.stringify(payload, null, 2));
 
-        const { record: job, old_record: oldJob, type } = payload;
+    const { record: job, old_record: oldJob, type } = payload;
 
-        // Only process status changes we care about
-        const notifiableStatuses = ["scheduled", "en_route", "completed"];
-        const isStatusChange = type === "UPDATE" && oldJob?.status !== job.status;
-        const isNewScheduled = type === "INSERT" && job.status === "scheduled";
+    // Only process status changes we care about
+    const notifiableStatuses = ["scheduled", "en_route", "completed"];
+    const isStatusChange = type === "UPDATE" && oldJob?.status !== job.status;
+    const isNewScheduled = type === "INSERT" && job.status === "scheduled";
 
-        if (!notifiableStatuses.includes(job.status) || (!isStatusChange && !isNewScheduled)) {
-            return new Response(JSON.stringify({ message: "No notification needed" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-
-        // Initialize Supabase client with service role
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        // Fetch customer details
-        const { data: customer, error: customerError } = await supabase
-            .from("fs_customers")
-            .select("id, name, email, phone, marketing_opt_in")
-            .eq("id", job.customer_id)
-            .single();
-
-        if (customerError || !customer) {
-            console.error("Failed to fetch customer:", customerError);
-            return new Response(JSON.stringify({ error: "Customer not found" }), {
-                status: 404,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-
-        // Check opt-out
-        if (!customer.marketing_opt_in) {
-            console.log("Customer opted out of notifications");
-            return new Response(JSON.stringify({ message: "Customer opted out" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-
-        const baseUrl = Deno.env.get("NOTIFICATION_BASE_URL") || "https://example.com";
-        const notificationType = job.status as "scheduled" | "en_route" | "completed";
-        const results: NotificationResult[] = [];
-
-        // Prepare template data
-        const templateData: Record<string, string> = {
-            customer_name: customer.name,
-            job_title: job.title,
-            scheduled_date: job.scheduled_date,
-            scheduled_time: job.scheduled_time || "TBD",
-            tracking_url: `${baseUrl}/track/${job.id}`,
-            invoice_url: `${baseUrl}/invoice/${job.id}`,
-            review_url: `${baseUrl}/review/${job.id}`,
-        };
-
-        // Helper to log notification attempt
-        async function logNotification(
-            channel: "sms" | "email",
-            result: NotificationResult,
-            payloadData: Record<string, unknown>,
-            shouldQueue = false
-        ) {
-            try {
-                await supabase.from("communication_logs").insert({
-                    job_id: job.id,
-                    customer_id: customer.id,
-                    notification_type: notificationType,
-                    channel,
-                    status: shouldQueue ? "queued" : result.success ? "sent" : "failed",
-                    provider_message_id: result.messageId,
-                    error_message: result.error,
-                    payload: payloadData,
-                    sent_at: result.success && !shouldQueue ? new Date().toISOString() : null,
-                });
-            } catch (logError) {
-                // Check for unique constraint violation (duplicate)
-                if (String(logError).includes("unique") || String(logError).includes("duplicate")) {
-                    console.log(`Duplicate notification prevented: ${channel} for job ${job.id}`);
-                } else {
-                    console.error("Failed to log notification:", logError);
-                }
-            }
-        }
-
-        // Handle "en_route" status - SMS
-        if (notificationType === "en_route" && customer.phone) {
-            // Check quiet hours
-            if (isQuietHours()) {
-                console.log("Quiet hours - queuing SMS");
-                await logNotification("sms", { channel: "sms", success: false, error: "Quiet hours" }, { message: SMS_TEMPLATES.en_route }, true);
-            } else {
-                const message = renderTemplate(SMS_TEMPLATES.en_route, templateData);
-                const smsResult = await sendSMS(customer.phone, message);
-                results.push(smsResult);
-                await logNotification("sms", smsResult, { message });
-            }
-        }
-
-        // Handle "scheduled" status - Email
-        if (notificationType === "scheduled" && customer.email) {
-            const template = EMAIL_TEMPLATES.scheduled;
-            const subject = renderTemplate(template.subject, templateData);
-            const html = renderTemplate(template.html, templateData);
-            const emailResult = await sendEmail(customer.email, subject, html);
-            results.push(emailResult);
-            await logNotification("email", emailResult, { subject });
-        }
-
-        // Handle "completed" status - Email
-        if (notificationType === "completed" && customer.email) {
-            const template = EMAIL_TEMPLATES.completed;
-            const subject = renderTemplate(template.subject, templateData);
-            const html = renderTemplate(template.html, templateData);
-            const emailResult = await sendEmail(customer.email, subject, html);
-            results.push(emailResult);
-            await logNotification("email", emailResult, { subject });
-        }
-
-        console.log("Notification results:", results);
-
-        return new Response(
-            JSON.stringify({
-                success: true,
-                job_id: job.id,
-                status: job.status,
-                results,
-            }),
-            {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            }
-        );
-    } catch (error) {
-        console.error("Edge Function error:", error);
-        return new Response(JSON.stringify({ error: String(error) }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-        });
+    if (!notifiableStatuses.includes(job.status) || (!isStatusChange && !isNewScheduled)) {
+      return new Response(JSON.stringify({ message: "No notification needed" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    // Initialize Supabase client with service role
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch customer details
+    const { data: customer, error: customerError } = await supabase
+      .from("fs_customers")
+      .select("id, name, email, phone, marketing_opt_in")
+      .eq("id", job.customer_id)
+      .single();
+
+    if (customerError || !customer) {
+      console.error("Failed to fetch customer:", customerError);
+      return new Response(JSON.stringify({ error: "Customer not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Check opt-out
+    if (!customer.marketing_opt_in) {
+      console.log("Customer opted out of notifications");
+      return new Response(JSON.stringify({ message: "Customer opted out" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const baseUrl = Deno.env.get("NOTIFICATION_BASE_URL") || "https://example.com";
+    const notificationType = job.status as "scheduled" | "en_route" | "completed";
+    const results: NotificationResult[] = [];
+
+    // Prepare template data
+    const templateData: Record<string, string> = {
+      customer_name: customer.name,
+      job_title: job.title,
+      scheduled_date: job.scheduled_date,
+      scheduled_time: job.scheduled_time || "TBD",
+      tracking_url: `${baseUrl}/track/${job.id}`,
+      invoice_url: `${baseUrl}/invoice/${job.id}`,
+      review_url: `${baseUrl}/review/${job.id}`,
+    };
+
+    // Helper to log notification attempt
+    async function logNotification(
+      channel: "sms" | "email",
+      result: NotificationResult,
+      payloadData: Record<string, unknown>,
+      shouldQueue = false
+    ) {
+      try {
+        await supabase.from("communication_logs").insert({
+          job_id: job.id,
+          customer_id: customer.id,
+          notification_type: notificationType,
+          channel,
+          status: shouldQueue ? "queued" : result.success ? "sent" : "failed",
+          provider_message_id: result.messageId,
+          error_message: result.error,
+          payload: payloadData,
+          sent_at: result.success && !shouldQueue ? new Date().toISOString() : null,
+        });
+      } catch (logError) {
+        // Check for unique constraint violation (duplicate)
+        if (String(logError).includes("unique") || String(logError).includes("duplicate")) {
+          console.log(`Duplicate notification prevented: ${channel} for job ${job.id}`);
+        } else {
+          console.error("Failed to log notification:", logError);
+        }
+      }
+    }
+
+    // Handle "en_route" status - SMS
+    if (notificationType === "en_route" && customer.phone) {
+      // Check quiet hours
+      if (isQuietHours()) {
+        console.log("Quiet hours - queuing SMS");
+        await logNotification("sms", { channel: "sms", success: false, error: "Quiet hours" }, { message: SMS_TEMPLATES.en_route }, true);
+      } else {
+        const message = renderTemplate(SMS_TEMPLATES.en_route, templateData);
+        const smsResult = await sendSMS(customer.phone, message);
+        results.push(smsResult);
+        await logNotification("sms", smsResult, { message });
+      }
+    }
+
+    // Handle "scheduled" status - Email
+    if (notificationType === "scheduled" && customer.email) {
+      const template = EMAIL_TEMPLATES.scheduled;
+      const subject = renderTemplate(template.subject, templateData);
+      const html = renderTemplate(template.html, templateData);
+      const emailResult = await sendEmail(customer.email, subject, html);
+      results.push(emailResult);
+      await logNotification("email", emailResult, { subject });
+    }
+
+    // Handle "completed" status - Email
+    if (notificationType === "completed" && customer.email) {
+      const template = EMAIL_TEMPLATES.completed;
+      const subject = renderTemplate(template.subject, templateData);
+      const html = renderTemplate(template.html, templateData);
+      const emailResult = await sendEmail(customer.email, subject, html);
+      results.push(emailResult);
+      await logNotification("email", emailResult, { subject });
+    }
+
+    console.log("Notification results:", results);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        job_id: job.id,
+        status: job.status,
+        results,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Edge Function error:", error);
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 });

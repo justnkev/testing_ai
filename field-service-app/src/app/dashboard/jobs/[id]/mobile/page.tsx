@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import { getJobExecutionData } from '@/lib/actions/job-execution';
 import { MobileJobClient } from '@/components/mobile/mobile-job-client';

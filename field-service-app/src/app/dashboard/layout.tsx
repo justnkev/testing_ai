@@ -10,17 +10,24 @@ import {
     Calendar,
     LogOut,
     Menu,
-    X
+    X,
+    BarChart3,
+    Settings
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { usePermission } from '@/hooks/usePermission';
+import { Suspense } from 'react';
+import { DashboardAuthCheck } from '@/components/dashboard/auth-check';
 
 const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/dashboard/calendar', label: 'Schedule', icon: Calendar },
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/jobs', label: 'Jobs', icon: ClipboardList },
+    { href: '/dashboard/settings/organization', label: 'Settings', icon: Settings },
 ];
 
 export default function DashboardLayout({
@@ -31,7 +38,22 @@ export default function DashboardLayout({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
+    // Removed useSearchParams from here
     const supabase = createClient();
+    const { isTechnician } = usePermission();
+
+    // Was useEffect for search params - Moved to DashboardAuthCheck
+
+    // Filter nav items based on role
+
+    // Filter nav items based on role
+    const filteredNavItems = navItems.filter(item => {
+        if (isTechnician) {
+            if (item.href === '/dashboard/analytics') return false;
+            if (item.href.startsWith('/dashboard/settings')) return false;
+        }
+        return true;
+    });
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
@@ -42,6 +64,9 @@ export default function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-slate-900">
+            <Suspense fallback={null}>
+                <DashboardAuthCheck />
+            </Suspense>
             {/* Mobile Header */}
             <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
                 <div className="flex items-center justify-between px-4 py-3">
@@ -64,7 +89,7 @@ export default function DashboardLayout({
                 {/* Mobile Navigation */}
                 {isMobileMenuOpen && (
                     <nav className="px-4 pb-4 space-y-1">
-                        {navItems.map((item) => (
+                        {filteredNavItems.map((item) => (
                             <Link
                                 key={item.href}
                                 href={item.href}
@@ -102,7 +127,7 @@ export default function DashboardLayout({
                 </div>
 
                 <nav className="flex-1 px-4 py-6 space-y-1">
-                    {navItems.map((item) => (
+                    {filteredNavItems.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}

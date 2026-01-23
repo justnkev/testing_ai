@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getAllJobs } from '@/lib/actions/jobs';
 import { JobList } from '@/components/job-list';
 import { Button } from '@/components/ui/button';

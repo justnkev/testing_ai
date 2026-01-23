@@ -1,4 +1,7 @@
 import { Suspense } from 'react';
+
+export const dynamic = 'force-dynamic';
+
 import { getJobsForCalendar, getTechnicians } from '@/lib/actions/calendar';
 import { CalendarClient } from '@/components/calendar/calendar-client';
 import { Skeleton } from '@/components/ui/skeleton';

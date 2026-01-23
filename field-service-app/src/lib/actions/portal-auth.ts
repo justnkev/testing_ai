@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 interface TokenValidationResult {
     valid: boolean;
@@ -197,6 +197,7 @@ export async function sendPortalLinkEmail(
         const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/portal/${token}`;
 
         // Send email via Resend
+        const resend = new Resend(process.env.RESEND_API_KEY);
         const { error: emailError } = await resend.emails.send({
             from: settings?.contact_email || 'noreply@example.com',
             to: customer.email,

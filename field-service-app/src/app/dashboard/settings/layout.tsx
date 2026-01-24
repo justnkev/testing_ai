@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const settingsTabs = [
+    { name: 'Profile', href: '/dashboard/settings' },
     { name: 'Organization', href: '/dashboard/settings/organization' },
     { name: 'Team Management', href: '/dashboard/settings/team' },
     { name: 'Invite Staff', href: '/dashboard/settings/invite' },

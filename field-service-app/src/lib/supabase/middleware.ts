@@ -45,6 +45,19 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
+    // Onboarding Check
+    if (
+        user &&
+        !user.user_metadata?.onboarding_complete &&
+        !request.nextUrl.pathname.startsWith('/complete-onboarding') &&
+        !request.nextUrl.pathname.startsWith('/auth') &&
+        !request.nextUrl.pathname.startsWith('/portal') // Allow portal access if needed, though usually different users
+    ) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/complete-onboarding';
+        return NextResponse.redirect(url);
+    }
+
     // Role-based access control
     if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
         // Fetch user role

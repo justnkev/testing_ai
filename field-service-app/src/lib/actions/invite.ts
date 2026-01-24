@@ -47,11 +47,14 @@ export async function inviteStaff(prevState: any, formData: FormData) {
         );
 
         // 3. Invite User by Email
+        // 3. Invite User by Email
         const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
             data: {
                 full_name: fullName,
-                organization_id: profile.organization_id // Assign to same org
-            }
+                organization_id: profile.organization_id, // Assign to same org
+                role: role,
+            },
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/complete-onboarding`
         });
 
         if (error) {

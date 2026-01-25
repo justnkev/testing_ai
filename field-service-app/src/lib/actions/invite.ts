@@ -54,7 +54,12 @@ export async function inviteStaff(prevState: any, formData: FormData) {
                 organization_id: profile.organization_id, // Assign to same org
                 role: role,
             },
-            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/complete-onboarding`
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback/invite`
+        });
+
+        console.log('Sending Invite:', {
+            email,
+            redirectUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback/invite`
         });
 
         if (error) {

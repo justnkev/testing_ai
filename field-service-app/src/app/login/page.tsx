@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,22 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const supabase = createClient();
+
+    // Handle error query parameters (e.g., from expired invite links)
+    useEffect(() => {
+        const error = searchParams.get('error');
+        const message = searchParams.get('message');
+
+        if (error === 'invite_expired') {
+            toast.error(message || 'Your invitation link has expired. Please request a new one.');
+        } else if (error === 'auth_callback_error') {
+            toast.error('Authentication failed. Please try again.');
+        } else if (error === 'invalid_request') {
+            toast.error('Invalid request. Please try again.');
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

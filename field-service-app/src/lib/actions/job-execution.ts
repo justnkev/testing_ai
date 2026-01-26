@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import type { JobPart } from '@/lib/validations/inventory';
 
 export type ActionResult<T = void> =
     | { success: true; data?: T }
@@ -66,6 +67,7 @@ export interface JobExecutionData {
     events: JobEvent[];
     photos: JobPhoto[];
     checklist: ChecklistItem[];
+    parts: JobPart[];
 }
 
 /**
@@ -129,6 +131,16 @@ export async function getJobExecutionData(
             .eq('job_id', jobId)
             .order('sort_order', { ascending: true });
 
+        // Fetch parts
+        const { data: parts } = await supabase
+            .from('fs_job_parts')
+            .select(`
+                *,
+                item:fs_inventory_items(name, sku, description)
+            `)
+            .eq('job_id', jobId)
+            .order('created_at', { ascending: true });
+
         // Handle customer data (might be array from Supabase)
         const customerData = job.customer;
         const customer = Array.isArray(customerData) ? customerData[0] : customerData;
@@ -141,6 +153,7 @@ export async function getJobExecutionData(
                 events: (events || []) as JobEvent[],
                 photos: (photos || []) as JobPhoto[],
                 checklist: (checklist || []) as ChecklistItem[],
+                parts: (parts || []) as JobPart[],
             },
         };
     } catch (error) {

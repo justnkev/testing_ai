@@ -6,6 +6,7 @@ import { JobActionBar } from '@/components/mobile/job-action-bar';
 import { PhotoGallery } from '@/components/mobile/photo-gallery';
 import { SignaturePad } from '@/components/mobile/signature-pad';
 import { TaskChecklist } from '@/components/mobile/task-checklist';
+import { PartsManager } from '@/components/mobile/parts-manager';
 import { Button } from '@/components/ui/button';
 import { completeJob } from '@/lib/actions/job-execution';
 import type { JobExecutionData } from '@/lib/actions/job-execution';
@@ -117,10 +118,10 @@ export function MobileJobClient({ initialData }: MobileJobClientProps) {
                     </div>
                     <div
                         className={`px-3 py-1 rounded-full text-xs font-medium ${jobData.status === 'completed'
-                                ? 'bg-green-500/20 text-green-400'
-                                : jobData.status === 'in_progress'
-                                    ? 'bg-blue-500/20 text-blue-400'
-                                    : 'bg-slate-600 text-slate-300'
+                            ? 'bg-green-500/20 text-green-400'
+                            : jobData.status === 'in_progress'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'bg-slate-600 text-slate-300'
                             }`}
                     >
                         {jobData.status.replace('_', ' ').toUpperCase()}
@@ -201,6 +202,14 @@ export function MobileJobClient({ initialData }: MobileJobClientProps) {
                         disabled={jobData.status === 'completed'}
                     />
                 )}
+
+                {/* Parts Manager (New) */}
+                <PartsManager
+                    jobId={jobData.id}
+                    parts={jobData.parts || []}
+                    onPartsChange={refreshData}
+                    disabled={jobData.status === 'completed'}
+                />
 
                 {/* Photo Gallery */}
                 <PhotoGallery

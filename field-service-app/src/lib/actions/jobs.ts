@@ -138,6 +138,68 @@ export async function getAllJobs(): Promise<{ success: boolean; data: JobWithCus
     }
 }
 
+export async function getJobById(id: string): Promise<ActionResult<{ job: JobWithCustomer }>> {
+    try {
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from('fs_jobs')
+            .select(`
+        *,
+        customer:fs_customers (
+          id,
+          name,
+          address,
+          city,
+          state,
+          zip_code,
+          phone
+        )
+      `)
+            .eq('id', id)
+            .single();
+
+        if (error || !data) {
+            return { success: false, error: 'Job not found' };
+        }
+        return { success: true, data: { job: data as JobWithCustomer } };
+    } catch (error) {
+        return { success: false, error: 'Unexpected error' };
+    }
+}
+
+export async function updateJob(id: string, data: Partial<JobFormData>, updatedAt?: string): Promise<ActionResult> {
+    try {
+        const supabase = await createClient();
+        const { error } = await supabase
+            .from('fs_jobs')
+            .update({
+                title: data.title,
+                description: data.description,
+                status: data.status,
+                priority: data.priority,
+                scheduled_date: data.scheduled_date,
+                scheduled_time: data.scheduled_time,
+                estimated_duration_minutes: data.estimated_duration_minutes,
+                notes: data.notes,
+                customer_id: data.customer_id, // Allow changing customer
+                latitude: data.latitude,
+                longitude: data.longitude,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) return { success: false, error: error.message };
+
+        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/jobs');
+        revalidatePath(`/dashboard/jobs/${id}`);
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: 'Unexpected error' };
+    }
+}
+
 export async function updateJobStatus(id: string, status: string): Promise<ActionResult> {
     try {
         const supabase = await createClient();

@@ -9,7 +9,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { JobForm } from '@/components/job-form';
-// import { updateJob, getJobById } from '@/lib/actions/jobs';
+import { updateJob, getJobById } from '@/lib/actions/jobs';
 import { getCustomers } from '@/lib/actions/customers';
 import { toast } from 'sonner';
 import type { JobWithCustomer, JobFormData } from '@/lib/validations/job';
@@ -48,16 +48,16 @@ export function JobEditSheet({
         setIsLoading(true);
 
         // Load job and customers in parallel
-        const [jobStub, customersResult] = await Promise.all([
-            // getJobById(jobId),
-            Promise.resolve({ success: false }),
+        // Load job and customers in parallel
+        const [jobResult, customersResult] = await Promise.all([
+            getJobById(jobId),
             getCustomers(),
         ]);
 
-        /* if (jobResult.success && jobResult.data) {
+        if (jobResult.success && jobResult.data) {
             setJob(jobResult.data.job);
-        } else */ if (true /* !jobResult.success */) {
-            toast.error('Job editing temporarily disabled');
+        } else {
+            toast.error('Failed to load job details');
             onOpenChange(false);
         }
 
@@ -95,7 +95,7 @@ export function JobEditSheet({
             return;
         }
 
-        const result = /* await updateJob(jobId, updates, job.updated_at) */ { success: false, error: 'Job editing temporarily disabled' };
+        const result = await updateJob(jobId, updates, job.updated_at);
 
         if (result.success) {
             toast.success('Job updated successfully');

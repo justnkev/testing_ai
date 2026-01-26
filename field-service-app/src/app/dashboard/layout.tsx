@@ -12,7 +12,8 @@ import {
     Menu,
     X,
     BarChart3,
-    Settings
+    Settings,
+    Map
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import { DashboardAuthCheck } from '@/components/dashboard/auth-check';
 
 const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/map', label: 'Map View', icon: Map },
     { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/dashboard/calendar', label: 'Schedule', icon: Calendar },
     { href: '/dashboard/customers', label: 'Customers', icon: Users },

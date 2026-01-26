@@ -186,10 +186,49 @@ export async function deleteJob(id: string): Promise<ActionResult> {
 
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/jobs');
-
         return { success: true };
     } catch (error) {
         console.error('Delete job error:', error);
         return { success: false, error: 'An unexpected error occurred' };
+    }
+}
+
+export async function getMapJobs(): Promise<{ success: boolean; data: any[]; error?: string }> {
+    try {
+        const supabase = await createClient();
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            return { success: false, error: 'Not authenticated', data: [] };
+        }
+
+        const { data, error } = await supabase
+            .from('fs_jobs')
+            .select(`
+                id,
+                title,
+                status,
+                latitude,
+                longitude,
+                customer:fs_customers (
+                    name,
+                    address,
+                    city,
+                    state,
+                    zip_code
+                )
+            `)
+            .not('latitude', 'is', null) // Only get jobs with coordinates
+            .not('longitude', 'is', null);
+
+        if (error) {
+            console.error('Supabase error:', error);
+            return { success: false, error: `Failed to fetch map jobs: ${error.message}`, data: [] };
+        }
+
+        return { success: true, data: data || [] };
+    } catch (error) {
+        console.error('Get map jobs error:', error);
+        return { success: false, error: 'An unexpected error occurred', data: [] };
     }
 }

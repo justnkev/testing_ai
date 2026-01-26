@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ['react-map-gl', 'mapbox-gl'],
 };
 
 export default nextConfig;

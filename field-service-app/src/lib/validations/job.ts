@@ -4,7 +4,7 @@ export const jobSchema = z.object({
     customer_id: z.string().uuid('Please select a customer'),
     title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
     description: z.string().max(500, 'Description must be less than 500 characters').optional().or(z.literal('')),
-    status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']),
+    status: z.enum(['requested', 'scheduled', 'in_progress', 'completed', 'cancelled']),
     scheduled_date: z.string().min(1, 'Scheduled date is required'),
     scheduled_time: z.string().optional().or(z.literal('')),
     estimated_duration_minutes: z.number().min(0).max(1440).optional(),
@@ -16,7 +16,7 @@ export const jobSchema = z.object({
 
 export type JobFormData = z.infer<typeof jobSchema>;
 
-export type JobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type JobStatus = 'requested' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type JobPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface Job {

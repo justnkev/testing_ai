@@ -53,7 +53,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name" className="text-white">Name *</Label>
                 <Input
                     id="name"
                     {...register('name')}
@@ -67,7 +67,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-white">Email</Label>
                     <Input
                         id="email"
                         type="email"
@@ -81,7 +81,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone" className="text-white">Phone</Label>
                     <Input
                         id="phone"
                         {...register('phone')}
@@ -95,7 +95,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="address" className="text-white">Address *</Label>
                 <Input
                     id="address"
                     {...register('address')}
@@ -109,7 +109,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
 
             <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
+                    <Label htmlFor="city" className="text-white">City</Label>
                     <Input
                         id="city"
                         {...register('city')}
@@ -119,7 +119,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
+                    <Label htmlFor="state" className="text-white">State</Label>
                     <Input
                         id="state"
                         {...register('state')}
@@ -129,7 +129,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="zip_code">ZIP</Label>
+                    <Label htmlFor="zip_code" className="text-white">ZIP</Label>
                     <Input
                         id="zip_code"
                         {...register('zip_code')}
@@ -140,7 +140,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes" className="text-white">Notes</Label>
                 <Textarea
                     id="notes"
                     {...register('notes')}
@@ -155,7 +155,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isLoading = fals
                         type="button"
                         variant="outline"
                         onClick={onCancel}
-                        className="flex-1 border-slate-600"
+                        className="flex-1 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700"
                         disabled={isLoading}
                     >
                         Cancel

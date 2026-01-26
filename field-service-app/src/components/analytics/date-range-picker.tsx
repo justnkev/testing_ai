@@ -55,7 +55,7 @@ export function DateRangePicker() {
                     className={
                         activeDays === preset.days
                             ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                            : 'border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white'
                     }
                 >
                     {preset.label}

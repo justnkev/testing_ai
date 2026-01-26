@@ -14,7 +14,8 @@ import {
     BarChart3,
     Settings,
     Map,
-    Box
+    Box,
+    MessageSquare
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ const navItems = [
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/jobs', label: 'Jobs', icon: ClipboardList },
     { href: '/dashboard/inventory', label: 'Inventory', icon: Box },
+    { href: '/dashboard/settings/marketing', label: 'Marketing', icon: MessageSquare },
     { href: '/dashboard/settings/organization', label: 'Settings', icon: Settings },
 ];
 

@@ -20,10 +20,7 @@ export default function SettingsLayout({
 
     return (
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-                <p className="text-slate-400">Manage your organization preferences and team access.</p>
-            </div>
+
 
             {/* Navigation Tabs */}
             <div className="mb-8 border-b border-slate-700">

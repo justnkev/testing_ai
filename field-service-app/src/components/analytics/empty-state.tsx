@@ -34,8 +34,8 @@ export function EmptyState({ onToggleDemo }: EmptyStateProps) {
                 variant={demoEnabled ? 'default' : 'outline'}
                 className={
                     demoEnabled
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : 'border-slate-600 text-slate-300 hover:bg-slate-700'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white'
                 }
             >
                 {demoEnabled ? 'Hide Demo Data' : 'Show Demo Data'}

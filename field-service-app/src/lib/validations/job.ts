@@ -10,6 +10,8 @@ export const jobSchema = z.object({
     estimated_duration_minutes: z.number().min(0).max(1440).optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']),
     notes: z.string().max(500, 'Notes must be less than 500 characters').optional().or(z.literal('')),
+    latitude: z.number(),
+    longitude: z.number(),
 });
 
 export type JobFormData = z.infer<typeof jobSchema>;
@@ -33,6 +35,8 @@ export interface Job {
     updated_at: string;
     deleted_at?: string | null;
     last_modified_by?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
 }
 
 export interface JobWithCustomer extends Job {

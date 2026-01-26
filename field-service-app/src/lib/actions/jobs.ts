@@ -37,6 +37,8 @@ export async function createJob(formData: JobFormData): Promise<ActionResult<{ i
                 estimated_duration_minutes: validatedData.data.estimated_duration_minutes || null,
                 priority: validatedData.data.priority,
                 notes: validatedData.data.notes || null,
+                latitude: validatedData.data.latitude,
+                longitude: validatedData.data.longitude,
             })
             .select('id')
             .single();

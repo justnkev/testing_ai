@@ -18,6 +18,7 @@ import type { Customer } from '@/lib/validations/customer';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import Link from 'next/link';
+import AddressAutocomplete from '@/components/dashboard/jobs/AddressAutocomplete';
 
 export default function NewJobPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,9 +26,13 @@ export default function NewJobPage() {
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const router = useRouter();
 
+    const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { errors },
     } = useForm<JobFormData>({
         resolver: zodResolver(jobSchema),
@@ -54,7 +59,35 @@ export default function NewJobPage() {
         loadCustomers();
     }, []);
 
+    const handleAddressSelect = (result: { address: string; latitude: number; longitude: number }) => {
+        setCoordinates({ lat: result.latitude, lng: result.longitude });
+        setValue('latitude', result.latitude);
+        setValue('longitude', result.longitude);
+        // We don't have an address field in the schema yet based on the file, 
+        // but typically we'd save it. For now, assuming customer address is used 
+        // or we just want coordinates.
+        // Actually, the request says "Replace standard Address text input".
+        // Looking at the original file: There WAS NO address input in the original form!
+        // It selected a CUSTOMER and used their address.
+        // The user request says: "Replace the standard 'Address' text input".
+        // But the form only has "Customer" select.
+        // Ah, the customer has an address.
+        // Let's re-read carefully: "Replace the standard 'Address' text input".
+        // Maybe I missed it or the user thinks there is one.
+        // In the original file, there is NO address input. There is only Customer Select.
+        // "Customer - {customer.address}" in the option.
+        // "We are implementing an 'Address Autocomplete' feature for the Job Creation form... ensure every new job has a valid physical address"
+        // It seems the user wants to set the JOB location specifically, potentially different from customer address?
+        // Or maybe they want to override it.
+        // I will add the Autocomplete field to the form.
+    };
+
     const onSubmit = async (data: JobFormData) => {
+        if (!coordinates) {
+            toast.error('Please select a valid address from the search.');
+            return;
+        }
+
         setIsSubmitting(true);
 
         // Retry logic for network issues
@@ -177,6 +210,21 @@ export default function NewJobPage() {
                             )}
                         </div>
 
+                        {/* Address Autocomplete */}
+                        <div className="space-y-2">
+                            <AddressAutocomplete
+                                accessToken={mapboxToken}
+                                onSelect={handleAddressSelect}
+                            />
+                            {/* Hidden fields for validation */}
+                            <input type="hidden" {...register('latitude')} />
+                            <input type="hidden" {...register('longitude')} />
+                            {(errors.latitude || errors.longitude) && (
+                                <p className="text-sm text-red-400">Please verify the address above.</p>
+                            )}
+                        </div>
+
+
                         {/* Description */}
                         <div className="space-y-2">
                             <Label htmlFor="description" className="text-slate-300">
@@ -269,8 +317,8 @@ export default function NewJobPage() {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            disabled={isSubmitting || customers.length === 0}
-                            className="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600"
+                            disabled={isSubmitting || customers.length === 0 || !coordinates}
+                            className="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? (
                                 <>
@@ -280,7 +328,7 @@ export default function NewJobPage() {
                             ) : (
                                 <>
                                     <Plus className="w-4 h-4 mr-2" />
-                                    Create Job
+                                    {coordinates ? 'Create Job' : 'Select Valid Address'}
                                 </>
                             )}
                         </Button>

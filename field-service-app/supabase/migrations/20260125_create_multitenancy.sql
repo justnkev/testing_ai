@@ -15,8 +15,20 @@ CREATE TABLE IF NOT EXISTS public.organizations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
+
 -- Enable RLS
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+
+-- Patch for existing tables with missing columns
+DO $$
+BEGIN
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS support_email TEXT;
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS support_phone TEXT;
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS logo_url TEXT;
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#3B82F6';
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS secondary_color TEXT DEFAULT '#10B981';
+    ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS address TEXT;
+END $$;
 
 -- Insert Default Organization (Migration Step)
 INSERT INTO public.organizations (id, name, support_email, support_phone)
@@ -161,12 +173,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ORGANIZATIONS
 -- Users can read their own organization
+DROP POLICY IF EXISTS "Users can view their own organization" ON public.organizations;
 CREATE POLICY "Users can view their own organization"
     ON public.organizations FOR SELECT
     TO authenticated
     USING (id = public.get_current_org_id());
 
--- Admins can update their organization
+-- Admins can update their own organization
+DROP POLICY IF EXISTS "Admins can update their own organization" ON public.organizations;
 CREATE POLICY "Admins can update their own organization"
     ON public.organizations FOR UPDATE
     TO authenticated
@@ -177,6 +191,7 @@ CREATE POLICY "Admins can update their own organization"
 -- PROFILES
 -- Update profile policies to encompass Org check
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view profiles in their organization" ON public.profiles;
 CREATE POLICY "Users can view profiles in their organization"
     ON public.profiles FOR SELECT
     TO authenticated
@@ -184,6 +199,7 @@ CREATE POLICY "Users can view profiles in their organization"
 
 -- AUDIT LOGS
 -- Admins/Managers can view audit logs for their org
+DROP POLICY IF EXISTS "Admins/Managers can view audit logs" ON public.audit_logs;
 CREATE POLICY "Admins/Managers can view audit logs"
     ON public.audit_logs FOR SELECT
     TO authenticated
@@ -193,6 +209,7 @@ CREATE POLICY "Admins/Managers can view audit logs"
     );
 
 -- Insert policy for audit logs (triggered by server actions, typically)
+DROP POLICY IF EXISTS "Users can create audit logs for their org" ON public.audit_logs;
 CREATE POLICY "Users can create audit logs for their org"
     ON public.audit_logs FOR INSERT
     TO authenticated
@@ -206,6 +223,7 @@ CREATE POLICY "Users can create audit logs for their org"
 -- Example update for Invoices:
 
 DROP POLICY IF EXISTS "Admins and Managers can do everything on invoices" ON public.invoices;
+DROP POLICY IF EXISTS "Admins and Managers can manage org invoices" ON public.invoices;
 CREATE POLICY "Admins and Managers can manage org invoices"
     ON public.invoices FOR ALL
     TO authenticated
@@ -219,6 +237,7 @@ DROP POLICY IF EXISTS "Technicians cannot access invoices" ON public.invoices;
 
 -- Update FS_JOBS policies
 DROP POLICY IF EXISTS "Admins and Managers have full access to jobs" ON public.fs_jobs;
+DROP POLICY IF EXISTS "Admins and Managers have full access to org jobs" ON public.fs_jobs;
 CREATE POLICY "Admins and Managers have full access to org jobs"
     ON public.fs_jobs FOR ALL
     TO authenticated
@@ -228,6 +247,7 @@ CREATE POLICY "Admins and Managers have full access to org jobs"
     );
 
 DROP POLICY IF EXISTS "Technicians can view assigned or unassigned jobs" ON public.fs_jobs;
+DROP POLICY IF EXISTS "Technicians can view assigned or unassigned org jobs" ON public.fs_jobs;
 CREATE POLICY "Technicians can view assigned or unassigned org jobs"
     ON public.fs_jobs FOR SELECT
     TO authenticated

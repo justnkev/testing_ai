@@ -81,33 +81,56 @@ function getPriorityColor(priority: string): string {
     }
 }
 
+
+import { QuoteBuilder } from '@/components/dashboard/jobs/QuoteBuilder';
+import { getInventoryItems } from '@/lib/actions/inventory';
+import { getEstimate } from '@/lib/actions/estimates';
+import type { InventoryItem } from '@/lib/validations/inventory';
+import type { Estimate } from '@/lib/validations/estimates';
+
+// ... (other imports)
+
 export default function JobDetailPage() {
     const router = useRouter();
     const params = useParams();
     const jobId = params.id as string;
 
     const [job, setJob] = useState<JobDetail | null>(null);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [estimateData, setEstimateData] = useState<Estimate | null>(null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        async function fetchJob() {
+        async function fetchData() {
             try {
-                const response = await fetch(`/api/jobs/${jobId}`);
-                if (!response.ok) {
-                    throw new Error('Job not found');
+                // Fetch Job
+                const jobResponse = await fetch(`/api/jobs/${jobId}`);
+                if (!jobResponse.ok) throw new Error('Job not found');
+                const jobData = await jobResponse.json();
+                setJob(jobData);
+
+                // Fetch Inventory
+                const invResult = await getInventoryItems();
+                if (invResult.success && invResult.data) {
+                    setInventoryItems(invResult.data);
                 }
-                const data = await response.json();
-                setJob(data);
+
+                // Fetch Estimate
+                const estData = await getEstimate(jobId);
+                if (estData) {
+                    setEstimateData(estData as any); // Type assertion if needed due to transform
+                }
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load job');
+                setError(err instanceof Error ? err.message : 'Failed to load data');
             } finally {
                 setLoading(false);
             }
         }
 
         if (jobId) {
-            fetchJob();
+            fetchData();
         }
     }, [jobId]);
 
@@ -175,6 +198,7 @@ export default function JobDetailPage() {
                     </Link>
                 </div>
             </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Job Details Card */}
@@ -322,6 +346,16 @@ export default function JobDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Quote Builder */}
+            <div className="mt-8">
+                <QuoteBuilder
+                    jobId={jobId}
+                    inventoryItems={inventoryItems}
+                    initialData={estimateData}
+                />
+            </div>
         </div>
+
     );
 }

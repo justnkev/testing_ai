@@ -138,8 +138,8 @@ async function notifyTechnician(technicianId: string, jobId: string) {
             <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p><strong>Job:</strong> ${job.title}</p>
                 <p><strong>Date:</strong> ${job.scheduled_date} ${job.scheduled_time || ''}</p>
-                <p><strong>Customer:</strong> ${job.customer ? (Array.isArray(job.customer) ? job.customer[0].name : job.customer.name) : 'N/A'}</p>
-                <p><strong>Address:</strong> ${job.customer ? (Array.isArray(job.customer) ? job.customer[0].address : job.customer.address) : 'N/A'}</p>
+                <p><strong>Customer:</strong> ${job.customer ? (Array.isArray(job.customer) ? (job.customer[0] as any).name : (job.customer as any).name) : 'N/A'}</p>
+                <p><strong>Address:</strong> ${job.customer ? (Array.isArray(job.customer) ? (job.customer[0] as any).address : (job.customer as any).address) : 'N/A'}</p>
             </div>
             <p>Please check your dashboard for more details.</p>
             <p>Best,<br/>${businessName}</p>

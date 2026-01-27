@@ -66,11 +66,13 @@ function formatScheduledDate(dateStr: string): string {
 }
 
 export function JobCard({ job, onEdit, onDelete }: JobCardProps) {
+    const customer = job.customer || { name: 'Unknown Customer', address: '', city: '', state: '', zip_code: '', phone: '' };
+
     const mapUrl = getMapUrl(
-        job.customer.address,
-        job.customer.city,
-        job.customer.state,
-        job.customer.zip_code
+        customer.address || '',
+        customer.city,
+        customer.state,
+        customer.zip_code
     );
 
     return (
@@ -81,7 +83,7 @@ export function JobCard({ job, onEdit, onDelete }: JobCardProps) {
                     <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-white truncate">{job.title}</h3>
-                            <p className="text-sm text-slate-400 truncate">{job.customer.name}</p>
+                            <p className="text-sm text-slate-400 truncate">{customer.name}</p>
                         </div>
                         <div className="flex items-center gap-1">
                             {onEdit && (
@@ -144,18 +146,18 @@ export function JobCard({ job, onEdit, onDelete }: JobCardProps) {
                         >
                             <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
                             <span className="line-clamp-2">
-                                {[job.customer.address, job.customer.city, job.customer.state]
+                                {[customer.address, customer.city, customer.state]
                                     .filter(Boolean)
-                                    .join(', ')}
+                                    .join(', ') || 'No address provided'}
                             </span>
                         </div>
-                        {job.customer.phone && (
+                        {customer.phone && (
                             <div
-                                onClick={(e) => { e.preventDefault(); window.location.href = `tel:${job.customer.phone}`; }}
+                                onClick={(e) => { e.preventDefault(); window.location.href = `tel:${customer.phone}`; }}
                                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
                             >
                                 <Phone className="w-4 h-4 flex-shrink-0" />
-                                <span>{job.customer.phone}</span>
+                                <span>{customer.phone}</span>
                             </div>
                         )}
                     </div>

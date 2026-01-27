@@ -12,6 +12,7 @@ export const jobSchema = z.object({
     notes: z.string().max(500, 'Notes must be less than 500 characters').optional().or(z.literal('')),
     latitude: z.number(),
     longitude: z.number(),
+    technician_id: z.string().uuid('Invalid technician ID').optional().nullable(),
 });
 
 export type JobFormData = z.infer<typeof jobSchema>;
@@ -37,6 +38,7 @@ export interface Job {
     last_modified_by?: string | null;
     latitude?: number | null;
     longitude?: number | null;
+    technician_id?: string | null;
 }
 
 export interface JobWithCustomer extends Job {
@@ -49,4 +51,8 @@ export interface JobWithCustomer extends Job {
         zip_code: string | null;
         phone: string | null;
     };
+    technician?: {
+        display_name: string | null;
+        email: string | null;
+    } | null;
 }

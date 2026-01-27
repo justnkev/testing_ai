@@ -54,10 +54,13 @@ export function JobEditSheet({
             getCustomers(),
         ]);
 
-        if (jobResult.success && jobResult.data) {
-            setJob(jobResult.data.job);
+        if (jobResult.success) {
+            if (jobResult.data) {
+                setJob(jobResult.data.job);
+            }
         } else {
-            toast.error('Failed to load job details');
+            console.error('Failed to load job:', jobResult.error);
+            toast.error(jobResult.error || 'Failed to load job details');
             onOpenChange(false);
         }
 

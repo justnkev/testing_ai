@@ -114,10 +114,10 @@ export default function MapClient({ jobs, mapboxToken }: MapClientProps) {
                                 </div>
                                 <div className="text-xs text-muted-foreground space-y-1">
                                     <p className="font-medium text-slate-700 dark:text-slate-300">
-                                        {job.customer.name}
+                                        {job.customer?.name || 'Unknown Customer'}
                                     </p>
                                     <p className="truncate">
-                                        {job.customer.address}, {job.customer.city}
+                                        {job.customer?.address || 'No address'}, {job.customer?.city || ''}
                                     </p>
                                 </div>
                             </CardContent>
@@ -221,8 +221,8 @@ export default function MapClient({ jobs, mapboxToken }: MapClientProps) {
                                     <StatusBadge status={selectedJob.status} />
                                 </div>
                                 <div className="text-xs space-y-0.5">
-                                    <p className="font-medium">{selectedJob.customer.name}</p>
-                                    <p className="text-muted-foreground">{selectedJob.customer.address}</p>
+                                    <p className="font-medium">{selectedJob.customer?.name || 'Unknown Customer'}</p>
+                                    <p className="text-muted-foreground">{selectedJob.customer?.address || 'No address'}</p>
                                 </div>
                                 <Button size="sm" className="w-full h-7 text-xs" asChild>
                                     <Link href={`/dashboard/jobs/${selectedJob.id}`}>

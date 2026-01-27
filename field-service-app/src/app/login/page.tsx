@@ -1,16 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { Wrench, Loader2 } from 'lucide-react';
+import { Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginForm() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -146,5 +138,29 @@ export default function LoginPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+                <Card className="w-full max-w-md bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                    <CardHeader className="text-center space-y-4">
+                        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                            <Wrench className="w-8 h-8 text-white" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="py-12">
+                        <div className="flex flex-col items-center gap-4">
+                            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                            <p className="text-slate-300">Loading...</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
     );
 }

@@ -14,7 +14,9 @@ type OnboardingState = 'loading' | 'clearing_session' | 'ready' | 'submitting' |
 
 const INVITE_STATE_KEY = 'invite_onboarding_state';
 
-export default function InviteOnboardingPage() {
+import { Suspense } from 'react';
+
+function InviteOnboardingContent() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [state, setState] = useState<OnboardingState>('loading');
@@ -349,5 +351,24 @@ export default function InviteOnboardingPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function InviteOnboardingPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+                <Card className="w-full max-w-md bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                    <CardContent className="py-12">
+                        <div className="flex flex-col items-center gap-4">
+                            <Loader2 className="h-12 w-12 animate-spin text-blue-400" />
+                            <p className="text-slate-300 text-lg font-medium">Loading...</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        }>
+            <InviteOnboardingContent />
+        </Suspense>
     );
 }

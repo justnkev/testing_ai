@@ -2,6 +2,8 @@ import { getMapJobs } from '@/lib/actions/jobs';
 import MapClient from '@/components/dashboard/map/MapClient';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
     title: 'Job Map | Field Service App',
     description: 'Geographic view of all active service jobs',

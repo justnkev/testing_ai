@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { SearchBox } from '@mapbox/search-js-react';
+import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Check, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+
+// Dynamically import SearchBox to avoid SSR issues with window/document
+const SearchBox = dynamic(
+    () => import('@mapbox/search-js-react').then((mod) => mod.SearchBox),
+    { ssr: false }
+);
 
 interface AddressAutocompleteProps {
     onSelect: (result: {

@@ -19,7 +19,8 @@ import {
     Navigation,
     Play,
     CheckCircle,
-    Smartphone
+    Smartphone,
+    FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -85,8 +86,10 @@ function getPriorityColor(priority: string): string {
 import { QuoteBuilder } from '@/components/dashboard/jobs/QuoteBuilder';
 import { getInventoryItems } from '@/lib/actions/inventory';
 import { getEstimate } from '@/lib/actions/estimates';
+import { getJobInvoice, generateInvoiceForJob } from '@/lib/actions/invoices';
 import type { InventoryItem } from '@/lib/validations/inventory';
 import type { Estimate } from '@/lib/validations/estimates';
+import { toast } from 'sonner';
 
 // ... (other imports)
 
@@ -98,6 +101,8 @@ export default function JobDetailPage() {
     const [job, setJob] = useState<JobDetail | null>(null);
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [estimateData, setEstimateData] = useState<Estimate | null>(null);
+    const [invoice, setInvoice] = useState<any | null>(null);
+    const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -120,9 +125,17 @@ export default function JobDetailPage() {
                 // Fetch Estimate
                 const estData = await getEstimate(jobId);
                 if (estData) {
-                    setEstimateData(estData as any); // Type assertion if needed due to transform
+                    setEstimateData(estData as any);
+                }
+
+                // Fetch Invoice
+                const invData = await getJobInvoice(jobId);
+                console.log('Fetched Invoice for Job:', jobId, invData);
+                if (invData) {
+                    setInvoice(invData);
                 }
             } catch (err) {
+                console.error('Error loading data:', err);
                 setError(err instanceof Error ? err.message : 'Failed to load data');
             } finally {
                 setLoading(false);
@@ -133,6 +146,8 @@ export default function JobDetailPage() {
             fetchData();
         }
     }, [jobId]);
+
+    console.log('Render Job:', job?.status, 'Invoice ID:', invoice?.id);
 
     if (loading) {
         return (
@@ -165,6 +180,25 @@ export default function JobDetailPage() {
             .join(', ')
     )}`;
 
+    const handleGenerateInvoice = async () => {
+        setGeneratingInvoice(true);
+        try {
+            const result = await generateInvoiceForJob(jobId);
+            if (result.success) {
+                toast.success('Invoice generated successfully');
+                // Refresh data to show View Invoice button
+                const invData = await getJobInvoice(jobId);
+                setInvoice(invData);
+            } else {
+                toast.error(result.error || 'Failed to generate invoice');
+            }
+        } catch (error) {
+            toast.error('An unexpected error occurred');
+        } finally {
+            setGeneratingInvoice(false);
+        }
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-6">
             {/* Header */}
@@ -190,6 +224,29 @@ export default function JobDetailPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
+                    {/* Invoice Actions */}
+                    {job.status === 'completed' && (
+                        <>
+                            {invoice ? (
+                                <Link href={`/dashboard/invoices/${invoice.id}`}>
+                                    <Button variant="outline" className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-950/30">
+                                        <FileText className="w-4 h-4 mr-2" />
+                                        View Invoice
+                                    </Button>
+                                </Link>
+                            ) : (
+                                <Button
+                                    onClick={handleGenerateInvoice}
+                                    disabled={generatingInvoice}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    {generatingInvoice ? 'Generating...' : 'Generate Invoice'}
+                                </Button>
+                            )}
+                        </>
+                    )}
+
                     <Link href={`/dashboard/jobs/${jobId}/mobile`}>
                         <Button className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600">
                             <Smartphone className="w-4 h-4 mr-2" />

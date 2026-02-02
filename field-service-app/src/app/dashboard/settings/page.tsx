@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SettingsProfileCard } from "@/components/dashboard/settings-profile-card";
+import { ProfileForm } from "@/components/settings/profile-form";
 import { Separator } from "@/components/ui/separator";
 
 export default async function SettingsPage() {
@@ -18,7 +18,7 @@ export default async function SettingsPage() {
     // We'll prioritize the profiles table for the most up-to-date role
     const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("*")
         .eq("id", user.id)
         .single();
 
@@ -27,14 +27,14 @@ export default async function SettingsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-medium">Profile</h3>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-2xl font-bold text-white">Profile</h1>
+                <p className="text-slate-400 mt-1">
                     Manage your account settings and preferences.
                 </p>
             </div>
             <Separator />
 
-            <SettingsProfileCard user={user} role={role} />
+            <ProfileForm user={user} profile={profile} role={role} />
 
             {/* Placeholder for future settings sections */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

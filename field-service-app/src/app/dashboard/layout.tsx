@@ -15,7 +15,8 @@ import {
     Settings,
     Map,
     Box,
-    MessageSquare
+    MessageSquare,
+    Banknote
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ const navItems = [
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/jobs', label: 'Jobs', icon: ClipboardList },
     { href: '/dashboard/inventory', label: 'Inventory', icon: Box },
+    { href: '/dashboard/payroll', label: 'Payroll', icon: Banknote },
     { href: '/dashboard/settings/marketing', label: 'Marketing', icon: MessageSquare },
     { href: '/dashboard/settings/organization', label: 'Settings', icon: Settings },
 ];
@@ -56,6 +58,7 @@ export default function DashboardLayout({
     const filteredNavItems = navItems.filter(item => {
         if (isTechnician) {
             if (item.href === '/dashboard/analytics') return false;
+            if (item.href === '/dashboard/payroll') return false;
             if (item.href.startsWith('/dashboard/settings')) return false;
         }
         return true;

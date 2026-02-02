@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Send } from 'lucide-react';
+import { Loader2, Save, Send, Megaphone, Mail, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface MarketingTemplate {
@@ -58,9 +58,6 @@ export default function MarketingSettingsPage() {
 
     async function handleSaveSettings() {
         setIsSaving(true);
-        // Update DB (assuming single row in business_settings for now, or use ID if available in real app)
-        // With single() select, we might need ID for update. Assuming ID exists or we update roughly.
-        // Better pattern: fetch ID first or blindly update first row.
         const { data: existing } = await supabase.from('business_settings').select('id').single();
 
         if (existing) {
@@ -93,27 +90,29 @@ export default function MarketingSettingsPage() {
         }
     }
 
-    const testEmailAddress = 'me@example.com';
-    // In real app, would prompt or use current user email.
-
     if (isLoading) {
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-white" /></div>;
     }
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto p-6">
+        <div className="p-4 md:p-8 space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-white">Marketing Automation</h1>
-                <p className="text-slate-400">Manage review requests and service reminders.</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">Marketing Automation</h1>
+                <p className="text-slate-400 mt-1">Manage review requests and service reminders.</p>
             </div>
 
             {/* Global Settings */}
             <Card className="bg-slate-800 border-slate-700">
                 <CardHeader>
-                    <CardTitle className="text-white">General Settings</CardTitle>
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-slate-700/50 rounded-lg">
+                            <Megaphone className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <CardTitle className="text-white text-xl">General Settings</CardTitle>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-slate-900 rounded-lg border border-slate-700">
+                <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-700">
                         <div className="space-y-0.5">
                             <Label className="text-base text-white">Enable Marketing Automation</Label>
                             <p className="text-sm text-slate-400">
@@ -129,7 +128,7 @@ export default function MarketingSettingsPage() {
                     <div className="space-y-2">
                         <Label className="text-white">Google Review URL</Label>
                         <Input
-                            className="bg-slate-900 border-slate-700 text-white"
+                            className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                             placeholder="https://g.page/r/..."
                             value={reviewUrl}
                             onChange={e => setReviewUrl(e.target.value)}
@@ -138,101 +137,119 @@ export default function MarketingSettingsPage() {
                             This link will be used in the {`{{review_url}}`} tag.
                         </p>
                     </div>
-                    <Button onClick={handleSaveSettings} disabled={isSaving} className="bg-blue-600">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Save Settings
-                    </Button>
+
+                    <div className="pt-2">
+                        <Button
+                            onClick={handleSaveSettings}
+                            disabled={isSaving}
+                            className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-lg shadow-blue-500/20"
+                        >
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Settings
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
             {/* Templates */}
-            <h2 className="text-xl font-bold text-white mt-8">Message Templates</h2>
-            <div className="grid gap-6 md:grid-cols-2">
-                {templates.map(template => (
-                    <Card key={template.id} className="bg-slate-800 border-slate-700 flex flex-col">
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle className="text-white text-lg">{template.name}</CardTitle>
-                                    <CardDescription className="text-slate-400">
-                                        Triggers {template.trigger_days_after} day(s) after event
-                                    </CardDescription>
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-slate-400" />
+                    Message Templates
+                </h2>
+                <div className="grid gap-6 md:grid-cols-2">
+                    {templates.map(template => (
+                        <Card key={template.id} className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors flex flex-col">
+                            <CardHeader className="pb-3">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div>
+                                        <CardTitle className="text-white text-lg font-semibold">{template.name}</CardTitle>
+                                        <CardDescription className="text-slate-400 mt-1 flex items-center gap-2">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-300">
+                                                {template.trigger_days_after} day delay
+                                            </span>
+                                        </CardDescription>
+                                    </div>
+                                    <Switch
+                                        checked={template.is_active}
+                                        onCheckedChange={async (val: boolean) => {
+                                            // Quick toggle
+                                            await supabase.from('marketing_templates').update({ is_active: val }).eq('id', template.id);
+                                            toast.success(`Template ${val ? 'enabled' : 'disabled'}`);
+                                            loadData();
+                                        }}
+                                    />
                                 </div>
-                                <Switch
-                                    checked={template.is_active}
-                                    onCheckedChange={async (val: boolean) => {
-                                        // Quick toggle
-                                        await supabase.from('marketing_templates').update({ is_active: val }).eq('id', template.id);
-                                        toast.success(`Template ${val ? 'enabled' : 'disabled'}`);
-                                        loadData();
-                                    }}
-                                />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="flex-1 space-y-4">
-                            <div className="space-y-1">
-                                <Label className="text-xs text-slate-500 uppercase">Subject</Label>
-                                <p className="text-sm text-slate-200 font-medium truncate">{template.subject}</p>
-                            </div>
-
-                            <div className="pt-4 mt-auto">
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                        <Button className="w-full bg-slate-700 text-white hover:bg-slate-600">
-                                            Edit Template
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
-                                        <DialogHeader>
-                                            <DialogTitle>Edit {template.name}</DialogTitle>
-                                            <DialogDescription>
-                                                You can use tags: {`{{customer_name}}, {{business_name}}, {{review_url}}`}
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4 py-4">
-                                            <div className="space-y-2">
-                                                <Label>Trigger Delay (Days)</Label>
-                                                <Input
-                                                    type="number"
-                                                    className="bg-slate-800 border-slate-700"
-                                                    defaultValue={template.trigger_days_after}
-                                                    onChange={(e) => template.trigger_days_after = parseInt(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Email Subject</Label>
-                                                <Input
-                                                    className="bg-slate-800 border-slate-700"
-                                                    defaultValue={template.subject}
-                                                    onChange={(e) => template.subject = e.target.value}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Email Body (HTML)</Label>
-                                                <Textarea
-                                                    className="bg-slate-800 border-slate-700 min-h-[200px] font-mono text-sm"
-                                                    defaultValue={template.email_body || ''}
-                                                    onChange={(e) => template.email_body = e.target.value}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>SMS Body</Label>
-                                                <Textarea
-                                                    className="bg-slate-800 border-slate-700 min-h-[100px]"
-                                                    defaultValue={template.sms_body || ''}
-                                                    onChange={(e) => template.sms_body = e.target.value}
-                                                />
-                                            </div>
-                                            <Button onClick={() => handleUpdateTemplate(template)} className="w-full bg-blue-600">
-                                                Save Changes
-                                            </Button>
+                            </CardHeader>
+                            <CardContent className="flex-1 space-y-4 pt-0">
+                                <div className="space-y-3 pt-4 border-t border-slate-700/50">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2 text-xs text-slate-500 uppercase font-semibold">
+                                            <Mail className="w-3 h-3" /> Subject
                                         </div>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                                        <p className="text-sm text-slate-300 font-medium truncate">{template.subject}</p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 mt-auto">
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-lg shadow-blue-500/20 border-0">
+                                                Edit Template
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
+                                            <DialogHeader>
+                                                <DialogTitle>Edit {template.name}</DialogTitle>
+                                                <DialogDescription className="text-slate-400">
+                                                    You can use tags: {`{{customer_name}}, {{business_name}}, {{review_url}}`}
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-white">Trigger Delay (Days)</Label>
+                                                    <Input
+                                                        type="number"
+                                                        className="bg-slate-900 border-slate-700 text-white"
+                                                        defaultValue={template.trigger_days_after}
+                                                        onChange={(e) => template.trigger_days_after = parseInt(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-white">Email Subject</Label>
+                                                    <Input
+                                                        className="bg-slate-900 border-slate-700 text-white"
+                                                        defaultValue={template.subject}
+                                                        onChange={(e) => template.subject = e.target.value}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-white">Email Body (HTML)</Label>
+                                                    <Textarea
+                                                        className="bg-slate-900 border-slate-700 min-h-[200px] font-mono text-sm text-white"
+                                                        defaultValue={template.email_body || ''}
+                                                        onChange={(e) => template.email_body = e.target.value}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-white">SMS Body</Label>
+                                                    <Textarea
+                                                        className="bg-slate-900 border-slate-700 min-h-[100px] text-white"
+                                                        defaultValue={template.sms_body || ''}
+                                                        onChange={(e) => template.sms_body = e.target.value}
+                                                    />
+                                                </div>
+                                                <Button onClick={() => handleUpdateTemplate(template)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                                    Save Changes
+                                                </Button>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             </div>
         </div>
     );

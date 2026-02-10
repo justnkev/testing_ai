@@ -151,29 +151,8 @@
     </div>
   </section>
 
-  <div class="grid-responsive">
-    <section class="trend-board">
-      <div class="section-header" style="margin-bottom:0;">
-        <div>
-          <small>Consistency trend</small>
-          <h3 style="margin:0.4rem 0 0;">Recent activity mix</h3>
-        </div>
-      </div>
-      {% if stats.has_data %}
-      <div class="trend-bars">
-        {% for bar in trend %}
-        <div class="trend-bar" style="--value: {{ bar.value }};">
-          <small>{{ (bar.label or 'Recent')[:10] }}</small>
-        </div>
-        {% endfor %}
-      </div>
-      <p class="stat-detail" style="margin-top:1.8rem;">Each bar combines workouts, meals, sleep, and habit logs from your last check-ins.</p>
-      {% else %}
-      <p class="stat-detail" style="margin-top:1.2rem;">Log your first entry to unlock your activity trend visual.</p>
-      {% endif %}
-    </section>
-
-    <section class="surface-card">
+  <div class="grid-responsive dashboard-logs-grid">
+    <section class="surface-card recent-logs-card">
       <div class="section-header" style="margin-bottom:1rem;">
         <div>
           <small>Recent logs</small>
@@ -186,7 +165,23 @@
         <article class="timeline-item">
           <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
           {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
-          {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+          {% set macro_breakdown = log.macro_breakdown %}
+          {% if log.calories is not none or macro_breakdown or log.meals or log.meal_interpretation %}
+          <p>
+            <strong>Meals:</strong>
+            {% if log.calories is not none %}~{{ log.calories }} kcal{% endif %}
+            {% if macro_breakdown %}
+            <span class="stat-detail">Protein {{ macro_breakdown.protein_g|int }}g • Carbs {{ macro_breakdown.carbs_g|int }}g • Fats {{ macro_breakdown.fat_g|int }}g</span>
+            {% elif log.macros %}
+            <span class="stat-detail">{{ log.macros }}</span>
+            {% endif %}
+          </p>
+          {% if log.meal_interpretation %}
+          <p class="stat-detail">{{ log.meal_interpretation }}</p>
+          {% elif log.meals %}
+          <p class="stat-detail">{{ log.meals }}</p>
+          {% endif %}
+          {% endif %}
           {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
           {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
         </article>

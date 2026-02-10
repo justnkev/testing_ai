@@ -320,6 +320,12 @@ label {
   gap: 1.8rem;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
+.dashboard-logs-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.dashboard-logs-grid .recent-logs-card {
+  grid-column: 1 / -1;
+}
 
 .stat-card {
   position: relative;

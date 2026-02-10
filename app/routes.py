@@ -284,20 +284,31 @@ def _create_template_compatible_logs(logs: List[Dict]) -> List[Dict]:
             macro_totals['fat_g'] = daily_totals.get('fat_g', 0) or 0
 
         macro_text = None
+        macro_breakdown = None
         if any(macro_totals.values()):
+            macro_breakdown = {
+                'protein_g': int(macro_totals['protein_g']),
+                'carbs_g': int(macro_totals['carbs_g']),
+                'fat_g': int(macro_totals['fat_g']),
+            }
             macro_text = (
-                f"P{int(macro_totals['protein_g'])}/"
-                f"C{int(macro_totals['carbs_g'])}/"
-                f"F{int(macro_totals['fat_g'])}"
+                f"P{macro_breakdown['protein_g']}/"
+                f"C{macro_breakdown['carbs_g']}/"
+                f"F{macro_breakdown['fat_g']}"
             )
         if calories_total is not None:
             compatible_log['calories'] = calories_total
         if macro_text:
             compatible_log['macros'] = macro_text
+        if macro_breakdown:
+            compatible_log['macro_breakdown'] = macro_breakdown
 
         notes = [entry.get('notes') for entry in meals_log if entry.get('notes')]
         if notes and not compatible_log.get('estimation_notes'):
             compatible_log['estimation_notes'] = " | ".join(notes)
+        meal_interpretation = compatible_log.get('estimation_notes') or " | ".join(notes)
+        if meal_interpretation:
+            compatible_log['meal_interpretation'] = meal_interpretation
 
         # Combine multiple meal entries into a single text block
         compatible_log['meals'] = "\n".join(

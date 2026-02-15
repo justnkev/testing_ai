@@ -1,0 +1,117 @@
+
+Product Requirements Document
+Feature: Visualize Your Healthier Self
+Product: Personal Health & Wellness Coach App
+Prepared By: GPT-PRD Writer
+Date: October 19, 2025
+
+1. Purpose
+This feature allows users to upload a full-body photo of themselves and generate a hyper-realistic, AI-enhanced image that reflects their healthier, future self based on personal health goals. The aim is to boost motivation, support goal visualization, and catalyze behavior change.
+
+2. Goals & Objectives
+- Enable users to visualize a realistic and aspirational version of themselves
+- Use Gemini Image Generator API to produce hyper-realistic transformation images
+- Provide personalized motivational visuals that are:
+  - Achievable
+  - Inspiring
+  - Shareable
+- Use AI + profile data to generate a health goal-based transformation
+- Deepen user engagement and encourage app retention through emotional connection and visual goals
+
+3. Target Users
+This feature is designed for all user segments, including:
+- New users seeking initial motivation
+- Returning users needing a boost
+- Advanced users aiming to visualize continued progress
+
+4. Core Functionality
+4.1 User Input
+- Upload a full-body photo
+  - Guided UI with overlay + tips for ideal framing and lighting
+- Enter or confirm profile info:
+  - Age
+  - Gender
+  - Height
+  - Optional: Weight, body type
+
+4.2 Customization Options
+Users can customize the transformation:
+- Goal Type:
+  - Lean & fit
+  - Toned & healthy
+  - Muscular & athletic
+- Transformation Intensity:
+  - Light
+  - Moderate
+  - Aspirational
+- Time Horizon:
+  - 3 months
+  - 6 months
+  - 1 year
+
+5. Output & User Actions
+Once generated, the user can:
+- Save the image to their profile gallery
+- Set as lock screen or daily motivational reminder
+- Share the image externally (social media, messaging)
+- Compare current vs. goal (side-by-side viewer)
+- Generate a personalized health plan based on the visual goal
+
+6. Technical Requirements
+6.1 Integrations
+- Gemini Image Generator API
+  - Secure, authenticated access
+  - Supports fine-tuning based on body data
+  - Returns high-res, realistic human image
+- User Profile Service
+  - Retrieve and store user height, age, gender, etc.
+- Image Upload & Storage
+  - Secure and encrypted photo storage
+  - Supports multiple image saves per user
+
+6.2 Processing Pipeline
+1. Validate image quality and pose
+2. Collect transformation preferences
+3. Send request to Gemini API with:
+   - Original image
+   - Transformation parameters
+   - Profile metadata
+4. Receive & store result
+5. Render in UI with post-processing filters (if needed)
+
+7. User Interface
+7.1 Upload Flow
+- Visual guide for taking a proper full-body photo
+- Preview before submission
+
+7.2 Customization Panel
+- Sliders or dropdowns for:
+  - Goal type
+  - Intensity
+  - Timeline
+
+7.3 Output Viewer
+- Split-screen view (before vs. after)
+- CTA buttons: Save, Set Reminder, Share, Generate Plan
+
+8. Privacy & Ethics
+- Clear user consent before uploading or processing images
+- Allow users to delete images anytime
+- Ensure image processing happens securely and data is anonymized
+- Prevent unrealistic transformations or unhealthy body ideals
+
+9. Success Metrics
+- % of users who complete the image generation flow
+- Increase in weekly active users (WAU) post-release
+- % of users who set image as reminder or share it
+- Retention rate for users who generate a visualization
+- Conversion to health plan from visual goal
+
+10. Launch Plan
+Phase       | Activities
+------------|--------------------------------------------
+Prototype   | Build image upload + Gemini integration
+Beta Test   | Release to 5% of users for feedback
+Iteration   | Improve UI, customization, and speed
+Public Rollout | Feature launch to all users
+Growth      | Promote via in-app onboarding and email

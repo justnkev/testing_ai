@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="FitVision maskable heart logo">
+  <defs>
+    <radialGradient id="maskBg" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#452044" />
+      <stop offset="100%" stop-color="#3b1c3c" />
+    </radialGradient>
+    <linearGradient id="maskHeart" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d7c1de" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#9978ab" stop-opacity="0.95" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#maskBg)" />
+  <path d="M50 30c-6-9.5-19-9.5-25.3-1.2-7.4 9.4-4.2 23.4 10.4 34.3L50 78l14.9-14c14.6-11 17.8-24.9 10.4-34.3C69 20.5 56 20.5 50 30z" fill="url(#maskHeart)" />
+  <path d="M31 26h3.5v-3.5H38V26h3.5V30H38v3.5h-3.5V30H31z" fill="#decce3" />
+</svg>

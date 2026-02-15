@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>Progress</small>
+  <h2 style="margin:0.4rem 0 0;">Capture the signals that matter.</h2>
+  <p style="margin:0.6rem 0 0; max-width:460px;">Check-ins across movement, nourishment, rest, and habits sync directly with your dashboard to inform new guidance.</p>
+</div>
+<div class="topbar-meta">
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.plan') }}">Plan</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="grid-responsive">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Daily check-in</small>
+        <h2 style="margin:0.4rem 0 0;">Log your progress</h2>
+        <p>Capture workouts, meals, sleep, and habit wins. Each log powers your dashboard metrics.</p>
+      </div>
+    </div>
+    <form method="post" class="form-grid">
+      <div>
+        <label for="workout">Workouts</label>
+        <input id="workout" name="workout" placeholder="Strength session, mobility, rest day...">
+      </div>
+      <div>
+        <label for="meals">Meals</label>
+        <textarea id="meals" name="meals" rows="2" placeholder="Highlights, challenges, cravings..."></textarea>
+      </div>
+      <div>
+        <label for="sleep">Sleep</label>
+        <input id="sleep" name="sleep" placeholder="Hours slept or quality notes">
+      </div>
+      <div>
+        <label for="habits">Habits</label>
+        <textarea id="habits" name="habits" rows="2" placeholder="Meditation, hydration, gratitude..."></textarea>
+      </div>
+      <div>
+        <button class="fv-button fv-button--primary" type="submit">Save log</button>
+      </div>
+    </form>
+  </section>
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>History</small>
+        <h2 style="margin:0.4rem 0 0;">Timeline</h2>
+      </div>
+    </div>
+    {% if logs %}
+    <div class="timeline-rail">
+      {% for log in logs|reverse %}
+      <article class="timeline-item">
+        <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
+        {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
+        {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+        {% if log.calories is not none %}
+        <p><strong>Nutrition:</strong> ~{{ log.calories }} kcal{% if log.macros %} <span class="stat-detail">{{ log.macros }}</span>{% endif %}</p>
+        {% elif log.macros %}
+        <p><strong>Nutrition:</strong> {{ log.macros }}</p>
+        {% endif %}
+        {% if log.estimation_notes %}<p class="stat-detail">{{ log.estimation_notes }}</p>{% endif %}
+        {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
+        {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="stat-detail">No entries yet. Record your first check-in to begin charting progress.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+**Product Requirements Document (PRD)**
+
+**Project Title:** FitVision – Minimalist UI Redesign (Inspired by Oura)
+
+**Owner:** Product Management
+**Stakeholders:** Design, Engineering, AI Team
+**Status:** Draft
+**Last Updated:** 2025-10-30
+
+---
+
+## 1. Objective
+Redesign the UI of the FitVision health & wellness app to reflect a minimalist, Oura-inspired visual identity. The update should improve user focus, introduce calming and grounded design elements, and support cumulative wellness tracking across core areas: activity, meals, calories, sleep, and habit formation.
+
+---
+
+## 2. Guiding Design Principles
+- **Minimalist Aesthetic**: Inspired by Oura app
+- **Dark Mode Default**: Soft black backgrounds with low-light optimized contrast
+- **Purple-Centric Palette**: Varying shades of purple for primary buttons, indicators, and accents
+- **Airy Typography**: Large, spacious fonts for clarity and calm
+- **Tone**: Balanced and grounded — supportive, neutral, and motivational without intensity
+- **Microinteractions**: Smooth, subtle transitions (no bounce or jitter)
+
+---
+
+## 3. Core Pages & UI Features
+
+### 3.1 Onboarding (`/onboarding`)
+- Conversational chat UI with assistant messages
+- User enters lifestyle, sleep, activity data
+- Completion button generates initial health plan
+- Style: Card-based conversation bubbles
+
+### 3.2 Plan (`/plan`)
+- Displays AI-generated plan (workouts, nutrition, habits)
+- Includes refresh option (via replan API)
+- Sectioned UI with collapsible or stacked cards:
+  - Overview
+  - Workouts (weekly split, session sample)
+  - Nutrition (daily structure, hydration)
+  - Habits (morning, evening, weekly)
+
+### 3.3 Progress (`/progress`)
+- Log user entries for:
+  - Workouts
+  - Meals
+  - Sleep
+  - Habits
+- Timeline of historical logs (reverse chronological)
+- Styled input forms with visual emphasis on entry zones
+
+### 3.4 Visualize (`/visualize`)
+- Upload body photo
+- Enter profile (age, gender, height, weight, etc.)
+- Select goal type, intensity, timeline
+- Generates visualization of “future self”
+- Display last visualization with ability to delete
+
+### 3.5 Dashboard (`/dashboard`) *(New)*
+- Cumulative stats display using glowing stat cards or smooth graphs:
+  - Total activities/workouts
+  - Total meals + estimated calories
+  - Calories burned (from workouts)
+  - Hours of sleep
+- Minimal axis lines, clear numbers
+- Style: Purple gradient rings or linear visuals
+
+### 3.6 Auth Pages
+- `/signup` and `/login`
+- Simple, modern form inputs
+- Button and link colors in primary purple shade
+
+---
+
+## 4. Visual Style
+
+| Element            | Style                                   |
+|--------------------|------------------------------------------|
+| **Background**     | #0E0E0E or similar deep dark             |
+| **Primary Color**  | Purple (#A259FF – #D8B4FE range)        |
+| **Typography**     | Sans-serif, 18-22pt, medium weight       |
+| **Buttons**        | Rounded, filled or outlined purple       |
+| **Cards**          | Glassy or matte, soft shadows            |
+| **Animations**     | Fade in/out, slide, 200-300ms durations  |
+
+---
+
+## 5. Functionality Scope
+- All UI screens defined above
+- Integrates with existing backend API and `storage_service` for logs, plans, conversations, and visualizations
+- `/dashboard` may use backend aggregations or calculated summaries
+
+---
+
+## 6. Exclusions / Future Enhancements
+- No editable user profile interface yet
+- No third-party integrations (e.g. wearables)
+- Dashboard is MVP: may be expanded to include trends or AI tips in v2
+
+---
+
+## 7. Dependencies
+- `ai_service` (onboarding, plan, visualization)
+- `storage_service` (user data, logs, visualizations)
+- Flask routes and templates (as per uploaded files)
+
+---
+
+## 8. Success Criteria
+- All redesigned pages render properly with dark theme and purple accents
+- Users can complete onboarding, generate plan, log progress, and view dashboard
+- Dashboard reflects up-to-date cumulative stats
+- Style aligns with Oura inspiration and maintains performance
+
+---
+
+**End of PRD**
+

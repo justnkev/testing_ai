@@ -1,0 +1,506 @@
+## Product Requirements Document (PRD)
+
+**Feature:** Health Tracking Extraction & Backfill
+**App Stack:** Flask (Python), Supabase Postgres, HTML/CSS/JS front end
+**LLM:** Existing `AIService` (Gemini) + current calorie/macro estimation pipeline
+
+---
+
+### 1. Problem & Context
+
+The app currently stores daily **progress logs** where users enter free-form text per category:
+
+* `meals` – free text about what they ate
+* `sleep` – free text about how they slept
+* `workout` – free text about exercise
+* `habits` – other habits (not in scope for v1 normalization)
+* `macros`, `calories`, `estimation_notes` – already structured or semi-structured from an existing LLM estimation pipeline
+* `timestamp` – when the log was created
+
+These logs are stored as JSON in `progress_logs.log_data` (plus `progress_logs.id`, `user_id`, `created_at`, etc.).
+
+You have three new Supabase tables that are **meant to power dashboard visualizations**:
+
+* `meals`
+* `sleep`
+* `workouts`
+
+At the moment, nothing is populating these tables from `progress_logs`, and the dashboard can’t yet show time-series insights (e.g., daily calories, sleep hours, or workout minutes).
+
+---
+
+### 2. Objective
+
+Build a **health tracking feature** that:
+
+1. **Reads** both new and existing `progress_logs`.
+2. **Uses an LLM** to interpret the free-form text, focusing on dates, types, durations, and sleep quality.
+3. **Reuses existing calories/macros** from the current pipeline (no double-estimation).
+4. **Writes normalized records** into `meals`, `sleep`, and `workouts` with strong links back to each `progress_logs` row.
+5. **Backfills automatically** for all historical progress logs at startup/deploy.
+6. Enables the **first key visualization: daily calories trend**.
+
+---
+
+### 3. Users & Use Cases
+
+**Primary user:** Individual using the app to track health behaviors.
+
+#### Core use cases
+
+1. **Log progress multiple times per day**
+
+   * Users can create several logs per day (e.g., one per meal, a separate one for workout).
+   * A log can refer to past days (“yesterday,” “last night,” etc.).
+
+2. **See daily calories trend**
+
+   * On the dashboard, users see a chart of **total calories per day**, aggregated across multiple logs for each day.
+   * This chart is powered by the `meals` table.
+
+3. **Future (but influenced by v1 design)**
+
+   * Sleep charts (hours/quality per night).
+   * Workout charts (minutes per day/week, type mix).
+   * Additional metrics like macro breakdowns.
+
+---
+
+### 4. Scope
+
+#### In scope (v1)
+
+* LLM-powered **interpretation** of:
+
+  * `meals` text → meal type + date inference.
+  * `sleep` text → hours + quality + date inference.
+  * `workout` text → type + duration + date inference.
+* **Reuse** existing `calories`, `macros`, and `estimation_notes` directly from `log_data`.
+* Add `progress_log_id` foreign key to `meals`, `sleep`, `workouts` and enforce one row per `(progress_log_id, category)`.
+* Create a **Health Data Ingestion pipeline** that:
+
+  * Runs on **every new progress log**.
+  * **Automatically backfills** all existing logs at app startup/deployment.
+* Handle LLM outages by **skipping and retrying later** (no heuristics).
+* Provide data shape to support the **daily calories trend** chart.
+
+#### Out of scope (v1)
+
+* New UI for editing parsed meal/sleep/workout rows.
+* Complex data science (e.g., advanced workout calorie burn models).
+* Timezone customization per user (we’ll use **UTC**).
+* Habit normalization (we’ll ignore `habits` field for v1).
+
+---
+
+### 5. Data Model
+
+We’ll use existing tables and extend them.
+
+#### 5.1. progress_logs (existing)
+
+*Key columns (as used by this feature):*
+
+* `id` (int8; PK)
+* `user_id` (uuid)
+* `created_at` (timestamptz)
+* `log_data` (jsonb) – contains:
+
+  * `meals` (string)
+  * `sleep` (string)
+  * `workout` (string)
+  * `habits` (string)
+  * `macros` (string or structured)
+  * `calories` (int)
+  * `timestamp` (timestamptz string)
+  * `estimation_notes` (string)
+
+We may add optional flags to `log_data` in future (e.g., `"health_ingestion_status"`), but not strictly required for v1.
+
+#### 5.2. meals (extended)
+
+*Existing columns (from schema):*
+
+* `id` (int8; PK)
+* `user_id` (uuid; FK → `auth.users.id`)
+* `created_at` (timestamptz; default now)
+* `meal_type` (text)
+* `calories` (int4)
+* `date_inferred` (date)
+* `metadata` (jsonb)
+
+*New column:*
+
+* `progress_log_id` (int8; FK → `progress_logs.id`)
+
+*Constraints:*
+
+* Unique index on `(progress_log_id)` because each progress_log yields at most **one** `meals` entry.
+
+*Standard fields to populate:*
+
+* `user_id`: from `progress_logs.user_id`.
+* `created_at`: ingestion time (or reuse `progress_logs.created_at` if preferred).
+* `date_inferred`: date the user refers to in the `meals` text, interpreted relative to **UTC**.
+* `meal_type`: one of `["breakfast", "lunch", "dinner", "snack", "unknown"]`.
+* `calories`: primary source is `log_data.calories` (LLM’s existing calorie estimate). We do **not** recompute calories.
+
+*Meals metadata example:*
+
+```json
+{
+  "source_progress_log_id": 123,
+  "source_log_timestamp": "2025-11-24T18:47:48.551156+00:00",
+  "original_meals_text": "I ate a bowl of chicken porridge...",
+  "macros": {
+    "raw_string": "P 45g / C 115g / F 50g (conf 0.7)",
+    "protein_g": 45,
+    "carbs_g": 115,
+    "fat_g": 50,
+    "confidence": 0.7
+  },
+  "estimation_notes": "Assumed a large bowl...",
+  "llm_meal_type": "lunch",
+  "llm_date_phrase": "today",
+  "llm_method": "health_interpretation_v1"
+}
+```
+
+#### 5.3. sleep (extended)
+
+*Existing columns:*
+
+* `id` (int8; PK)
+* `user_id` (uuid)
+* `created_at` (timestamptz)
+* `time_asleep` (text)
+* `quality` (text)
+* `date_inferred` (date)
+* `metadata` (jsonb)
+
+*New column:*
+
+* `progress_log_id` (int8; FK → `progress_logs.id`)
+
+*Constraint:*
+
+* Unique index `(progress_log_id)` for sleep rows.
+
+*Standard fields to populate:*
+
+* `time_asleep`: short string (e.g., `"7h"`, `"7.5h"`) based on parsed hours.
+* `quality`: one of `["poor", "okay", "good", "great", "unknown"]`.
+* `date_inferred`: night of sleep referenced by the text, interpreted using UTC from the log’s timestamp.
+
+*Metadata example:*
+
+```json
+{
+  "source_progress_log_id": 123,
+  "source_log_timestamp": "2025-11-24T18:47:48.551156+00:00",
+  "original_sleep_text": "slept 7 hours",
+  "hours_slept": 7.0,
+  "bedtime": null,
+  "wake_time": null,
+  "llm_quality_score": 0.7,
+  "llm_date_phrase": "last night",
+  "llm_method": "health_interpretation_v1"
+}
+```
+
+#### 5.4. workouts (extended)
+
+*Existing columns:*
+
+* `id` (int8 or uuid; PK as per schema)
+* `user_id` (uuid)
+* `created_at` (timestamptz)
+* `workout_type` (text)
+* `duration_min` (int4)
+* `date_inferred` (date)
+* `metadata` (jsonb)
+
+*New column:*
+
+* `progress_log_id` (int8; FK → `progress_logs.id`)
+
+*Constraint:*
+
+* Unique index `(progress_log_id)` for workout rows.
+
+*Standard fields to populate:*
+
+* `workout_type`: one of e.g. `["strength", "cardio", "mixed", "other"]`.
+* `duration_min`: total workout minutes inferred from free text (sum of all durations mentioned).
+* `date_inferred`: date of the workout described, using UTC reference.
+
+*Metadata example:*
+
+```json
+{
+  "source_progress_log_id": 123,
+  "source_log_timestamp": "2025-11-24T18:47:48.551156+00:00",
+  "original_workout_text": "I did a back workout for 30 min and 30 min of cardio today",
+  "activities": [
+    {"label": "back workout", "duration_min": 30, "muscle_group": "back"},
+    {"label": "cardio", "duration_min": 30}
+  ],
+  "intensity": "moderate",
+  "calories_burned_est": 450,
+  "primary_muscle_group": "back",
+  "llm_method": "health_interpretation_v1"
+}
+```
+
+---
+
+### 6. LLM Behavior & API Contract
+
+We will **reuse existing LLM-derived calories/macros**. The new LLM call focuses on:
+
+* Date inference for each category.
+* Meal type classification.
+* Sleep hours + quality.
+* Workout type + duration (+ richer metadata).
+
+#### 6.1. New AIService method
+
+Add method in `ai_service.py`, e.g.:
+
+* `interpret_health_log(log_entry: Dict[str, Any]) -> Dict[str, Any]`
+
+**Input:**
+
+* `log_entry` = exact dict stored in `progress_logs.log_data`.
+
+**Output (target schema):**
+
+```json
+{
+  "meals": {
+    "date_inferred": "2025-11-24",
+    "date_phrase": "today",
+    "meal_type": "lunch", 
+    "notes": null
+  },
+  "sleep": {
+    "date_inferred": "2025-11-24",
+    "date_phrase": "last night",
+    "hours_slept": 7.0,
+    "quality": "good",
+    "bedtime": null,
+    "wake_time": null
+  },
+  "workout": {
+    "date_inferred": "2025-11-24",
+    "date_phrase": "today",
+    "workout_type": "mixed",
+    "duration_min": 60,
+    "intensity": "moderate",
+    "calories_burned_est": 450,
+    "muscle_group": "back"
+  }
+}
+```
+
+All fields optional; unknowns should be `null`.
+
+#### 6.2. Prompt guidelines
+
+* Explicitly instruct the model to:
+
+  * Use **UTC date of `log_entry.timestamp`** as “today”.
+  * Interpret phrases like “yesterday”, “last night”, “this morning” relative to that date.
+  * **Not** re-estimate calories or macros; instead, just reference them conceptually if needed.
+  * Return **strict JSON** only (no markdown, no prose).
+  * Use enumerations for:
+
+    * `meal_type`: `breakfast|lunch|dinner|snack|unknown`
+    * `sleep.quality`: `poor|okay|good|great|unknown`
+    * `workout.workout_type`: `strength|cardio|mixed|other`
+  * Use `null` for unknown fields.
+
+#### 6.3. LLM Failure Behavior
+
+If the LLM:
+
+* Times out
+* Returns invalid JSON
+* Returns obviously malformed data
+
+Then:
+
+* **Do not insert or update** `meals`, `sleep`, `workouts` rows for that log.
+* Optionally mark the originating progress log as pending (e.g., `log_data.health_ingestion_status = "pending_llm"` or store a flag in an internal log).
+* The automatic backfill process can retry later when LLM is available.
+
+No heuristic parsing is used in v1.
+
+---
+
+### 7. Processing Flows
+
+#### 7.1. New log ingestion (user submits /progress)
+
+1. User submits the existing `/progress` form.
+2. Backend builds `log_entry` (as it does now) and stores in `progress_logs` via `append_log`.
+3. Immediately after saving the log:
+
+   * Call `HealthDataIngestion.ingest_log(user_id, progress_log_row)` inside a `try/except`.
+   * Even if ingestion fails, the user’s main flow (success page / redirect) continues.
+
+**ingest_log steps:**
+
+1. Call `AIService.interpret_health_log(log_entry)`.
+
+2. If LLM fails → exit early (no DB writes).
+
+3. Normalize and validate:
+
+   * Coerce `date_inferred` to `date`.
+   * Validate enum values for `meal_type`, `quality`, `workout_type`.
+   * Ensure numbers are sane (`hours_slept >= 0`, `duration_min >= 0`).
+
+4. For each category:
+
+   * **Meals** (if `log_entry["meals"]` non-empty):
+
+     * Check if a `meals` row already exists for this `progress_log_id`.
+     * If not, insert a row with:
+
+       * `user_id`, `progress_log_id`, `date_inferred`, `meal_type`
+       * `calories` from `log_entry["calories"]`
+       * `metadata` including macros and estimation_notes, plus LLM metadata.
+
+   * **Sleep** (if `log_entry["sleep"]` non-empty):
+
+     * Same pattern: insert/update `sleep` row for `progress_log_id`.
+
+   * **Workout** (if `log_entry["workout"]` non-empty):
+
+     * Same pattern: insert/update `workouts` row for `progress_log_id`.
+
+5. Log any errors at WARNING level with minimal sensitive data.
+
+#### 7.2. Automatic backfill of historical logs
+
+On app startup (or immediately after deploy):
+
+1. Run a **backfill routine** (could be a Flask CLI command or startup job):
+
+   * Fetch all `progress_logs` (or in batches).
+   * For each log:
+
+     * Check if corresponding `meals`, `sleep`, `workouts` rows exist (via `progress_log_id`).
+     * If at least one category is missing:
+
+       * Call `HealthDataIngestion.ingest_log` for that row.
+2. This routine is idempotent:
+
+   * Existing category rows are skipped or updated; no duplicates because of `(progress_log_id)` uniqueness.
+
+Backfill respects the LLM failure behavior; logs that fail remain without normalized rows and can be retried by triggering the backfill logic again (e.g., on the next deploy or via a manual call to the backfill function).
+
+---
+
+### 8. Visualization Requirements (V1 – Daily Calories)
+
+The **primary success metric** for this feature is a working **daily calories trend** chart, powered by normalized data.
+
+#### 8.1. Data needed
+
+From `meals`:
+
+* `user_id`
+* `date_inferred`
+* `calories`
+
+Aggregation logic:
+
+* For a given user, group rows by `date_inferred`.
+
+* For each date, compute:
+
+  ```text
+  total_calories = SUM(calories)
+  ```
+
+* If multiple logs reference the same day (e.g., multiple meals), they all contribute to that day’s total.
+
+#### 8.2. API shape (backend responsibilities)
+
+Provide a simple JSON endpoint (exact route can be decided later), e.g.:
+
+`GET /api/metrics/daily_calories?days=30`
+
+Response structure:
+
+```json
+{
+  "user_id": "<uuid>",
+  "start_date": "2025-10-26",
+  "end_date": "2025-11-24",
+  "points": [
+    {"date": "2025-10-26", "calories": 1800},
+    {"date": "2025-10-27", "calories": 2100},
+    ...
+  ]
+}
+```
+
+Front end can then render a line chart in `dashboard.js`.
+
+---
+
+### 9. Non-Functional Requirements
+
+* **Performance**
+
+  * LLM calls are acceptable to be slow-ish, as they don’t block user navigation after log submission.
+  * Backfill should operate in batches to avoid hammering the LLM.
+
+* **Reliability**
+
+  * Progress logs are always stored, even if ingestion fails.
+  * Ingestion and backfill functions must handle partial category success (e.g., meals succeeds, sleep fails).
+
+* **Security & Privacy**
+
+  * Only send necessary fields to the LLM (meal/sleep/workout text, timestamp, and macros/calories).
+  * Avoid sending user IDs or emails in prompts (use neutral wording like “the user”).
+
+* **Observability**
+
+  * Debug logs for ingestion should be available in development but minimized/ redacted in production.
+  * Consider track counters for “logs successfully ingested vs. failed”.
+
+---
+
+### 10. Milestones & Acceptance Criteria
+
+**Milestone 1 – Pipeline & Backfill**
+
+* Schema updated with `progress_log_id` FKs and uniqueness constraints.
+* For new logs:
+
+  * A log with meals/sleep/workout triggers normalized rows in `meals`, `sleep`, `workouts`.
+* Backfill job processes all existing `progress_logs` at startup and populates the three tables for all logs where LLM is available.
+
+**Milestone 2 – Daily Calories Endpoint & Chart Wiring**
+
+* API endpoint returns daily calories time-series for the authenticated user.
+* Dashboard shows a line chart of daily calories over the last N days using this endpoint.
+
+**Acceptance tests**
+
+* Create multiple progress logs for a user with different referenced dates; verify:
+
+  * `meals.date_inferred` matches the **referenced day**, not just log creation day.
+  * Daily calories aggregation sums multiple meals on the same date correctly.
+* Temporarily simulate LLM failure:
+
+  * Logs created during failure have no normalized rows.
+  * After LLM is restored, rerunning backfill populates them correctly.
+
+---
+

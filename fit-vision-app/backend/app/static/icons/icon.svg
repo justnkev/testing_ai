@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="FitVision heart logo">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b1d3c" />
+      <stop offset="100%" stop-color="#4c2550" />
+    </linearGradient>
+    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d4bfdc" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#9f7fad" stop-opacity="0.95" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="18" fill="url(#bgGradient)" />
+  <path d="M50 28c-6.5-11-22-11-29.5-1.4-8.7 11.3-4.6 27.8 12.4 40.8L50 84l17-16.6c17-13 21.1-29.5 12.4-40.8C71 17 56.5 17 50 28z" fill="url(#heartGradient)" />
+  <path d="M28 24h4v-4h5v4h4v5h-4v4h-5v-4h-4z" fill="#d9c3df" />
+</svg>

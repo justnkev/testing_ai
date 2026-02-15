@@ -1,0 +1,148 @@
+## Product Requirements Document (PRD)
+
+### Feature Name
+**Existing User AI Coach Chat Flow**
+
+---
+
+### Overview
+
+This feature introduces a new conversational mode for **existing users** of the FitVision app within the `/coach` route. 
+
+Currently, the AI Coach reuses the onboarding flow regardless of user status. This update will detect existing users and deliver a **casual, context-aware check-in chat** focused on four core wellness areas:
+- Workouts
+- Meals
+- Sleep
+- Habits
+
+This check-in should **not** pull from the Progress tab, but instead rely on a new flow and logic that generates friendly, low-friction conversation using AI.
+
+---
+
+### Goals
+
+| Goal | Description |
+|------|-------------|
+| Detect Returning Users | Identify whether a user has completed onboarding (`onboarding_complete == True`) and route them to the casual coach chat. |
+| New AI Prompt Style | Replace onboarding prompts with warm, contextual check-ins across fitness, nutrition, sleep, and habit domains. |
+| Separate Chat Mode | Ensure that this check-in flow operates **independently of the onboarding experience and Progress tab.** |
+| Persistent Conversation | Persist these check-in conversations using the existing storage layer. |
+| Use AI for Message Generation | Generate coach responses using `Gemini` via `ai_service.py`, using a new function tailored for check-ins. |
+
+---
+
+### Target Users
+
+- **Existing FitVision users** who have completed onboarding.
+- Users revisiting the AI Coach for ongoing accountability and encouragement.
+
+---
+
+### User Flow
+
+```text
+[User navigates to /coach]
+
+Check: session['user']['onboarding_complete'] == True
+
+Load coach conversation from storage_service.fetch_coach_conversation(user_id)
+
+If empty, generate casual coach greeting: 
+    “Hey [name]! Checking in—how’s the week going so far?”
+
+User replies with a message
+
+AI response generated via ai_service.check_in(conversation, user) [new method]
+
+Message added to conversation history and saved to storage
+
+↻ Loop continues
+
+User logs out or navigates away → chat persists for next session
+```
+
+---
+
+### Technical Requirements
+
+#### 1. **AIService Update (`ai_service.py)`**
+Add a new method:
+```python
+def check_in(self, conversation: List[Dict[str, str]], user: Dict[str, str]) -> str:
+    """Generate casual check-in message for existing users across fitness, nutrition, sleep, habits."""
+```
+- **Prompt** should generate friendly, informal check-ins.
+- Should optionally reference the latest user message (if any).
+- No plan generation, just conversation.
+
+#### 2. **Storage Layer Support (`storage_service.py`)**
+Already in place:
+- `fetch_coach_conversation(user_id)`
+- `save_coach_conversation(user_id, conversation)`
+
+No changes needed.
+
+#### 3. **Route Change (`routes.py`)**
+Modify `/coach` POST handler:
+```python
+if onboarding_complete():
+    ai_message = ai_service.check_in(conversation, user)
+else:
+    ai_message = ai_service.continue_onboarding(conversation, user)
+```
+
+#### 4. **Session Management**
+- Continue storing `conversation` in `session['coach_conversation']`.
+- Ensure conversations persist with `storage_service.save_coach_conversation(...)`.
+
+---
+
+### Example Prompt (AIService)
+
+Here's an example `check_in` prompt for Gemini in AIService:
+```text
+Hey [Name], let’s catch up!
+
+How have things been going lately with:
+• your workouts
+• meals or snacking
+• sleep quality
+• any habits you're working on?
+
+Feel free to update me on one or all of them — no pressure! I'm here to help however you need.
+```
+
+---
+
+### Acceptance Criteria
+
+| # | Description | Test Method |
+|---|-------------|-------------|
+| 1 | Returning users skip onboarding flow in `/coach` | Unit + Manual |
+| 2 | Coach greets user with casual check-in message | Unit + Manual |
+| 3 | AI responds with non-onboarding, progress-oriented prompts | Manual |
+| 4 | Messages are saved and reloaded per user | Unit Test |
+| 5 | Chat logic avoids using Progress tab data | Code Review |
+| 6 | Onboarding users still get onboarding chat | Regression Test |
+
+---
+
+### Engineering Tasks
+
+| Task | Notes |
+|------|-------|
+| Add `check_in()` method to `AIService` | Similar to `continue_onboarding()` but with new prompt |
+| Update `/coach` route logic in `routes.py` | Branch logic based on `onboarding_complete` |
+| Confirm `storage_service` methods work for this use case | Already implemented |
+| Add unit tests for AI message generation | Stub Gemini |
+| Deploy behind feature flag (optional) | For phased rollout |
+
+---
+
+### Out of Scope
+
+- No UI changes to `/coach` template
+- No integration with Progress tab logs
+- No dashboard metrics from check-in responses
+- No notifications or reminders
+

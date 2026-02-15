@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero">
+  <div class="hero-lede">
+    <span class="eyebrow">AI-guided wellness</span>
+    <h1>Your personal 24/7 Health and Wellness Coach</h1>
+    <p>Pair conversational coaching with powerful data so you can take control of your health journey</p>
+    <div class="hero-cta">
+      <a class="fv-button fv-button--primary" href="{{ url_for('main.signup') }}">Start free</a>
+      <a class="fv-button fv-button--ghost" href="{{ url_for('main.login') }}">Log in</a>
+    </div>
+  </div>
+  <aside class="hero-panel">
+    <h3>Why members love us</h3>
+    <ul>
+      <li><span>◎</span> Conversational coaching that adapts to You</li>
+      <li><span>◎</span> Weekly plans spanning activity, nutrition, recovery, and lifestyle</li>
+      <li><span>◎</span> Progress logging with data driven visuals and insights</li>
+      <li><span>◎</span> Manifest your healthier and happier future vision</li>
+    </ul>
+  </aside>
+</section>
+{% endblock %}

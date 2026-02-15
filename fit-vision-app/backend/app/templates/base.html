@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FitVision</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#0f182c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FitVision">
+    <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" sizes="192x192">
+    <link rel="icon" href="{{ url_for('static', filename='icons/icon-512.png') }}" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="mask-icon" href="{{ url_for('static', filename='icons/icon-maskable.svg') }}" color="#78dc8c">
+  </head>
+  <body>
+    {% set user = session.get('user') %}
+    {% set display_name = (user.get('name') if user else '') or (user.get('email') if user else '') %}
+    {% set initial = display_name[:1]|upper if display_name else 'F' %}
+    <div class="fitvision-shell {% if not user %}fitvision-shell--public{% endif %}">
+      {% if user %}
+      <aside class="fitvision-sidebar" aria-label="Primary navigation">
+        <a class="brand-lockup" href="{{ url_for('main.dashboard') }}">
+          <span>FV</span>
+          <div>
+            FitVision
+            <div style="font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(248,249,255,0.65);">Wellness OS</div>
+          </div>
+        </a>
+        {% set active_endpoint = request.endpoint %}
+        <nav class="fitvision-nav">
+          <a href="{{ url_for('main.dashboard') }}" class="{% if active_endpoint == 'main.dashboard' %}is-active{% endif %}">Dashboard</a>
+          <a href="{{ url_for('main.ai_coach') }}" class="{% if active_endpoint == 'main.ai_coach' %}is-active{% endif %}">AI Coach ✨</a>
+          <a href="{{ url_for('main.plan') }}" class="{% if active_endpoint == 'main.plan' %}is-active{% endif %}">Plan</a>
+          <a href="{{ url_for('main.progress') }}" class="{% if active_endpoint == 'main.progress' %}is-active{% endif %}">Progress</a>
+          <a href="{{ url_for('main.visualize') }}" class="{% if active_endpoint == 'main.visualize' %}is-active{% endif %}">Visualize</a>
+          <a href="{{ url_for('main.settings_view') }}" class="{% if active_endpoint == 'main.settings_view' %}is-active{% endif %}">&#9881; Settings</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="avatar-chip">
+            <span>{{ initial }}</span>
+            <div>
+              <div style="font-weight:600; color:var(--color-text);">{{ display_name or 'Member' }}</div>
+              <div style="font-size:0.75rem; color:var(--color-muted);">Guided mode</div>
+            </div>
+          </div>
+          <a href="{{ url_for('main.logout') }}" class="fv-button fv-button--ghost" style="justify-content:flex-start;">Log out</a>
+        </div>
+      </aside>
+      {% endif %}
+      <div class="fitvision-main">
+        {% if user %}
+        <header class="fitvision-topbar">
+          {% block topbar %}
+          <div>
+            <small>Today</small>
+            <h2 style="margin:0.4rem 0 0; font-size:1.6rem;">Stay consistent, {{ display_name.split(' ')[0]|title if display_name else 'friend' }}.</h2>
+            <p style="margin:0.6rem 0 0; max-width:450px;">Your data, progress, and plan live in one space</p>
+            <p style="margin:0.6rem 0 0; max-width:480px;">Review your plan or log new progress whenever you're ready.</p>
+          </div>
+          <div class="topbar-meta">
+            <a class="fv-button fv-button--ghost" href="{{ url_for('main.plan') }}">View plan</a>
+            <a class="fv-button fv-button--primary" href="{{ url_for('main.progress') }}">Log progress</a>
+          </div>
+          {% endblock %}
+        </header>
+        {% else %}
+        <header class="fitvision-public-header">
+          <a class="brand-lockup" href="{{ url_for('main.index') }}">
+            <span>FV</span>
+            <div>
+              FitVision
+              <div style="font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(248,249,255,0.65);">Wellness OS</div>
+            </div>
+          </a>
+          <nav class="public-nav">
+            <a href="{{ url_for('main.login') }}">Log in</a>
+            <a href="{{ url_for('main.signup') }}">Create account</a>
+          </nav>
+        </header>
+        {% endif %}
+        <main class="fitvision-content">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+              <div class="flash-card flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          {% endwith %}
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/dashboard_trends_utils.js', v=config.get('ASSET_VERSION', '1')) }}" defer></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js', v=config.get('ASSET_VERSION', '1')) }}" defer></script>
+    <script
+      defer
+      data-sw-path="{{ url_for('main.service_worker') }}"
+      src="{{ url_for('static', filename='js/pwa-bootstrap.js') }}"
+    ></script>
+  </body>
+</html>

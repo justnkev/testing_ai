@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="section-stack">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Weekly pulse</small>
+        <h2>Guidance for this week</h2>
+      </div>
+      <div class="hero-cta">
+        <a class="fv-button fv-button--ghost" href="{{ url_for('main.progress') }}">Log something new</a>
+        <a class="fv-button fv-button--subtle" href="{{ url_for('main.plan') }}">Open plan</a>
+      </div>
+    </div>
+    <p data-weekly-prompt>{{ weekly_prompt }}</p>
+  </section>
+
+  <section class="data-grid">
+    <article class="surface-card stat-card">
+      <span class="stat-label">Workouts logged</span>
+      <div class="stat-value">{{ stats.total_workouts }}</div>
+      <div class="stat-detail">Goal: 5 per week</div>
+      <div class="progress-meter" style="--progress: {{ stats.workout_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Meals captured</span>
+      <div class="stat-value">{{ stats.total_meals }}</div>
+      <div class="stat-detail">~{{ stats.calories_estimate }} kcal recorded</div>
+      <div class="progress-meter" style="--progress: {{ stats.meal_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Calories burned</span>
+      <div class="stat-value">{{ stats.calories_burned }}</div>
+      <div class="stat-detail">Estimated from workout entries</div>
+      <div class="progress-meter" style="--progress: {{ stats.workout_completion }}%;"></div>
+    </article>
+    <article class="surface-card stat-card">
+      <span class="stat-label">Sleep logged</span>
+      <div class="stat-value">{{ stats.hours_sleep }}<small style="margin-left:0.35rem; font-size:1rem; letter-spacing:0; text-transform:none; color:var(--color-muted);">hrs</small></div>
+      <div class="stat-detail">7-night target: 49 hours</div>
+      <div class="progress-meter" style="--progress: {{ stats.sleep_completion }}%;"></div>
+    </article>
+  </section>
+
+  <section
+    class="surface-card chart-section"
+    aria-label="Progress visualizations"
+  >
+    <div class="section-header chart-header">
+      <div>
+        <small>Visual pulse</small>
+        <h3 style="margin:0.4rem 0 0;">Nutrition, training, and recovery</h3>
+      </div>
+      <div class="chart-toggle" role="group" aria-label="Select chart interval">
+        <button type="button" class="fv-button fv-button--ghost is-active" data-range="daily">Daily</button>
+        <button type="button" class="fv-button fv-button--ghost" data-range="weekly">Weekly</button>
+        <button type="button" class="fv-button fv-button--ghost" data-range="monthly">Monthly</button>
+      </div>
+    </div>
+    <div class="chart-grid" role="list">
+      <figure class="chart-card" role="listitem" aria-labelledby="meals-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Meals</small>
+            <h4 id="meals-chart-title">Meals logged</h4>
+          </div>
+          <p class="stat-detail">Bar chart of captured meals</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Meals logged chart">
+          <canvas id="mealsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="workouts-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Training</small>
+            <h4 id="workouts-chart-title">Workout streak</h4>
+          </div>
+          <p class="stat-detail">Line chart of completed sessions</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Workouts completed chart">
+          <canvas id="workoutsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="sleep-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Recovery</small>
+            <h4 id="sleep-chart-title">Sleep rhythm</h4>
+          </div>
+          <p class="stat-detail">Area chart of nightly hours</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Sleep hours chart">
+          <canvas id="sleepChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="surface-card chart-section trends-section" data-trends-section aria-label="Health trend visualizations">
+    <div class="section-header chart-header">
+      <div>
+        <small>Your Health Trends</small>
+        <h3 style="margin:0.4rem 0 0;">Macro, sleep, and workout patterns</h3>
+      </div>
+      <div class="chart-toggle" role="group" aria-label="Select trend interval">
+        <button type="button" class="fv-button fv-button--ghost" data-trends-range="daily">Day</button>
+        <button type="button" class="fv-button fv-button--ghost is-active" data-trends-range="weekly" aria-pressed="true">Week</button>
+        <button type="button" class="fv-button fv-button--ghost" data-trends-range="monthly">Month</button>
+      </div>
+    </div>
+    <p class="stat-detail" data-trends-status hidden>Loading health trends...</p>
+    <div class="chart-grid" role="list">
+      <figure class="chart-card" role="listitem" aria-labelledby="macros-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Macros</small>
+            <h4 id="macros-chart-title">Macros overview</h4>
+          </div>
+          <p class="stat-detail">Stacked bars by protein, carbs, fat</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Stacked bar chart of macros by time range">
+          <canvas id="macrosTrendsChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="sleep-quality-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Sleep</small>
+            <h4 id="sleep-quality-chart-title">Sleep duration by quality</h4>
+          </div>
+          <p class="stat-detail">Grouped bars for hours asleep by quality</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Grouped bar chart of sleep duration by quality">
+          <canvas id="sleepQualityChart" aria-hidden="true"></canvas>
+        </div>
+      </figure>
+      <figure class="chart-card" role="listitem" aria-labelledby="workout-breakdown-chart-title">
+        <div class="chart-card__header">
+          <div>
+            <small>Workouts</small>
+            <h4 id="workout-breakdown-chart-title">Sessions by type</h4>
+          </div>
+          <p class="stat-detail">Donut showing session mix by type</p>
+        </div>
+        <div class="chart-card__canvas" role="img" aria-label="Workout breakdown chart">
+          <canvas id="workoutBreakdownChart" aria-hidden="true"></canvas>
+          <p class="stat-detail" data-workout-empty hidden>No workouts logged in this range yet.</p>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <div class="grid-responsive">
+    <section class="trend-board">
+      <div class="section-header" style="margin-bottom:0;">
+        <div>
+          <small>Consistency trend</small>
+          <h3 style="margin:0.4rem 0 0;">Recent activity mix</h3>
+        </div>
+      </div>
+      {% if stats.has_data %}
+      <div class="trend-bars">
+        {% for bar in trend %}
+        <div class="trend-bar" style="--value: {{ bar.value }};">
+          <small>{{ (bar.label or 'Recent')[:10] }}</small>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="stat-detail" style="margin-top:1.8rem;">Each bar combines workouts, meals, sleep, and habit logs from your last check-ins.</p>
+      {% else %}
+      <p class="stat-detail" style="margin-top:1.2rem;">Log your first entry to unlock your activity trend visual.</p>
+      {% endif %}
+    </section>
+
+    <section class="surface-card">
+      <div class="section-header" style="margin-bottom:1rem;">
+        <div>
+          <small>Recent logs</small>
+          <h3 style="margin:0.4rem 0 0;">Snapshots</h3>
+        </div>
+      </div>
+      {% if recent_logs %}
+      <div class="timeline-rail">
+        {% for log in recent_logs %}
+        <article class="timeline-item">
+          <div class="message-meta">{{ log.timestamp|default('Recent') }}</div>
+          {% if log.workout %}<p><strong>Workout:</strong> {{ log.workout }}</p>{% endif %}
+          {% if log.meals %}<p><strong>Meals:</strong> {{ log.meals }}</p>{% endif %}
+          {% if log.sleep %}<p><strong>Sleep:</strong> {{ log.sleep }}</p>{% endif %}
+          {% if log.habits %}<p><strong>Habits:</strong> {{ log.habits }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="stat-detail">No logs yet. Capture your first entry to begin your story.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Plan snapshot</small>
+        <h3 style="margin:0.4rem 0 0;">This week&apos;s focus</h3>
+      </div>
+      <form action="{{ url_for('main.replan') }}" method="post">
+        <button class="fv-button fv-button--ghost" type="submit">Refresh plan</button>
+      </form>
+    </div>
+    {% if plan %}
+    <div class="plan-section">
+      <div class="plan-meta">
+        <span>Generated: {{ plan.overview.generated_on|default('Recently') }}</span>
+        <span>Focus: {{ plan.overview.focus|default('Balanced performance') }}</span>
+        {% if plan.overview.latest_review %}<span>Latest review: {{ plan.overview.latest_review }}</span>{% endif %}
+      </div>
+      <div class="plan-tile">
+        <h4>Workouts</h4>
+        <p>{{ plan.workout.weekly_split|default('Strength & mobility blend') }}</p>
+        <p class="stat-detail">Sample session: {{ plan.workout.sample_session|default('Dynamic warm-up, compound lifts, core finisher') }}</p>
+      </div>
+      <div class="plan-tile">
+        <h4>Nutrition</h4>
+        <p>{{ plan.nutrition.daily_structure|default('3 anchor meals, 2 functional snacks') }}</p>
+        <p class="stat-detail">Hydration: {{ plan.nutrition.hydration|default('Aim for 90 oz with minerals') }}</p>
+      </div>
+      <div class="plan-tile">
+        <h4>Habits</h4>
+        <ul>
+          <li><strong>Morning:</strong> {{ plan.habits.morning|default('Grounding routine + sunlight exposure') }}</li>
+          <li><strong>Evening:</strong> {{ plan.habits.evening|default('Digital sunset, breathwork, journal') }}</li>
+          <li><strong>Weekly:</strong> {{ plan.habits.weekly|default('Meal prep, long walk check-in') }}</li>
+        </ul>
+      </div>
+    </div>
+    {% else %}
+    <p class="stat-detail">Complete onboarding to receive your personalized plan.</p>
+    {% endif %}
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script type="application/json" data-supabase-config>
+    {{ supabase_config | tojson }}
+  </script>
+</div>
+{% endblock %}

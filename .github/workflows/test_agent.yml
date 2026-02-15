@@ -1,0 +1,44 @@
+name: "🧪 Agent Test Suite"
+
+on:
+  push:
+    paths:
+      - "tool_executor/**"
+      - "pr_agent/**"
+      - "tests/**"
+    branches: [main]
+  pull_request:
+    paths:
+      - "tool_executor/**"
+      - "pr_agent/**"
+      - "tests/**"
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  test-agent:
+    name: Validate Agent Logic
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r pr_agent/requirements.txt
+          pip install pytest
+
+      - name: Run agent evaluation suite
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -m pytest tests/agent_evals/ -v --tb=short

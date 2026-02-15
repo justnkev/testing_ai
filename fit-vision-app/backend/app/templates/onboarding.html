@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>Onboarding</small>
+  <h2 style="margin:0.4rem 0 0;">Weave your story into FitVision.</h2>
+  <p style="margin:0.6rem 0 0; max-width:460px;">Share the context, rhythms, and goals that define your lifestyle so the AI coach can craft precise guidance.</p>
+</div>
+<div class="topbar-meta">
+  <span>Step 1 · Foundations</span>
+</div>
+{% endblock %}
+{% block content %}
+<div class="grid-responsive">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Conversation</small>
+        <h2 style="margin:0.3rem 0 0;">Tell FitVision about your routine</h2>
+      </div>
+    </div>
+    <div class="message-feed">
+      {% if not conversation %}
+      <div class="message-bubble message-bubble--assistant">Start by sharing a little about your current activity, nutrition, or sleep habits so FitVision can calibrate your plan.</div>
+      {% else %}
+        {% for message in conversation %}
+        <div>
+          <div class="message-meta">{{ message.role }}</div>
+          <div class="message-bubble message-bubble--{{ message.role }}">{{ message.content }}</div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </section>
+  <section class="surface-card compact">
+    <h3 style="margin:0 0 1rem;">Share your next insight</h3>
+    <form method="post" class="composer">
+      <div>
+        <label for="message">Your message</label>
+        <textarea id="message" name="message" rows="4" placeholder="Example: I usually strength train 3x per week, prefer mornings, and I'm working on evening snacking." required></textarea>
+      </div>
+      <div class="hero-cta" style="justify-content:flex-start;">
+        <button class="fv-button fv-button--primary" type="submit" name="continue" value="1">Send</button>
+        <button class="fv-button fv-button--ghost" type="submit" name="complete" value="1">Complete onboarding</button>
+      </div>
+    </form>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='js/message_feed_scroll.js') }}"></script>
+{% endblock %}

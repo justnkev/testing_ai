@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block topbar %}
+<div>
+  <small>Visualize</small>
+  <h2 style="margin:0.4rem 0 0;">Envision the transformation you&apos;re building.</h2>
+  <p style="margin:0.6rem 0 0; max-width:480px;">Pair a fresh photo with your goal profile to see a calm, realistic preview of your future self.</p>
+</div>
+<div class="topbar-meta">
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+  <a class="fv-button fv-button--ghost" href="{{ url_for('main.progress') }}">Log entry</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="grid-responsive">
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Future self</small>
+        <h2 style="margin:0.4rem 0 0;">Visualize your healthier self</h2>
+        <p>Upload a full-body photo, share your profile, and select a goal. FitVision blends your data into an aspirational yet grounded visualization.</p>
+      </div>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="form-grid">
+      <div>
+        <label for="photo">Full-body photo</label>
+        <input type="file" id="photo" name="photo" accept="image/*" required>
+        <div class="form-helper">Stand tall, use a neutral background, and ensure consistent lighting.</div>
+      </div>
+      <div class="form-grid two-col">
+        <div>
+          <label for="age">Age</label>
+          <input type="number" id="age" name="age" min="10" max="100" value="{{ profile_defaults.get('age', '') }}" required>
+        </div>
+        <div>
+          <label for="gender">Gender / pronouns</label>
+          <input type="text" id="gender" name="gender" value="{{ profile_defaults.get('gender', '') }}" placeholder="e.g., she/her">
+        </div>
+      </div>
+      <div class="form-grid three-col">
+        <div>
+          <label for="height">Height</label>
+          <input type="text" id="height" name="height" value="{{ profile_defaults.get('height', '') }}" placeholder="e.g., 5'8&quot;">
+        </div>
+        <div>
+          <label for="weight">Weight (optional)</label>
+          <input type="text" id="weight" name="weight" value="{{ profile_defaults.get('weight', '') }}" placeholder="e.g., 160 lbs">
+        </div>
+      </div>
+      <div class="form-grid three-col">
+        <div>
+          <label for="goal_type">Goal focus</label>
+          <select id="goal_type" name="goal_type">
+            <option value="Thin &amp; skinny"{% if goal_defaults.get('goal_type') == 'Thin & skinny' %} selected{% endif %}>Thin &amp; skinny</option>            
+            <option value="Lean &amp; fit"{% if goal_defaults.get('goal_type') == 'Lean & fit' %} selected{% endif %}>Lean &amp; fit</option>
+            <option value="Toned &amp; healthy"{% if goal_defaults.get('goal_type') == 'Toned & healthy' %} selected{% endif %}>Toned &amp; healthy</option>
+            <option value="Muscular &amp; athletic"{% if goal_defaults.get('goal_type') == 'Muscular & athletic' %} selected{% endif %}>Muscular &amp; athletic</option>
+            <option value="Big &amp; shredded"{% if goal_defaults.get('goal_type') == 'Big & shredded' %} selected{% endif %}>Big &amp; shredded</option>
+          </select>
+        </div>
+        <div>
+          <label for="intensity">Transformation intensity</label>
+          <select id="intensity" name="intensity">
+            <option value="Light"{% if goal_defaults.get('intensity') == 'Light' %} selected{% endif %}>Light</option>
+            <option value="Moderate"{% if goal_defaults.get('intensity') == 'Moderate' %} selected{% endif %}>Moderate</option>
+            <option value="Aspirational"{% if goal_defaults.get('intensity') == 'Aspirational' %} selected{% endif %}>Aspirational</option>
+            <option value="Extreme"{% if goal_defaults.get('intensity') == 'Extreme' %} selected{% endif %}>Extreme</option>
+          </select>
+        </div>
+        <div>
+          <label for="timeline">Time horizon</label>
+          <select id="timeline" name="timeline">
+            <option value="1 year"{% if goal_defaults.get('timeline') == '1 year' %} selected{% endif %}>1 year</option>
+            <option value="2 years"{% if goal_defaults.get('timeline') == '2 years' %} selected{% endif %}>2 years</option>
+            <option value="3 years"{% if goal_defaults.get('timeline') == '3 years' %} selected{% endif %}>3 years</option>
+            <option value="4 years"{% if goal_defaults.get('timeline') == '4 years' %} selected{% endif %}>4 years</option>
+            <option value="5 years"{% if goal_defaults.get('timeline') == '5 years' %} selected{% endif %}>5 years</option>
+            <option value="6 years"{% if goal_defaults.get('timeline') == '6 years' %} selected{% endif %}>6 years</option>
+            <option value="7 years"{% if goal_defaults.get('timeline') == '7 years' %} selected{% endif %}>7 years</option>
+            <option value="8 years"{% if goal_defaults.get('timeline') == '8 years' %} selected{% endif %}>8 years</option>
+            <option value="9 years"{% if goal_defaults.get('timeline') == '9 years' %} selected{% endif %}>9 years</option>
+            <option value="10 years"{% if goal_defaults.get('timeline') == '10 years' %} selected{% endif %}>10 years</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <button class="fv-button fv-button--primary" type="submit">Generate visualization</button>
+      </div>
+    </form>
+  </section>
+  <section class="surface-card">
+    <div class="section-header">
+      <div>
+        <small>Gallery</small>
+        <h2 style="margin:0.4rem 0 0;">Saved visualizations</h2>
+      </div>
+      <span class="chip">{{ visualizations|length }} saved</span>
+    </div>
+    {% if not visualizations %}
+    <p class="stat-detail">No visualizations yet. Once generated, they will appear here so you can compare and share.</p>
+    {% else %}
+    <div class="plan-section" style="margin-top:1.2rem;">
+      {% for viz in visualizations %}
+      <div class="plan-tile gallery-card">
+        <div>
+          <div class="message-meta">Generated {{ viz.created_at|default('recently') }}</div>
+          <h4 style="margin-top:0.6rem;">{{ viz.goal_type|default('Personalized goal') }}</h4>
+          <div class="gallery-meta">
+            <span class="chip" style="background:rgba(61,214,208,0.18); border-color:rgba(61,214,208,0.45); color:var(--color-text);">{{ viz.intensity|default('Moderate') }}</span>
+            <span class="chip" style="background:rgba(255,199,115,0.18); border-color:rgba(255,199,115,0.45); color:var(--color-text);">{{ viz.timeline|default('6 months') }}</span>
+          </div>
+        </div>
+        <div class="preview-grid">
+          <img src="{{ viz.url }}{% if viz.hash %}?v={{ viz.hash }}{% endif %}" alt="Visualization result">
+          <img src="{{ viz.original_url or viz.url }}" alt="Original photo">
+        </div>
+        <div class="gallery-actions">
+          <a class="fv-button fv-button--ghost" href="{{ viz.url }}" download>Save to device</a>
+          <a class="fv-button fv-button--subtle" href="{{ url_for('main.progress') }}">Set reminder</a>
+          <a class="fv-button fv-button--primary" href="{{ url_for('main.plan') }}">View plan</a>
+        </div>
+        <form method="post" action="{{ url_for('main.delete_visualization', visualization_id=viz.id) }}" style="text-align:right; margin-top:0.6rem;">
+          <button class="fv-button fv-button--ghost" type="submit" style="width:auto;">Delete</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

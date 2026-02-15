@@ -1,0 +1,15 @@
+# Environment files with secrets
+.env
+*.local
+
+# Logs
+*.log
+logs/
+
+# SSH keys (never commit)
+*.pem
+id_*
+
+# Config secrets
+config/*.json
+!config/defaults.json

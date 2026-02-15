@@ -1,0 +1,58 @@
+[
+    {
+        "user_id": "03d26905-3fc6-4328-b484-93180350b464",
+        "is_complete": true
+    },
+    {
+        "user_id": "3b4ea709-0119-4c09-b03a-d27a03a40589",
+        "is_complete": false
+    },
+    {
+        "user_id": "7c371632-1556-4df7-90ed-114e3080d810",
+        "is_complete": false
+    },
+    {
+        "user_id": "8d1e4fb1-89af-4602-916d-31ae9f772c69",
+        "is_complete": true
+    },
+    {
+        "user_id": "bfbf3626-28e9-4b5f-9b43-b75142f80846",
+        "is_complete": false
+    },
+    {
+        "user_id": "e3aa0384-9bea-4a81-bd83-c823a675386d",
+        "is_complete": false
+    },
+    {
+        "user_id": "34db6bd0-1730-46a8-9cdc-4a827a58b569",
+        "is_complete": false
+    },
+    {
+        "user_id": "5db2d4be-3b66-4f8a-9fe9-53ef3ecfae49",
+        "is_complete": false
+    },
+    {
+        "user_id": "ab6714ae-09c7-490b-acda-26285b1df732",
+        "is_complete": false
+    },
+    {
+        "user_id": "43b21c9d-1e0a-4869-b9f2-14e686b7cf8b",
+        "is_complete": false
+    },
+    {
+        "user_id": "adb006cc-b91f-41cb-b659-837ef40c7e05",
+        "is_complete": false
+    },
+    {
+        "user_id": "bee6f6ae-2f3f-4150-b728-59a58fc5bac5",
+        "is_complete": false
+    },
+    {
+        "user_id": "e1e8c3e4-f85e-45bf-84ac-adbd8896a987",
+        "is_complete": false
+    },
+    {
+        "user_id": "63a777af-cb33-4b5e-a562-6cc320b31f20",
+        "is_complete": false
+    }
+]

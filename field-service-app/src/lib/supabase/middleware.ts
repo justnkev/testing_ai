@@ -38,11 +38,19 @@ export async function updateSession(request: NextRequest) {
     // Protected routes - redirect to login if not authenticated
     if (
         !user &&
-        request.nextUrl.pathname.startsWith('/dashboard')
+        (request.nextUrl.pathname.startsWith('/dashboard') ||
+            request.nextUrl.pathname === '/auth/set-new-password')
     ) {
-        const url = request.nextUrl.clone();
-        url.pathname = '/login';
-        return NextResponse.redirect(url);
+        // For set-new-password, the user needs a valid recovery/invite session
+        // If they don't have one, show the expired state rather than login
+        if (request.nextUrl.pathname === '/auth/set-new-password') {
+            // Let them through — the page itself will render the expired UI
+            // because getUser() will return null
+        } else {
+            const url = request.nextUrl.clone();
+            url.pathname = '/login';
+            return NextResponse.redirect(url);
+        }
     }
 
     // Onboarding Check
@@ -81,8 +89,12 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    // Redirect authenticated users away from login page
-    if (user && request.nextUrl.pathname === '/login') {
+    // Redirect authenticated users away from login and reset-password pages
+    if (
+        user &&
+        (request.nextUrl.pathname === '/login' ||
+            request.nextUrl.pathname === '/auth/reset-password')
+    ) {
         const url = request.nextUrl.clone();
         url.pathname = '/dashboard';
         return NextResponse.redirect(url);

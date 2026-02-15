@@ -19,18 +19,32 @@ function LoginForm() {
     const searchParams = useSearchParams();
     const supabase = createClient();
 
-    // Handle error query parameters (e.g., from expired invite links)
+    // Handle error query parameters from auth callbacks
     useEffect(() => {
         const error = searchParams.get('error');
         const message = searchParams.get('message');
 
-        if (error === 'invite_expired') {
-            toast.error(message || 'Your invitation link has expired. Please request a new one.');
-        } else if (error === 'auth_callback_error') {
-            toast.error('Authentication failed. Please try again.');
-        } else if (error === 'invalid_request') {
-            toast.error('Invalid request. Please try again.');
-        }
+        if (!error) return;
+
+        // Map error codes to user-friendly messages
+        const errorMessages: Record<string, string> = {
+            otp_expired: 'Your email link has expired. This can happen if your email provider (e.g., Proofpoint) pre-scans links. Please sign up again to receive a fresh link.',
+            access_denied: message || 'Access was denied. Please try signing up again.',
+            code_exchange_failed: `Authentication failed: ${message || 'The verification code could not be processed. Please try again.'}`,
+            invite_expired: message || 'Your invitation link has expired. Please request a new one from your administrator.',
+            auth_callback_error: 'Authentication failed. Please try again.',
+            invalid_request: 'Invalid request. Please try again.',
+            missing_params: message || 'No authentication data found. Please try signing up again.',
+        };
+
+        const friendlyMessage = errorMessages[error] || message || `Authentication error: ${error}`;
+        toast.error(friendlyMessage, { duration: 8000 });
+
+        // Clean the error params from the URL to prevent re-triggering on refresh
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        url.searchParams.delete('message');
+        window.history.replaceState(null, '', url.toString());
     }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +57,7 @@ function LoginForm() {
                     email,
                     password,
                     options: {
-                        emailRedirectTo: `${window.location.origin}/auth/callback`,
+                        emailRedirectTo: `${window.location.origin}/auth/callback/confirm`,
                     },
                 });
 
@@ -132,7 +146,17 @@ function LoginForm() {
                             )}
                         </Button>
                     </form>
-                    <div className="mt-6 text-center">
+                    {!isSignUp && (
+                        <div className="mt-4 text-center">
+                            <a
+                                href="/auth/reset-password"
+                                className="text-sm text-slate-400 hover:text-blue-400 transition-colors"
+                            >
+                                Forgot your password?
+                            </a>
+                        </div>
+                    )}
+                    <div className="mt-4 text-center">
                         <button
                             type="button"
                             onClick={() => setIsSignUp(!isSignUp)}

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { useSetAgentContext } from '@/lib/agent/context';
 
 interface JobDetail {
     id: string;
@@ -99,6 +100,19 @@ export default function JobDetailPage() {
     const jobId = params.id as string;
 
     const [job, setJob] = useState<JobDetail | null>(null);
+
+    // Agent Context
+    useSetAgentContext({
+        type: 'job',
+        id: jobId,
+        data: job ? {
+            title: job.title,
+            status: job.status,
+            customer: job.customer.name,
+            address: job.customer.address
+        } : undefined
+    });
+
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [estimateData, setEstimateData] = useState<Estimate | null>(null);
     const [invoice, setInvoice] = useState<any | null>(null);

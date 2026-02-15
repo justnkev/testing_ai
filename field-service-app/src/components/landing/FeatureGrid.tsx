@@ -10,7 +10,6 @@ import {
     Map as MapIcon,
     Package,
     Megaphone,
-    Receipt,
     FileText
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -62,12 +61,6 @@ const features = [
         title: "Marketing & CRM",
         description: "Broadcast SMS/Email campaigns and manage customer relationships to drive repeat business.",
         icon: Megaphone,
-        className: "md:col-span-1",
-    },
-    {
-        title: "Payroll & Timesheets",
-        description: "Automated timesheets and payroll reporting based on actual job time.",
-        icon: Receipt,
         className: "md:col-span-1",
     },
 ];

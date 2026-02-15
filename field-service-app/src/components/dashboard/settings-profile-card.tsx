@@ -54,7 +54,7 @@ export async function SettingsProfileCard({ user, role }: SettingsProfileCardPro
                             ) : (
                                 <div className="flex flex-col items-center sm:items-end gap-2">
                                     <p className="text-sm text-muted-foreground text-center sm:text-right max-w-[200px]">
-                                        Connect Stripe to receive payroll payments.
+                                        Connect Stripe to receive payments.
                                     </p>
                                     <form action={createAccountLink}>
                                         <Button size="sm" className="gap-2">

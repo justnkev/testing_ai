@@ -16,7 +16,10 @@ from google.api_core.exceptions import ResourceExhausted
 
 from .config import Settings
 from .docker_executor import DockerToolExecutor, ExecutionResult
-from .tools import get_all_tools, TOOL_BASH, TOOL_STR_REPLACE_EDITOR
+from .tools import get_all_tools, TOOL_BASH, TOOL_STR_REPLACE_EDITOR, TOOL_VALIDATE_WORK
+from .validator import run_validation
+
+from memory_engine import MemoryCompressor, MarkdownMemoryStorage
 
 # Initialize colorama for Windows compatibility
 colorama_init()
@@ -48,6 +51,16 @@ class Orchestrator:
         self.client = genai.Client(api_key=config.api_key)
         self.history: list[types.Content] = []
         self.tools = get_all_tools()
+
+        # Memory compression engine
+        import pathlib
+        memory_path = pathlib.Path(config.workspace_path) / "project_memory.md"
+        self.memory = MemoryCompressor(
+            client=self.client,
+            storage=MarkdownMemoryStorage(memory_path),
+            threshold=100_000,
+            model_name=config.gemini_model,
+        )
         
         # System instruction for the model
         self.system_instruction = """You are an AI assistant with access to a secure Docker sandbox.
@@ -56,18 +69,23 @@ You can execute bash commands and edit files within the /workspace directory.
 Available tools:
 1. **bash**: Execute shell commands. The working directory is /workspace.
 2. **str_replace_editor**: View, create, or edit files using precise string replacement.
+3. **validate_work**: Run automated quality checks (lint, type-check, tests) on the workspace.
 
 Guidelines:
 - Always check file contents before editing to ensure accurate replacements.
 - Use relative paths from /workspace (e.g., "src/main.py" not "/workspace/src/main.py").
 - For multi-step tasks, execute one command at a time and verify results.
 - Some dangerous commands (git push, sudo, rm -rf /) are blocked for security.
+- **IMPORTANT**: Before declaring any task complete, you MUST call `validate_work`
+  to run automated checks. If any check fails, fix the issues and re-validate.
 
 When solving problems:
 1. Understand the task completely
 2. Break it into steps
 3. Execute each step and verify
-4. Report the outcome clearly
+4. Call validate_work to run quality checks
+5. Fix any issues found
+6. Report the outcome clearly
 """
     
     def print_status(self, message: str, status: str = "info") -> None:
@@ -130,6 +148,9 @@ When solving problems:
             parts=[types.Part.from_text(text=user_prompt)],
         )
         self.history.append(user_content)
+
+        # Compress history if token threshold exceeded
+        self.history = self.memory.check_and_compress(self.history)
         
         # Generate response with retry logic
         response = self._generate_with_retry()
@@ -148,12 +169,16 @@ When solving problems:
         
         for attempt in range(self.config.max_retries + 1):
             try:
+                # Build system prompt with persisted memory prefix
+                effective_prompt = self.memory.build_system_prompt(
+                    self.system_instruction
+                )
                 response = self.client.models.generate_content(
                     model=self.config.gemini_model,
                     contents=self.history,
                     config=types.GenerateContentConfig(
                         tools=self.tools,
-                        system_instruction=self.system_instruction,
+                        system_instruction=effective_prompt,
                     ),
                 )
                 return response
@@ -254,6 +279,16 @@ When solving problems:
             
             elif name == TOOL_STR_REPLACE_EDITOR:
                 return self.executor.execute_editor(args)
+            
+            elif name == TOOL_VALIDATE_WORK:
+                project_type = args.get("project_type", None)
+                report = run_validation(self.executor, project_type=project_type)
+                return ExecutionResult(
+                    status="success" if report.overall_pass else "error",
+                    output=report.to_json(),
+                    exit_code=0 if report.overall_pass else 1,
+                    error=None if report.overall_pass else report.summary,
+                )
             
             else:
                 return ExecutionResult(

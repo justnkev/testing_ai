@@ -1,0 +1,22 @@
+{
+    "name": "pe-hunter",
+    "description": "Specialized lead generation and enrichment agent for PE search funds.",
+    "model": "openclaw/auto",
+    "tools": {
+        "web": {
+            "search": {
+                "enabled": true,
+                "apiKey": "4a0ac1d26c81c2fbab8b73a6a73778fc375477c57392f491f85c9021349bcef4"
+            }
+        },
+        "skills": {
+            "prospeo": {
+                "apiKey": "f9bb5cc4bd6dd9b60b80b09ad5d1f570"
+            },
+            "apollo": {
+                "apiKey": "94LTaDR5t36Uo0He0HHM9Q"
+            }
+        }
+    },
+    "instructions": "./IDENTITY.md"
+}

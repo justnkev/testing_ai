@@ -190,30 +190,6 @@ export function ProfileForm({ user, profile, role }: ProfileFormProps) {
                 </CardContent>
             </Card>
 
-            {/* Payroll Details Section - Editable */}
-            <Card className="bg-slate-800 border-slate-700">
-                <CardHeader>
-                    <CardTitle className="text-white">Payroll Details</CardTitle>
-                    <CardDescription className="text-slate-400">
-                        Information used for payroll calculations.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label className="text-white">Hourly Rate ($)</Label>
-                        <div className="p-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-300">
-                            {profile?.hourly_rate ? `$${profile.hourly_rate}/hr` : 'Not set'}
-                        </div>
-                        <p className="text-xs text-slate-500">Contact admin to change rate.</p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-white">Pay Frequency</Label>
-                        <div className="p-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-300 capitalize">
-                            {profile?.pay_frequency || 'Bi-weekly'}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     );
 }

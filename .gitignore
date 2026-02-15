@@ -9,3 +9,6 @@ instance/
 .idea/
 .vscode/
 .vercel/
+
+# Secrets
+credentials.json

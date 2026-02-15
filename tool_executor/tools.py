@@ -110,6 +110,39 @@ def get_str_replace_editor_tool() -> types.FunctionDeclaration:
     )
 
 
+def get_validate_work_tool() -> types.FunctionDeclaration:
+    """
+    Create the validate_work tool declaration.
+
+    This tool runs automated quality checks (linting, type-checking, tests)
+    against the current workspace to verify the agent's generated code.
+    The agent MUST call this before declaring a task complete.
+    """
+    return types.FunctionDeclaration(
+        name="validate_work",
+        description=(
+            "Run automated validation checks (lint, type-check, unit tests) "
+            "on the code in the workspace. ALWAYS call this tool before you "
+            "declare a task complete. If any check fails, fix the issues and "
+            "re-validate. Returns a structured pass/fail report."
+        ),
+        parameters_json_schema={
+            "type": "object",
+            "properties": {
+                "project_type": {
+                    "type": "string",
+                    "enum": ["node", "python", "rust", "go", "unknown"],
+                    "description": (
+                        "Optional. The project type to validate. "
+                        "If omitted, auto-detection will be used."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    )
+
+
 def get_all_tools() -> list[types.Tool]:
     """
     Get all available tools wrapped in a Tool object.
@@ -122,6 +155,7 @@ def get_all_tools() -> list[types.Tool]:
             function_declarations=[
                 get_bash_tool(),
                 get_str_replace_editor_tool(),
+                get_validate_work_tool(),
             ]
         )
     ]
@@ -130,3 +164,4 @@ def get_all_tools() -> list[types.Tool]:
 # Tool name constants for routing
 TOOL_BASH = "bash"
 TOOL_STR_REPLACE_EDITOR = "str_replace_editor"
+TOOL_VALIDATE_WORK = "validate_work"

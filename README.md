@@ -29,46 +29,22 @@ app.py                  # Flask entry point
 1. **Install dependencies**
 
    ```bash
-   python -m venv .venv # Create the virtual environment
-   ```
-
-   Activate the environment. On Windows (PowerShell):
-   ```powershell
-   .\.venv\Scripts\activate
-   ```
-   On macOS/Linux:
-   ```bash
+   python -m venv .venv
    source .venv/bin/activate
-   ```
-
-   Then, install the required packages:
-   ```bash
    pip install -r requirements.txt
    ```
 
 2. **Configure environment variables (optional)**
 
-   Duplicate `.env.example` to `.env` and populate it with your local secrets, or export the variables directly in your shell:
+   Create a `.env` file or export the following values when ready to connect to Supabase and Gemini:
 
    ```bash
-   cp .env.example .env  # then edit the values inside
    export SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
    export SUPABASE_ANON_KEY="YOUR_ANON_KEY"
    export GEMINI_API_KEY="YOUR_GEMINI_KEY"
-   export FLASK_SECRET_KEY="YOUR_FLASK_SECRET"
-   export UPSTASH_REDIS_URL="rediss://default:YOUR_PASSWORD@global-example.upstash.io:6379"
-   # Alternatively, supply the REST credentials issued by Upstash
-   export UPSTASH_REDIS_REST_URL="https://global-example.upstash.io"
-   export UPSTASH_REDIS_REST_TOKEN="YOUR_REST_TOKEN"
    ```
 
-   The Flask CLI automatically reads `.env` (via `python-dotenv`), so secrets stay out of source control. When the variables
-   are not provided, the app falls back to local JSON storage so you can explore the flow offline.
-
-   > **GitHub Actions deployments** – store the same keys as repository secrets (for example `SUPABASE_URL`,
-   > `SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `FLASK_SECRET_KEY`, `UPSTASH_REDIS_URL`) and expose them as environment variables
-   > in your workflow. If you prefer Upstash's REST credentials, expose both `UPSTASH_REDIS_REST_URL` and
-   > `UPSTASH_REDIS_REST_TOKEN`. The runtime automatically picks them up thanks to the new environment helpers in the services.
+   Without these values the app falls back to local JSON storage so you can explore the flow offline.
 
 3. **Run the app**
 
@@ -78,26 +54,13 @@ app.py                  # Flask entry point
 
    The application becomes available at [http://localhost:5000](http://localhost:5000).
 
-## Troubleshooting editor import errors
-
-- **Flask or other dependencies reported as missing:** confirm your IDE is using the virtual environment where you ran `pip install -r requirements.txt`. In VS Code, select the interpreter from `.venv` via the command palette (`Python: Select Interpreter`).
-- **`app.services` modules unresolved by linters:** the repository now ships with an `app/services/__init__.py` marker so the package layout is recognized automatically. If your editor still cannot locate the modules, add `app` to your import search path (e.g., VS Code setting `"python.analysis.extraPaths": ["app"]`).
-
 ## Extending the AI
 
 `AIService` currently uses curated responses to keep the experience functional without network access. Provide a `GEMINI_API_KEY` and the service will automatically route onboarding and plan generation prompts through the free Gemini API using the `google-generativeai` SDK. The plan structure is already designed for richer content such as day-by-day workouts or visual assets.
 
 ## Data Storage
 
-`StorageService` automatically writes JSON files to `instance/data` during local development. In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls. When Supabase is not configured, the service now prefers an Upstash Redis instance when the Upstash environment variables are present. Sessions also move to Redis in that scenario so serverless platforms with ephemeral disks can persist login state between requests.
-
-## Testing
-
-Run the automated test suite (including the Redis-backed storage checks) with:
-
-```bash
-python -m pytest
-```
+`StorageService` automatically writes JSON files to `instance/data` during local development. In production, enable Supabase to manage authentication, plans, and logs with full persistence and security controls.
 
 ## Disclaimer
 

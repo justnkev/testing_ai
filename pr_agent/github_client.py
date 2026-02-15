@@ -75,7 +75,7 @@ class GitHubClient:
         # Get diff
         diff_resp = self.session.get(
             pr_url,
-            headers={"Accept": "application/vnd.github.v3.diff"},
+            headers={"Accept": "application/vnd.github.diff"},
         )
         diff_resp.raise_for_status()
 

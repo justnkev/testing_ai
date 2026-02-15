@@ -74,6 +74,7 @@ class GitHubClient:
 
         # Get diff
         # Use a fresh request to avoid session headers (like X-GitHub-Api-Version) causing 406
+        diff_text = ""
         try:
             diff_resp = requests.get(
                 pr_url,
@@ -84,11 +85,16 @@ class GitHubClient:
                 },
             )
             diff_resp.raise_for_status()
-        except requests.exceptions.HTTPError:
-            logger.error(f"Failed to fetch diff. Status: {diff_resp.status_code}")
-            logger.error(f"Response headers: {diff_resp.headers}")
-            logger.error(f"Response body: {diff_resp.text}")
-            raise
+            diff_text = diff_resp.text
+        except requests.exceptions.HTTPError as e:
+            if diff_resp.status_code == 406 and "too_large" in diff_resp.text:
+                logger.warning("PR diff is too large to fetch via API.")
+                diff_text = "WARNING: The PR diff is too large to display (exceeds GitHub API limits). This usually happens with large migrations."
+            else:
+                logger.error(f"Failed to fetch diff. Status: {diff_resp.status_code}")
+                logger.error(f"Response headers: {diff_resp.headers}")
+                logger.error(f"Response body: {diff_resp.text}")
+                raise e
 
         # Get changed files
         files_resp = self.session.get(f"{pr_url}/files")

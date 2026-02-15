@@ -73,9 +73,12 @@ class GitHubClient:
         pr_data = pr_resp.json()
 
         # Get diff
-        diff_resp = self.session.get(
-            pr_url,
-            headers={"Accept": "application/vnd.github.diff"},
+        diff_resp = requests.get(
+            f"{pr_url}.diff",
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Accept": "application/vnd.github.diff"
+            },
         )
         diff_resp.raise_for_status()
 

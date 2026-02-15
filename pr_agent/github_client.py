@@ -73,14 +73,22 @@ class GitHubClient:
         pr_data = pr_resp.json()
 
         # Get diff
-        diff_resp = requests.get(
-            f"{pr_url}.diff",
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/vnd.github.diff"
-            },
-        )
-        diff_resp.raise_for_status()
+        # Use a fresh request to avoid session headers (like X-GitHub-Api-Version) causing 406
+        try:
+            diff_resp = requests.get(
+                pr_url,
+                headers={
+                    "Authorization": f"Bearer {self.token}",
+                    "Accept": "application/vnd.github.v3.diff",
+                    "User-Agent": "PR-Agent-v1"
+                },
+            )
+            diff_resp.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.error(f"Failed to fetch diff. Status: {diff_resp.status_code}")
+            logger.error(f"Response headers: {diff_resp.headers}")
+            logger.error(f"Response body: {diff_resp.text}")
+            raise
 
         # Get changed files
         files_resp = self.session.get(f"{pr_url}/files")

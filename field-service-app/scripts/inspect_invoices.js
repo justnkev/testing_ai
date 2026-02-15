@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 
 async function inspectSchema() {
-    const connectionString = 'postgresql://postgres.skolvxmcritlzepnaogd:1hOvz4QifaiOvdTp@aws-1-us-east-2.pooler.supabase.com:6543/postgres';
+    const connectionString = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     const client = new Client({
         connectionString,

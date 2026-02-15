@@ -1,0 +1,124 @@
+body {
+  background: linear-gradient(180deg, #0f172a 0%, #111827 40%, #0b1120 100%);
+  color: #f8fafc;
+  min-height: 100vh;
+}
+
+.navbar {
+  backdrop-filter: blur(6px);
+}
+
+.card {
+  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+}
+
+.card .card-title {
+  color: #f8fafc;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  border: none;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #f8fafc;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.conversation-bubble {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background-color: rgba(148, 163, 184, 0.1);
+}
+
+.conversation-bubble-user {
+  border-left: 4px solid #38bdf8;
+}
+
+.conversation-bubble-assistant {
+  border-left: 4px solid #22c55e;
+}
+
+.timeline {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0.4rem;
+  width: 2px;
+  height: 100%;
+  background: rgba(148, 163, 184, 0.4);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -1.2rem;
+  top: 0.2rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: #38bdf8;
+  border-radius: 9999px;
+}
+
+.timeline-date {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.7);
+  letter-spacing: 0.08em;
+}
+
+.timeline-content p {
+  margin-bottom: 0.4rem;
+}
+
+.alert-info {
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #bfdbfe;
+}
+
+.alert-success {
+  background-color: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #bbf7d0;
+}
+
+.alert-warning {
+  background-color: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fef08a;
+}
+
+.alert-danger {
+  background-color: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.alert-info,
+.alert-success,
+.alert-warning,
+.alert-danger {
+  backdrop-filter: blur(6px);
+}

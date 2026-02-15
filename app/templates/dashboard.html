@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Weekly Pulse</h2>
+        <p class="text-muted" data-weekly-prompt>{{ weekly_prompt }}</p>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('main.progress') }}">Log progress</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.plan') }}">View plan</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h3 class="h6 text-uppercase text-muted">Recent Logs</h3>
+        {% if logs %}
+        <ul class="list-unstyled small mb-0">
+          {% for log in logs|reverse %}
+          {% if loop.index0 == 3 %}{% break %}{% endif %}
+          <li class="mb-3">
+            <div class="fw-semibold">{{ log.timestamp|default('Recent') }}</div>
+            {% if log.workout %}<div>🏋️‍♀️ {{ log.workout }}</div>{% endif %}
+            {% if log.meals %}<div>🍽️ {{ log.meals }}</div>{% endif %}
+            {% if log.sleep %}<div>😴 {{ log.sleep }}</div>{% endif %}
+            {% if log.habits %}<div>🌟 {{ log.habits }}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">No logs yet. Start tracking to unlock adaptive guidance.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="h6 text-uppercase text-muted">Plan Snapshot</h3>
+        {% if plan %}
+        <div class="row">
+          <div class="col-md-4">
+            <h4 class="h6">Workouts</h4>
+            <p class="small mb-0">{{ plan.workout.weekly_split }}</p>
+          </div>
+          <div class="col-md-4">
+            <h4 class="h6">Nutrition</h4>
+            <p class="small mb-0">{{ plan.nutrition.daily_structure }}</p>
+          </div>
+          <div class="col-md-4">
+            <h4 class="h6">Habits</h4>
+            <p class="small mb-0">{{ plan.habits.morning }}</p>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Complete onboarding to generate your personalized plan.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

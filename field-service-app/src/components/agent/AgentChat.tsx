@@ -49,6 +49,7 @@ export function AgentChat() {
         // Pass context in each message so it's always current
         sendMessage({
             text: input,
+        }, {
             body: { context },
         });
         setInput('');

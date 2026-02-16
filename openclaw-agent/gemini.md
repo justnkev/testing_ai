@@ -72,3 +72,31 @@ Use this prompt to activate the subagent after deployment:
 > **System Update:** A new specialized subagent named `pe-hunter` has been deployed to `agents/pe-hunter`. Its role is to find and enrich electrical service business leads in the NYC Tri-State area meeting specific criteria ($2M-$7M Rev, 20+ Years).
 >
 > **Task:** Please activate the `pe-hunter` subagent and instruct it to begin a search for 5 high-quality leads that match its defined "Buy Box" criteria. Compile the results into a summary table including Owner Name and Contact Info.
+
+## FitVision Separation & Tooling Updates (2026-02-15)
+
+### 1. Application Separation
+- **Action:** Migrated FitVision into a standalone directory (`fit-vision-app/`).
+- **Structure:**
+  - `backend/`: Flask application
+  - `mobile/`: React Native application
+  - `docs/`: Product Requirement Documents (PRDs)
+  - `fitvision_export.sql`: Database backup including schema and data for `profiles`, `meals`, `sleep`, `workouts`, etc.
+
+### 2. PR Agent Configuration & Fixes
+The `pr_agent` (CLI tool) running via GitHub Actions was debugged and fixed.
+
+#### Issue 1: Syntax Error
+- **Cause:** `pr_agent/__init__.py` contained raw text instead of a docstring.
+- **Fix:** Converted text to a Python docstring.
+
+#### Issue 2: 406 Not Acceptable (Header Issue)
+- **Cause:** GitHub API rejected the `Accept` header `application/vnd.github.v3.diff` without user-agent.
+- **Fix:** Updated `github_client.py` to use `application/vnd.github.v3.diff` *and* added a `User-Agent` header (`PR-Agent-v1`).
+
+#### Issue 3: 406 Not Acceptable (Diff Too Large)
+- **Cause:** The FitVision migration resulted in a diff larger than GitHub's API limit (300 files), causing a 406 error.
+- **Fix:** Implemented error handling in `github_client.py`. Now, if a 406 "too_large" error occurs, the agent:
+  1. Catches the exception.
+  2. Sets a warning message as the diff text.
+  3. Proceeds with the review (posting the warning comment) instead of crashing the CI pipeline.

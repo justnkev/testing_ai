@@ -1,10 +1,30 @@
 # Deploy Subagents to VPS
 # Uploads the 'subagents' directory to the VPS and restarts the agent.
 
-$VPS_HOST = "89.167.57.16"
-$VPS_USER = "root"
+# Load .env variables
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$EnvFile = Join-Path $ScriptDir "..\.env"
+
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | ForEach-Object {
+        if ($_ -match "^\s*([^#=]+)\s*=\s*(.*)") {
+            [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+        }
+    }
+}
+else {
+    Write-Warning ".env file not found at $EnvFile"
+}
+
+$VPS_HOST = $env:VPS_HOST
+$VPS_USER = $env:VPS_USER
 $REMOTE_CONFIG_DIR = "/opt/openclaw_config"
 $REMOTE_DOCKER_DIR = "/opt/openclaw"
+
+if (-not $VPS_HOST) {
+    Write-Error "VPS_HOST not set in .env"
+    exit 1
+}
 
 # Resolve path relative to THIS script location
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

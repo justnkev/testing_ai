@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 async function migrate() {
-    const connectionString = 'postgresql://postgres.skolvxmcritlzepnaogd:1hOvz4QifaiOvdTp@aws-1-us-east-2.pooler.supabase.com:6543/postgres';
+    const connectionString = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     // Explicitly use no ssl or simple ssl compatible with Supabase PGBouncer
     const client = new Client({

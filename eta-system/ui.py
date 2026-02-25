@@ -11,6 +11,7 @@ import io
 import json
 import os
 import logging
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -134,21 +135,51 @@ def _get_db() -> Database:
 
 
 @st.cache_data(ttl=30, show_spinner=False)
-def fetch_leads() -> pd.DataFrame:
-    """Fetch all leads from Supabase, cached for 30 seconds."""
+def fetch_leads(
+    min_rev: float | None = None,
+    max_rev: float | None = None,
+    min_emp: int | None = None,
+    max_emp: int | None = None,
+    min_sde: float | None = None,
+    max_sde: float | None = None,
+    include_unknown_revenue: bool = False,
+    include_unknown_employees: bool = False,
+    include_unknown_sde: bool = True,
+) -> pd.DataFrame:
+    """Fetch filtered leads from Supabase, cached for 30 seconds."""
     try:
         db = _get_db()
-        rows = db.get_all_leads()
+        rows = db.fetch_leads(
+            min_rev=min_rev,
+            max_rev=max_rev,
+            min_emp=min_emp,
+            max_emp=max_emp,
+            min_sde=min_sde,
+            max_sde=max_sde,
+            include_unknown_revenue=include_unknown_revenue,
+            include_unknown_employees=include_unknown_employees,
+            include_unknown_sde=include_unknown_sde,
+        )
         if not rows:
             return pd.DataFrame()
         df = pd.DataFrame(rows)
-        # Sort most recent first
         if "created_at" in df.columns:
             df = df.sort_values("created_at", ascending=False).reset_index(drop=True)
         return df
     except Exception as exc:
         logger.error("Failed to fetch leads: %s", exc)
         return pd.DataFrame()
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def get_filter_bounds() -> dict[str, int]:
+    """Get current numeric maxima from DB for slider limits."""
+    try:
+        db = _get_db()
+        return db.get_filter_bounds()
+    except Exception as exc:
+        logger.error("Failed to fetch filter bounds: %s", exc)
+        return {"max_revenue": 0, "max_employees": 0, "max_sde": 0}
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -220,6 +251,14 @@ def run_pipeline(filters: SearchFilters, status_container) -> list[Lead]:
     return asyncio.run(_run_pipeline_async(filters, status_container))
 
 
+if "selected_leads" not in st.session_state:
+    st.session_state.selected_leads = []
+
+filter_bounds = get_filter_bounds()
+max_revenue = max(int(filter_bounds.get("max_revenue", 0)), 1_000_000)
+max_employees = max(int(filter_bounds.get("max_employees", 0)), 10)
+max_sde = max(int(filter_bounds.get("max_sde", 0)), 100_000)
+
 # ═══════════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════
@@ -247,6 +286,42 @@ with st.sidebar:
         value=5,
         help="Maximum number of leads to discover per run.",
     )
+
+    st.markdown("### Lead Qualification Filters")
+    revenue_range = st.slider(
+        "Revenue ($)",
+        min_value=0,
+        max_value=max_revenue,
+        value=(0, max_revenue),
+        step=max(1, max_revenue // 100),
+        help="Filter leads by annual revenue range.",
+    )
+    include_unknown_revenue = st.checkbox(
+        "Include leads with unknown Revenue",
+        value=False,
+    )
+
+    employee_range = st.slider(
+        "Employees",
+        min_value=0,
+        max_value=max_employees,
+        value=(0, max_employees),
+        help="Filter leads by company headcount.",
+    )
+    include_unknown_employees = st.checkbox(
+        "Include leads with unknown Employee size",
+        value=False,
+    )
+
+    sde_range = st.slider(
+        "SDE ($)",
+        min_value=0,
+        max_value=max_sde,
+        value=(0, max_sde),
+        step=max(1, max_sde // 100),
+        help="Filter by seller's discretionary earnings.",
+    )
+    include_unknown_sde = st.toggle("Include leads with unknown SDE", value=True)
 
     st.markdown("---")
     st.markdown("### Export")
@@ -293,7 +368,17 @@ if start_clicked and not missing:
             logger.error("Pipeline failed: %s", exc)
 
 # ── Load data ────────────────────────────────────────────────────────
-df = fetch_leads()
+df = fetch_leads(
+    min_rev=float(revenue_range[0]),
+    max_rev=float(revenue_range[1]),
+    min_emp=int(employee_range[0]),
+    max_emp=int(employee_range[1]),
+    min_sde=float(sde_range[0]),
+    max_sde=float(sde_range[1]),
+    include_unknown_revenue=include_unknown_revenue,
+    include_unknown_employees=include_unknown_employees,
+    include_unknown_sde=include_unknown_sde,
+)
 
 # ── KPI Metrics Row ──────────────────────────────────────────────────
 st.markdown("---")
@@ -360,12 +445,20 @@ else:
         )
         display_df = display_df[mask]
 
-    st.dataframe(
+    selected_lookup = set(st.session_state.get("selected_leads", []))
+    if "id" in df.columns:
+        display_df["id"] = df.loc[display_df.index, "id"].values
+    else:
+        display_df["id"] = display_df.index
+    display_df["Select"] = display_df["id"].isin(selected_lookup)
+
+    editor_df = st.data_editor(
         display_df,
         use_container_width=True,
         hide_index=True,
         height=min(400, 50 + len(display_df) * 35),
         column_config={
+            "Select": st.column_config.CheckboxColumn("Selection", help="Queue for enrichment"),
             "company_name": st.column_config.TextColumn("Company", width="medium"),
             "website": st.column_config.LinkColumn("Website", width="medium"),
             "industry": st.column_config.TextColumn("Industry", width="small"),
@@ -376,129 +469,84 @@ else:
             "employees": st.column_config.TextColumn("Employees", width="small"),
             "revenue": st.column_config.TextColumn("Revenue", width="small"),
             "status": st.column_config.TextColumn("Status", width="small"),
+            "id": None,
         },
+        disabled=[c for c in display_df.columns if c not in {"Select"}],
+        key="lead_selection_editor",
     )
+    st.session_state.selected_leads = editor_df.loc[editor_df["Select"], "id"].astype(int).tolist()
 
-    st.caption(f"Showing {len(display_df)} of {total_leads} leads")
+    st.caption(f"Showing {len(display_df)} of {total_leads} leads • {len(st.session_state.selected_leads)} selected")
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# PROSPEO EMAIL LOOKUP (user-initiated)
+# BULK ENRICHMENT (selection-driven)
 # ═══════════════════════════════════════════════════════════════════════
-if not df.empty and "contact_name" in df.columns and "contact_email" in df.columns:
-    # Filter: leads that HAVE a name but are MISSING a real email
-    needs_email = df[
-        df["contact_name"].notna()
-        & (df["contact_name"] != "Manual Research Needed")
-        & (df["contact_name"] != "")
-        & (
-            df["contact_email"].isna()
-            | (df["contact_email"] == "Manual Research Needed")
-            | (df["contact_email"] == "")
-        )
-    ]
+if not df.empty:
+    st.markdown("---")
+    st.markdown("### ⚡ Tier 3 Enrichment Queue")
+    selected_ids = st.session_state.get("selected_leads", [])
 
-    if not needs_email.empty:
-        st.markdown("---")
-        st.markdown("### 🔎 Best Contact Discovery (Web + Prospeo)")
-
-        prospeo_key = os.getenv("PROSPEO_API_KEY")
-        serper_key = os.getenv("SERPER_API_KEY")
-        
-        if not prospeo_key or not serper_key:
-            st.warning(
-                "⚠️ **Missing Keys**: Ensure `PROSPEO_API_KEY` and `SERPER_API_KEY` are set in `.env`.",
-                icon="🔑",
-            )
+    if st.button("⚡ Enrich Selected Contacts", type="primary", use_container_width=True):
+        if not selected_ids:
+            st.warning("Please select at least one lead", icon="⚠️")
         else:
-            st.caption(
-                "Find the **Owner/CEO** via Google Search and look up their email via Prospeo. "
-                "**~1 credit per enriched lead**."
-            )
-
-            # Credit counter
-            async def _fetch_credits():
-                enricher = Enricher(
-                    apollo_key=os.getenv("APOLLO_API_KEY", ""),
-                    gemini_key=os.getenv("GEMINI_API_KEY", ""),
-                    prospeo_key=prospeo_key,
-                )
-                return await enricher.get_prospeo_credits()
-
-            credits = asyncio.run(_fetch_credits())
-            if credits is not None:
-                st.info(f"💳 **Prospeo credits remaining:** {credits}", icon="💳")
-
-            # Multiselect for companies
-            company_options = needs_email["company_name"].tolist()
-            selected = st.multiselect(
-                "Select companies to research",
-                options=company_options,
-                default=[],
-                help="We will search for the Owner/CEO and then enrich them.",
-            )
-
-            if st.button(
-                f"🚀 Find & Enrich Contacts ({len(selected)} selected)",
-                disabled=len(selected) == 0,
-                type="primary",
-                use_container_width=True,
-            ):
-                async def _run_discovery(companies: list[str]):
-                    enricher = Enricher(
-                        apollo_key=os.getenv("APOLLO_API_KEY", ""),
-                        gemini_key=os.getenv("GEMINI_API_KEY", ""),
-                        prospeo_key=prospeo_key,
-                    )
-                    # We assume serper key is loaded from env in Enricher
-                    
-                    db = _get_db()
-                    results = []
-                    def _clean(val):
-                        return val if pd.notna(val) else None
-
-                    for company in companies:
-                        # Reconstruct lead object from dataframe
-                        row = needs_email[needs_email["company_name"] == company].iloc[0]
-                        lead = Lead(
-                            company_name=row.get("company_name", ""),
-                            website=row.get("website", ""),
-                            contact_name=_clean(row.get("contact_name")),
-                            contact_email=_clean(row.get("contact_email")),
-                            contact_title=_clean(row.get("contact_title")),
-                            industry=_clean(row.get("industry")),
-                            region=_clean(row.get("region")),
-                            employees=_clean(row.get("employees")),
-                            revenue=_clean(row.get("revenue")),
-                            status=_clean(row.get("status")),
-                        )
-                        
-                        # Step 1: Web Search for Best Contact
-                        lead = await enricher.search_best_contact_via_web(lead)
-                        
-                        # Step 2: Prospeo Enrichment (if we found someone or fallback)
-                        lead = await enricher.enrich_email_via_prospeo(lead)
-                        
-                        db.upsert_lead(lead)
-                        results.append(lead)
-                    return results
-
-                with st.spinner(f"Researching & enriching {len(selected)} companies..."):
-                    enriched_leads = asyncio.run(_run_discovery(selected))
-
-                # Report results
-                found = [l for l in enriched_leads if l.contact_email and l.contact_email != "Manual Research Needed"]
-                if found:
-                    msg = f"✅ Found emails for {len(found)}/{len(selected)} companies:\n"
-                    for l in found:
-                        msg += f"- **{l.company_name}**: {l.contact_name} ({l.contact_title}) → {l.contact_email}\n"
-                    st.success(msg)
+            selected_rows = df[df["id"].isin(selected_ids)] if "id" in df.columns else pd.DataFrame()
+            if selected_rows.empty:
+                st.warning("Selected leads are no longer available. Refresh and try again.", icon="⚠️")
+            else:
+                prospeo_key = os.getenv("PROSPEO_API_KEY")
+                if not prospeo_key:
+                    st.warning("⚠️ Missing PROSPEO_API_KEY in environment.", icon="🔑")
                 else:
-                    st.warning("No emails found for the selected companies.", icon="😔")
+                    async def _run_selected_enrichment(rows: pd.DataFrame):
+                        enricher = Enricher(
+                            apollo_key=os.getenv("APOLLO_API_KEY", ""),
+                            gemini_key=os.getenv("GEMINI_API_KEY", ""),
+                            prospeo_key=prospeo_key,
+                        )
+                        db = _get_db()
+                        results = []
 
-                # Bust cache and rerun to refresh table
-                fetch_leads.clear()
-                st.rerun()
+                        def _clean(val):
+                            return val if pd.notna(val) else None
+
+                        for _, row in rows.iterrows():
+                            lead = Lead(
+                                company_name=row.get("company_name", ""),
+                                website=row.get("website", ""),
+                                contact_name=_clean(row.get("contact_name")),
+                                contact_email=_clean(row.get("contact_email")),
+                                contact_title=_clean(row.get("contact_title")),
+                                industry=_clean(row.get("industry")) or "",
+                                region=_clean(row.get("region")) or "",
+                                employees=_clean(row.get("employees")),
+                                revenue=_clean(row.get("revenue")),
+                                sde=_clean(row.get("sde")),
+                                ebitda=_clean(row.get("ebitda")),
+                                status=_clean(row.get("status")) or "new",
+                            )
+
+                            lead = await enricher.search_best_contact_via_web(lead)
+                            lead = await enricher.enrich_email_via_prospeo(lead)
+                            db.upsert_lead(lead)
+                            results.append(lead)
+                            time.sleep(12)
+
+                        return results
+
+                    with st.spinner(f"Enriching {len(selected_rows)} selected leads..."):
+                        enriched_leads = asyncio.run(_run_selected_enrichment(selected_rows))
+
+                    found = [l for l in enriched_leads if l.contact_email and l.contact_email != "Manual Research Needed"]
+                    if found:
+                        st.success(f"✅ Found emails for {len(found)}/{len(selected_rows)} selected leads.")
+                    else:
+                        st.warning("No emails found for the selected leads.", icon="😔")
+
+                    fetch_leads.clear()
+                    st.session_state.selected_leads = []
+                    st.rerun()
 
 
 # ── Email Previews ───────────────────────────────────────────────────

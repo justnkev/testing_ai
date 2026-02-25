@@ -9,7 +9,7 @@ See [Gemini Deployment Notes](gemini.md) for full setup history.
 | Component | Value |
 |-----------|-------|
 | **Provider** | Hetzner |
-| **IP Address** | `89.167.57.16` |
+| **IP Address** | `<YOUR_VPS_IP>` |
 | **OS** | Debian/Ubuntu |
 | **Access** | SSH Key (`~/.ssh/id_ed25519`) |
 | **Dashboard Port** | `18789` |
@@ -18,7 +18,7 @@ See [Gemini Deployment Notes](gemini.md) for full setup history.
 
 ### 1. SSH Tunnel (Access Dashboard Locally)
 ```powershell
-ssh -N -L 18789:127.0.0.1:18789 root@89.167.57.16
+ssh -N -L 18789:127.0.0.1:18789 root@<YOUR_VPS_IP>
 ```
 
 ### 2. Access Dashboard
@@ -29,7 +29,7 @@ http://localhost:18789/?token=<GATEWAY_TOKEN>
 
 ### 3. SSH into VPS
 ```powershell
-ssh root@89.167.57.16
+ssh root@<YOUR_VPS_IP>
 ```
 
 ## Docker Management
@@ -107,7 +107,7 @@ If you see "API provider returned a billing error", your OpenRouter key may be o
 2. **If the key is incorrect**:
    SSH into the VPS and edit the config:
    ```bash
-   ssh root@89.167.57.16
+   ssh root@<YOUR_VPS_IP>
    nano /home/node/.openclaw/openclaw.json
    # Update "openRouterApiKey"
    docker compose restart

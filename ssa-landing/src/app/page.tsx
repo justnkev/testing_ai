@@ -3,6 +3,7 @@ import HeroSection from "@/components/sections/HeroSection";
 import AboutSection from "@/components/sections/AboutSection";
 import MoRSection from "@/components/sections/MoRSection";
 import InvestmentGrid from "@/components/sections/InvestmentGrid";
+import LeadershipSection from "@/components/sections/LeadershipSection";
 import ContactSection from "@/components/sections/ContactSection";
 import Footer from "@/components/Footer";
 
@@ -15,6 +16,7 @@ export default function Home() {
         <AboutSection />
         <MoRSection />
         <InvestmentGrid />
+        <LeadershipSection />
         <ContactSection />
       </main>
       <Footer />

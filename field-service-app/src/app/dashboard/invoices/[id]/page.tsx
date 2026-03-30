@@ -182,7 +182,7 @@ export default function InvoiceDetailsPage() {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
                             {invoice.invoice_number}
-                            <Badge variant="outline" className="text-lg py-1">
+                            <Badge variant="outline" className="text-lg py-1 text-slate-200">
                                 {invoice.status}
                             </Badge>
                             {invoice.payment_status === 'partial' && (
@@ -269,7 +269,7 @@ export default function InvoiceDetailsPage() {
                 <div className="md:col-span-2 space-y-6">
                     <Card className="bg-slate-900 border-slate-800">
                         <CardHeader>
-                            <CardTitle>Bill To</CardTitle>
+                            <CardTitle className="text-white">Bill To</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-slate-300 space-y-1">
@@ -283,7 +283,7 @@ export default function InvoiceDetailsPage() {
 
                     <Card className="bg-slate-900 border-slate-800">
                         <CardHeader>
-                            <CardTitle>Line Items</CardTitle>
+                            <CardTitle className="text-white">Line Items</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="relative overflow-x-auto">
@@ -341,7 +341,7 @@ export default function InvoiceDetailsPage() {
                 <div className="space-y-6">
                     <Card className="bg-slate-900 border-slate-800">
                         <CardHeader>
-                            <CardTitle>Settings</CardTitle>
+                            <CardTitle className="text-white">Settings</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
@@ -369,7 +369,7 @@ export default function InvoiceDetailsPage() {
                     {invoice.payment_status !== 'paid' && (
                         <Card className="bg-slate-900 border-slate-800">
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
+                                <CardTitle className="flex items-center gap-2 text-white">
                                     <DollarSign className="w-4 h-4 text-green-400" />
                                     Record Payment
                                 </CardTitle>

@@ -14,7 +14,9 @@ import {
     FileText,
     Loader2,
     Shield,
+    Clock,
 } from 'lucide-react';
+import { ManualTimeEntryModal } from '@/components/payroll/manual-time-entry-modal';
 
 export default function PayrollPage() {
     const [entries, setEntries] = useState<TimeEntryWithDetails[]>([]);
@@ -22,6 +24,7 @@ export default function PayrollPage() {
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [selectedEntry, setSelectedEntry] = useState<TimeEntryWithDetails | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
 
     // Fetch data
     const loadData = useCallback(async () => {
@@ -86,13 +89,22 @@ export default function PayrollPage() {
                         Review time entries, approve hours, and export pay period summaries
                     </p>
                 </div>
-                <a
-                    href="/dashboard/payroll/compliance"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-amber-500/20 whitespace-nowrap"
-                >
-                    <Shield className="w-4 h-4" />
-                    Compliance
-                </a>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsManualEntryOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition-all border border-slate-700 whitespace-nowrap"
+                    >
+                        <Clock className="w-4 h-4" />
+                        Add Time Entry
+                    </button>
+                    <a
+                        href="/dashboard/payroll/compliance"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-amber-500/20 whitespace-nowrap"
+                    >
+                        <Shield className="w-4 h-4" />
+                        Compliance
+                    </a>
+                </div>
             </div>
 
             {/* Stats Bar */}
@@ -116,14 +128,14 @@ export default function PayrollPage() {
                 <TabsList className="bg-slate-800 border border-slate-700">
                     <TabsTrigger
                         value="audit"
-                        className="data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+                        className="text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
                     >
                         <ClipboardCheck className="w-4 h-4 mr-2" />
                         Audit & Approve
                     </TabsTrigger>
                     <TabsTrigger
                         value="summary"
-                        className="data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+                        className="text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
                     >
                         <FileText className="w-4 h-4 mr-2" />
                         Pay Period Summary
@@ -159,6 +171,16 @@ export default function PayrollPage() {
                     entry={selectedEntry}
                     onClose={() => setSelectedEntry(null)}
                     onStatusChange={loadData}
+                />
+            )}
+
+            {/* Manual Time Entry Modal */}
+            {isManualEntryOpen && (
+                <ManualTimeEntryModal 
+                    onClose={() => {
+                        setIsManualEntryOpen(false);
+                        loadData();
+                    }} 
                 />
             )}
         </div>

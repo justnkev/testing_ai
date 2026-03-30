@@ -46,7 +46,8 @@ export function ProfitabilityTable({ data }: ProfitabilityTableProps) {
                                 <th className="px-4 py-3 font-medium text-right">Labor</th>
                                 <th className="px-4 py-3 font-medium text-right">Materials</th>
                                 <th className="px-4 py-3 font-medium text-right">Margin</th>
-                                <th className="px-4 py-3 font-medium text-center">Status</th>
+                                <th className="px-4 py-3 font-medium text-center">Invoice</th>
+                                <th className="px-4 py-3 font-medium text-center">Job Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -119,7 +120,35 @@ export function ProfitabilityTable({ data }: ProfitabilityTableProps) {
                                         </p>
                                     </td>
 
-                                    {/* Status badge */}
+                                    {/* Invoice Status */}
+                                    <td className="px-4 py-3 text-center">
+                                        {row.invoice_status ? (
+                                            <div className="flex flex-col items-center gap-1">
+                                                <span
+                                                    className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                                        row.invoice_status === 'paid'
+                                                            ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                                            : row.invoice_status === 'sent'
+                                                            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                                                            : row.invoice_status === 'partial'
+                                                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                                            : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
+                                                    }`}
+                                                >
+                                                    {row.invoice_status.toUpperCase()}
+                                                </span>
+                                                {(row.invoice_status === 'sent' || row.invoice_status === 'partial') && row.invoice_balance_due !== null && row.invoice_balance_due > 0 && (
+                                                    <span className="text-[10px] text-red-400 font-medium">
+                                                        {formatCurrency(row.invoice_balance_due)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-slate-600">—</span>
+                                        )}
+                                    </td>
+
+                                    {/* Job Status badge */}
                                     <td className="px-4 py-3 text-center">
                                         <span
                                             className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(

@@ -320,7 +320,7 @@ export async function getPayrollAuditData(filters?: {
                 const resend = new Resend(process.env.RESEND_API_KEY);
                 const { data: adminProfile } = await supabase
                     .from('profiles')
-                    .select('full_name')
+                    .select('display_name')
                     .eq('id', user.id)
                     .single();
 
@@ -330,7 +330,7 @@ export async function getPayrollAuditData(filters?: {
                     subject: `⚠️ ${staleEntries.length} Forgotten Clock-Out(s) Detected`,
                     html: `
                         <h2>Payroll Alert</h2>
-                        <p>Hi ${adminProfile?.full_name || 'Admin'},</p>
+                        <p>Hi ${adminProfile?.display_name || 'Admin'},</p>
                         <p><strong>${staleEntries.length}</strong> time entries have been open for more than 12 hours and have been flagged for manual review.</p>
                         <p>Please review them on the <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/payroll">Payroll Audit page</a>.</p>
                     `,
@@ -346,7 +346,7 @@ export async function getPayrollAuditData(filters?: {
             .from('time_entries')
             .select(`
                 *,
-                user:profiles(full_name, base_hourly_rate),
+                user:profiles(display_name, base_hourly_rate),
                 job:fs_jobs(title, status, customer:fs_customers(name))
             `)
             .order('clock_in_at', { ascending: false });
@@ -369,9 +369,13 @@ export async function getPayrollAuditData(filters?: {
         const normalized = (entries || []).map((entry) => {
             const userData = entry.user;
             const jobData = entry.job;
+            const singleUser = Array.isArray(userData) ? userData[0] : userData;
             return {
                 ...entry,
-                user: Array.isArray(userData) ? userData[0] : userData,
+                user: singleUser ? {
+                    ...singleUser,
+                    full_name: singleUser.display_name,
+                } : null,
                 job: Array.isArray(jobData) ? jobData[0] : jobData,
             };
         });
@@ -441,6 +445,96 @@ export async function getPayPeriodSummary(
         return { success: true, data: summaries };
     } catch (error) {
         console.error('Pay period summary error:', error);
+        return { success: false, error: 'An unexpected error occurred' };
+    }
+}
+
+// ── Get Setup Options for Manual Entry ───────────────────────────
+export async function getPayrollFormOptions() {
+    try {
+        const supabase = await createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return { success: false, error: 'Not authenticated' };
+
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, display_name, role')
+            .order('display_name');
+
+        const { data: jobs } = await supabase
+            .from('fs_jobs')
+            .select('id, title, status')
+            .neq('status', 'archived')
+            .order('created_at', { ascending: false });
+
+        return { 
+            success: true, 
+            data: { 
+                profiles: profiles || [], 
+                jobs: jobs || [] 
+            } 
+        };
+    } catch (err) {
+        console.error('Form options error:', err);
+        return { success: false, error: 'Failed to load options' };
+    }
+}
+
+// ── Create Manual Time Entry ─────────────────────────────────────
+export async function createManualTimeEntry(data: {
+    userId: string;
+    jobId: string;
+    clockInAt: string;
+    clockOutAt: string;
+    isTravelTime: boolean;
+    notes?: string;
+}): Promise<ActionResult<{ id: string }>> {
+    try {
+        const supabase = await createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return { success: false, error: 'Not authenticated' };
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        if (!profile || !['admin', 'manager'].includes(profile.role)) {
+            return { success: false, error: 'Insufficient permissions' };
+        }
+
+        const { data: entry, error: insertError } = await supabase
+            .from('time_entries')
+            .insert({
+                user_id: data.userId,
+                job_id: data.jobId,
+                clock_in_at: data.clockInAt,
+                clock_out_at: data.clockOutAt,
+                is_travel_time: data.isTravelTime,
+                status: 'approved',
+                reviewed_by: user.id,
+                reviewed_at: new Date().toISOString(),
+                review_notes: data.notes || 'Manually created by administrator'
+            })
+            .select()
+            .single();
+
+        if (insertError || !entry) {
+            console.error('Manual insert error:', insertError);
+            return { success: false, error: 'Failed to create time entry' };
+        }
+
+        // Calculate labor cost via RPC exactly like clockOut does.
+        const { error: rpcError } = await supabase.rpc('calculate_labor_cost', { entry_id: entry.id });
+        if (rpcError) {
+            console.error('RPC Error on manual entry:', rpcError);
+        }
+
+        revalidatePath('/dashboard/payroll');
+        return { success: true, data: { id: entry.id } };
+    } catch (error) {
+        console.error('Create manual entry error:', error);
         return { success: false, error: 'An unexpected error occurred' };
     }
 }

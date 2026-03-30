@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import {
     Shield, Plus, Trash2, Save, Loader2, ChevronDown,
-    HardHat, FileText, Calendar, Search, Download, AlertTriangle,
+    HardHat, FileText, Calendar, Search, Download, AlertTriangle, ArrowLeft
 } from 'lucide-react';
 import {
     Select,
@@ -35,6 +36,9 @@ export default function CompliancePage() {
         <div className="p-4 md:p-8 space-y-6">
             {/* Header */}
             <div className="flex items-center gap-3">
+                <Link href="/dashboard/payroll" className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700 transition-colors mr-2">
+                    <ArrowLeft className="w-5 h-5 text-slate-400" />
+                </Link>
                 <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/25">
                     <Shield className="w-5 h-5 text-white" />
                 </div>
@@ -175,7 +179,7 @@ function RateManagerTab() {
                                     </td>
                                     <td className="px-4 py-3 text-slate-300">{job.customer?.name || '—'}</td>
                                     <td className="px-4 py-3">
-                                        <Badge variant="outline" className="text-xs">{job.status}</Badge>
+                                        <Badge variant="outline" className="text-xs text-slate-200">{job.status}</Badge>
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <button
@@ -435,7 +439,7 @@ function CertifiedPayrollTab() {
                     <div>
                         <label className="text-sm text-slate-400 mb-1 block">Job</label>
                         <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                            <SelectTrigger className="bg-slate-900 border-slate-600">
+                            <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
                                 <SelectValue placeholder={loadingJobs ? 'Loading...' : 'Select job...'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -456,11 +460,11 @@ function CertifiedPayrollTab() {
                     {/* Date range */}
                     <div>
                         <label className="text-sm text-slate-400 mb-1 block">Start Date</label>
-                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-slate-900 border-slate-600" />
+                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-slate-900 border-slate-600 text-white [color-scheme:dark]" />
                     </div>
                     <div>
                         <label className="text-sm text-slate-400 mb-1 block">End Date</label>
-                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-slate-900 border-slate-600" />
+                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-slate-900 border-slate-600 text-white [color-scheme:dark]" />
                     </div>
 
                     {/* Generate */}

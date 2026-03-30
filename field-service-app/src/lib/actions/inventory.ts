@@ -205,3 +205,42 @@ export async function getJobParts(jobId: string): Promise<ActionResult<JobPart[]
         return { success: false, error: 'Unexpected error' };
     }
 }
+
+/**
+ * Quick Add: log a custom part not in inventory (flagged for admin review)
+ */
+export async function addCustomPartToJob(
+    jobId: string,
+    name: string,
+    estimatedPrice: number,
+    quantity: number
+): Promise<ActionResult> {
+    try {
+        const supabase = await createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return { success: false, error: 'Not authenticated' };
+
+        const { error: insertError } = await supabase.from('fs_job_parts').insert({
+            job_id: jobId,
+            item_id: null,
+            quantity_used: quantity,
+            unit_price_at_time_of_use: estimatedPrice,
+            is_custom_entry: true,
+            custom_item_name: name,
+            custom_item_price: estimatedPrice,
+            admin_reviewed: false,
+        });
+
+        if (insertError) {
+            console.error('Custom part insert error:', insertError);
+            return { success: false, error: 'Failed to add custom part' };
+        }
+
+        revalidatePath(`/dashboard/jobs/${jobId}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Custom part error:', error);
+        return { success: false, error: 'Unexpected error' };
+    }
+}
+

@@ -50,9 +50,18 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                         <p className="text-slate-400 text-sm">Track your business performance and growth</p>
                     </div>
                 </div>
+            <div className="flex items-center gap-3">
                 <Suspense fallback={<div className="h-9 bg-slate-800 rounded animate-pulse w-96" />}>
                     <DateRangePicker />
                 </Suspense>
+                <a
+                    href="/dashboard/analytics/profitability"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-cyan-500/20 whitespace-nowrap"
+                >
+                    <DollarSign className="w-4 h-4" />
+                    Profitability
+                </a>
+            </div>
             </div>
 
             {/* KPI Cards */}

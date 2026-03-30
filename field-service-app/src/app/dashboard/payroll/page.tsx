@@ -13,6 +13,7 @@ import {
     ClipboardCheck,
     FileText,
     Loader2,
+    Shield,
 } from 'lucide-react';
 
 export default function PayrollPage() {
@@ -85,6 +86,13 @@ export default function PayrollPage() {
                         Review time entries, approve hours, and export pay period summaries
                     </p>
                 </div>
+                <a
+                    href="/dashboard/payroll/compliance"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-amber-500/20 whitespace-nowrap"
+                >
+                    <Shield className="w-4 h-4" />
+                    Compliance
+                </a>
             </div>
 
             {/* Stats Bar */}

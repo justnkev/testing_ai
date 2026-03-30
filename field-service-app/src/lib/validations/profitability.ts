@@ -26,6 +26,8 @@ export interface ProfitabilityOverview {
     is_over_budget: boolean;
     technician_count: number;
     parts_count: number;
+    invoice_status: string | null;
+    invoice_balance_due: number | null;
 }
 
 /** Aggregate KPIs for the profitability dashboard header */

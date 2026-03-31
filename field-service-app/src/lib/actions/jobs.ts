@@ -175,6 +175,9 @@ export async function getUpcomingJobs(): Promise<{ success: boolean; data: JobWi
         technician:profiles!fs_jobs_technician_id_fkey (
           display_name,
           email
+        ),
+        invoices (
+          status
         )
       `)
             .gte('scheduled_date', today)
@@ -226,6 +229,9 @@ export async function getAllJobs(): Promise<{ success: boolean; data: JobWithCus
         technician:profiles!fs_jobs_technician_id_fkey (
           display_name,
           email
+        ),
+        invoices (
+          status
         )
       `)
             .order('scheduled_date', { ascending: false });
@@ -268,6 +274,9 @@ export async function getJobById(id: string): Promise<ActionResult<{ job: JobWit
         technician:profiles!fs_jobs_technician_id_fkey (
           display_name,
           email
+        ),
+        invoices (
+          status
         )
       `)
             .eq('id', id)

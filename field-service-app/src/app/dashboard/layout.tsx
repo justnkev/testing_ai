@@ -15,7 +15,8 @@ import {
     Settings,
     Map,
     Box,
-    MessageSquare
+    MessageSquare,
+    DollarSign,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import Link from 'next/link';
 import { usePermission } from '@/hooks/usePermission';
 import { Suspense } from 'react';
 import { DashboardAuthCheck } from '@/components/dashboard/auth-check';
+import { QueryProvider } from '@/components/providers/query-provider';
 
 const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,6 +34,8 @@ const navItems = [
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/jobs', label: 'Jobs', icon: ClipboardList },
     { href: '/dashboard/inventory', label: 'Inventory', icon: Box },
+    { href: '/dashboard/payroll', label: 'Payroll', icon: DollarSign },
+    { href: '/dashboard/billing', label: 'Billing', icon: DollarSign },
     { href: '/dashboard/settings/marketing', label: 'Marketing', icon: MessageSquare },
     { href: '/dashboard/settings/organization', label: 'Settings', icon: Settings },
 ];
@@ -56,6 +60,8 @@ export default function DashboardLayout({
     const filteredNavItems = navItems.filter(item => {
         if (isTechnician) {
             if (item.href === '/dashboard/analytics') return false;
+            if (item.href === '/dashboard/payroll') return false;
+            if (item.href === '/dashboard/billing') return false;
             if (item.href.startsWith('/dashboard/settings')) return false;
         }
         return true;
@@ -69,11 +75,12 @@ export default function DashboardLayout({
     };
 
     return (
-        <div className="min-h-screen bg-slate-900">
-            <Suspense fallback={null}>
-                <DashboardAuthCheck />
-            </Suspense>
-            {/* Mobile Header */}
+        <QueryProvider>
+            <div className="min-h-screen bg-slate-900">
+                <Suspense fallback={null}>
+                    <DashboardAuthCheck />
+                </Suspense>
+                {/* Mobile Header */}
             <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
                 <div className="flex items-center justify-between px-4 py-3">
                     <Link href="/dashboard" className="flex items-center gap-2">
@@ -165,5 +172,6 @@ export default function DashboardLayout({
                 {children}
             </main>
         </div>
+        </QueryProvider>
     );
 }

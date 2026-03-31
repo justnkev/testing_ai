@@ -25,16 +25,29 @@ export const partUsageSchema = z.object({
 
 export type PartUsageData = z.infer<typeof partUsageSchema>;
 
+/** Quick Add: custom part not in inventory */
+export const customPartSchema = z.object({
+    name: z.string().min(1, 'Part name is required').max(100),
+    estimated_price: z.coerce.number().min(0, 'Price must be positive'),
+    quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
+});
+
+export type CustomPartData = z.infer<typeof customPartSchema>;
+
 export interface JobPart {
     id: string;
     job_id: string;
-    item_id: string;
+    item_id: string | null;
     quantity_used: number;
     unit_price_at_time_of_use: number;
+    is_custom_entry: boolean;
+    custom_item_name: string | null;
+    custom_item_price: number | null;
+    admin_reviewed: boolean;
     created_at: string;
     item: {
         name: string;
         sku: string;
         description: string | null;
-    };
+    } | null;
 }

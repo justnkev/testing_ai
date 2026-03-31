@@ -1,0 +1,5 @@
+# Secrets - NEVER commit
+.env
+
+# Persistent n8n data
+n8n_data/

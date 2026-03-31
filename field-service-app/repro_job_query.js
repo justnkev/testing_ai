@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = 'https://skolvxmcritlzepnaogd.supabase.co';
-const supabaseKey = os.getenv('SUPABASE_SERVICE_ROLE_KEY'); // Service Role Key for bypassing RLS locally
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Service Role Key for bypassing RLS locally
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

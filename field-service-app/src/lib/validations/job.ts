@@ -55,4 +55,7 @@ export interface JobWithCustomer extends Job {
         display_name: string | null;
         email: string | null;
     } | null;
+    invoices?: {
+        status: string;
+    }[] | null;
 }

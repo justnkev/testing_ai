@@ -3,10 +3,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { JobActionBar } from '@/components/mobile/job-action-bar';
+import { TimeTracker } from '@/components/mobile/time-tracker';
 import { PhotoGallery } from '@/components/mobile/photo-gallery';
 import { SignaturePad } from '@/components/mobile/signature-pad';
 import { TaskChecklist } from '@/components/mobile/task-checklist';
 import { PartsManager } from '@/components/mobile/parts-manager';
+import { JobProfitabilityCard } from '@/components/mobile/job-profitability-card';
 import { Button } from '@/components/ui/button';
 import { completeJob } from '@/lib/actions/job-execution';
 import type { JobExecutionData } from '@/lib/actions/job-execution';
@@ -194,6 +196,14 @@ export function MobileJobClient({ initialData }: MobileJobClientProps) {
                     />
                 )}
 
+                {/* Time Tracker (Payroll) */}
+                {jobData.status !== 'completed' && (
+                    <TimeTracker
+                        jobId={jobData.id}
+                        onStatusChange={refreshData}
+                    />
+                )}
+
                 {/* Checklist */}
                 {jobData.checklist.length > 0 && (
                     <TaskChecklist
@@ -210,6 +220,9 @@ export function MobileJobClient({ initialData }: MobileJobClientProps) {
                     onPartsChange={refreshData}
                     disabled={jobData.status === 'completed'}
                 />
+
+                {/* Job Profitability (Admin/Manager only) */}
+                <JobProfitabilityCard jobId={jobData.id} />
 
                 {/* Photo Gallery */}
                 <PhotoGallery

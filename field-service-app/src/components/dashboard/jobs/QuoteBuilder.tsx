@@ -112,7 +112,7 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium flex items-center gap-2">
+                <h3 className="text-lg font-medium flex items-center gap-2 text-white">
                     <FileText className="w-5 h-5" />
                     Estimate / Quote
                 </h3>
@@ -123,32 +123,33 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block border rounded-lg overflow-hidden bg-white">
+            <div className="hidden md:block border border-slate-700 rounded-lg overflow-hidden bg-slate-800">
                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[40%]">Description</TableHead>
-                            <TableHead className="w-[15%]">Qty</TableHead>
-                            <TableHead className="w-[20%]">Unit Price</TableHead>
-                            <TableHead className="w-[20%] text-right">Total</TableHead>
+                    <TableHeader className="bg-slate-900/50">
+                        <TableRow className="border-slate-700 hover:bg-slate-800/80">
+                            <TableHead className="w-[40%] text-slate-300">Description</TableHead>
+                            <TableHead className="w-[15%] text-slate-300">Qty</TableHead>
+                            <TableHead className="w-[20%] text-slate-300">Unit Price</TableHead>
+                            <TableHead className="w-[20%] text-right text-slate-300">Total</TableHead>
                             <TableHead className="w-[5%]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {items.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            <TableRow className="border-slate-700 hover:bg-slate-800/80">
+                                <TableCell colSpan={5} className="h-24 text-center text-slate-400">
                                     No items added. Start by adding a part or custom item.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             items.map((item, index) => (
-                                <TableRow key={item.id || index}>
+                                <TableRow key={item.id || index} className="border-slate-700 hover:bg-slate-800/80">
                                     <TableCell>
                                         <Input
                                             value={item.description}
                                             onChange={(e) => handleUpdateItem(index, 'description', e.target.value)}
                                             placeholder="Item description"
+                                            className="bg-slate-950/50 border-slate-700 text-white placeholder:text-slate-500"
                                         />
                                     </TableCell>
                                     <TableCell>
@@ -158,29 +159,30 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
                                             step="0.01"
                                             value={item.quantity}
                                             onChange={(e) => handleUpdateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                            className="bg-slate-950/50 border-slate-700 text-white"
                                         />
                                     </TableCell>
                                     <TableCell>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                                            <span className="absolute left-3 top-2.5 text-slate-500">$</span>
                                             <Input
                                                 type="number"
                                                 min="0"
                                                 step="0.01"
-                                                className="pl-7"
+                                                className="pl-7 bg-slate-950/50 border-slate-700 text-white"
                                                 value={item.unit_price}
                                                 onChange={(e) => handleUpdateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                                             />
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-medium">
+                                    <TableCell className="text-right font-medium text-white">
                                         ${(item.quantity * item.unit_price).toFixed(2)}
                                     </TableCell>
                                     <TableCell>
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            className="text-red-400 bg-transparent hover:text-red-300 hover:bg-red-400/10"
                                             onClick={() => handleDeleteItem(index)}
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -196,24 +198,24 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
             {/* Mobile Card View */}
             <div className="md:hidden space-y-4">
                 {items.length === 0 ? (
-                    <div className="text-center p-8 bg-muted rounded-lg border border-dashed text-muted-foreground">
+                    <div className="text-center p-8 bg-slate-800 rounded-lg border border-slate-700 border-dashed text-slate-400">
                         No items added.
                     </div>
                 ) : (
                     items.map((item, index) => (
-                        <Card key={item.id || index}>
+                        <Card key={item.id || index} className="bg-slate-800 border-slate-700">
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex justify-between items-start gap-2">
                                     <Input
                                         value={item.description}
                                         onChange={(e) => handleUpdateItem(index, 'description', e.target.value)}
                                         placeholder="Item description"
-                                        className="font-medium"
+                                        className="font-medium bg-slate-950/50 border-slate-700 text-white placeholder:text-slate-500"
                                     />
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8 text-destructive shrink-0"
+                                        className="h-8 w-8 text-red-400 bg-transparent hover:text-red-300 hover:bg-red-400/10 shrink-0"
                                         onClick={() => handleDeleteItem(index)}
                                     >
                                         <Trash2 className="h-4 w-4" />
@@ -221,31 +223,31 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Qty</label>
+                                        <label className="text-xs text-slate-400">Qty</label>
                                         <Input
                                             type="number"
                                             min="0"
                                             value={item.quantity}
                                             onChange={(e) => handleUpdateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                            className="text-base" // Prevent zoom on iOS
+                                            className="text-base bg-slate-950/50 border-slate-700 text-white" // Prevent zoom on iOS
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Price</label>
+                                        <label className="text-xs text-slate-400">Price</label>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-2.5 text-gray-500 text-xs">$</span>
+                                            <span className="absolute left-3 top-2.5 text-slate-500 text-xs">$</span>
                                             <Input
                                                 type="number"
                                                 min="0"
                                                 value={item.unit_price}
                                                 onChange={(e) => handleUpdateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                                                className="pl-6 text-base"
+                                                className="pl-6 text-base bg-slate-950/50 border-slate-700 text-white"
                                             />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-end pt-2 border-t mt-2">
-                                    <span className="font-semibold text-sm">
+                                <div className="flex justify-end pt-2 border-t border-slate-700 mt-2">
+                                    <span className="font-semibold text-sm text-white">
                                         Total: ${(item.quantity * item.unit_price).toFixed(2)}
                                     </span>
                                 </div>
@@ -259,27 +261,28 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
             <div className="flex flex-col sm:flex-row gap-3">
                 <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-[250px] justify-start text-muted-foreground">
+                        <Button variant="outline" className="w-full sm:w-[250px] bg-transparent justify-start text-cyan-400 border-cyan-500/30 hover:bg-cyan-950/30 hover:text-cyan-300">
                             <Plus className="mr-2 h-4 w-4" />
                             Add from Inventory...
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="p-0" align="start">
-                        <Command>
-                            <CommandInput placeholder="Search parts..." />
+                    <PopoverContent className="p-0 border-slate-700" align="start">
+                        <Command className="bg-slate-800 text-white">
+                            <CommandInput placeholder="Search parts..." className="border-slate-700 border-b" />
                             <CommandList>
-                                <CommandEmpty>No parts found.</CommandEmpty>
+                                <CommandEmpty className="text-slate-400 text-sm py-4 text-center">No parts found.</CommandEmpty>
                                 <CommandGroup>
                                     {inventoryItems.map((part) => (
                                         <CommandItem
                                             key={part.id}
                                             value={part.name}
                                             onSelect={() => handleAddItem(part)}
+                                            className="text-white hover:bg-slate-700 data-[selected=true]:bg-slate-700"
                                         >
                                             <Check className={cn("mr-2 h-4 w-4 opacity-0")} />
                                             <div className="flex flex-col">
                                                 <span>{part.name}</span>
-                                                <span className="text-xs text-muted-foreground">SKU: {part.sku} • ${part.retail_price}</span>
+                                                <span className="text-xs text-slate-400">SKU: {part.sku} • ${part.retail_price}</span>
                                             </div>
                                         </CommandItem>
                                     ))}
@@ -289,17 +292,17 @@ export function QuoteBuilder({ jobId, inventoryItems, initialData }: QuoteBuilde
                     </PopoverContent>
                 </Popover>
 
-                <Button variant="secondary" onClick={() => handleAddItem()} className="w-full sm:w-auto">
+                <Button variant="outline" onClick={() => handleAddItem()} className="w-full sm:w-auto bg-transparent text-slate-300 border-slate-600 hover:bg-slate-800 hover:text-white">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Custom Item
                 </Button>
             </div>
 
             {/* Footer / Grand Total */}
-            <div className="flex justify-end p-4 bg-muted/50 rounded-lg border">
+            <div className="flex justify-end p-4 bg-slate-800/80 rounded-lg border border-slate-700">
                 <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Grand Total</div>
-                    <div className="text-2xl font-bold text-primary">
+                    <div className="text-sm font-medium text-slate-400">Grand Total</div>
+                    <div className="text-2xl font-bold text-white">
                         ${calculateTotal().toFixed(2)}
                     </div>
                 </div>

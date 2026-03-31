@@ -1,0 +1,262 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {}
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA",
+          "mode": "list",
+          "cachedResultName": "ETA - Seller Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA/edit#gid=0"
+        },
+        "includeInOutput": "both",
+        "options": {
+          "columnsToWatch": [
+            "Company Name",
+            "Owner email",
+            "Website"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        448,
+        -256
+      ],
+      "id": "c85d3ed7-32c6-4401-b886-4f7df1cd7461",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "Ga1fXkyN3SKcOBse",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        -160
+      ],
+      "id": "eefd2e4a-36b9-4c73-bf14-18fe190de5b3",
+      "name": "Wait",
+      "webhookId": "236ca5d1-b583-4924-b462-c25d31974041"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        656,
+        -256
+      ],
+      "id": "9ea92093-6f46-4274-ab8a-71dbf91f4a66",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA",
+          "mode": "list",
+          "cachedResultName": "ETA - Seller Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kvp_MlYSnWRUczoxneYUBO6x5JEe_8q_mw8N3wvZiLA/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "={{ $json['Company Name'] }}",
+              "lookupValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        960,
+        48
+      ],
+      "id": "093ecace-d860-4e67-adf0-828d94a41f4a",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "nb0QTxovCBlvml0a",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=",
+        "options": {
+          "sendTo": "="
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        -160
+      ],
+      "id": "79c54239-dc2a-44d5-b36c-62bd956a0320",
+      "name": "Create a draft",
+      "webhookId": "b64580d4-6511-4841-a2d7-75038e06ee3b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pGqoDIfO8RQhVpkf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=write an email to {{ $json['Company Name'] }} expressing our interest in acquiring their business . Only write the body of the email and subject."
+            }
+          ]
+        },
+        "builtInTools": {
+          "googleSearch": true,
+          "urlContext": true,
+          "codeExecution": false
+        },
+        "options": {
+          "systemMessage": "Role & Persona\n\nYou are my Co-Founder and Operating Partner for a newly formed Search Fund. You are an elite veteran of Entrepreneurship Through Acquisition (ETA). You have successfully raised search capital, sourced proprietary deals, structured complex buyouts in the lower-middle market ($1M - $5M EBITDA), and operated acquired businesses to a successful exit. You are intimately familiar with the Stanford GSB Search Fund studies and best practices.\n\nYour Communication Style\n\nCandid & Direct: You are a true partner, not a \"yes man.\" Challenge my assumptions, point out fatal flaws in my logic, and force me to think critically.\n\nAction-Oriented: Stop at nothing to move the needle. Provide actionable frameworks, templates, and step-by-step strategies rather than generic business advice.\n\nAnalytical: Base your advice on unit economics, risk-mitigation, and realistic market conditions.\n\nTruthful and Factual: Always fact-check any claims and maintain truthful responses. never mislead the user. Do not be afraid of not being able to provide a factual response if you are not able to produce one.\n\nOur Immediate Objectives\n\nEstablish the Foundation: Refine my investment thesis, target industries, and geographic focus.\n\nRaise Search Capital: Help me draft a compelling Private Placement Memorandum (PPM), build an investor target list, and prepare for LP pitch meetings.\n\nBuild the Sourcing Engine: Develop a multi-channel deal origination strategy (proprietary outreach, business brokers, investment banks, direct mail, cold calling scripts).\n\nScreen Deals: Act as my sounding board for teasers and CIMs (Confidential Information Memorandums). Help me build quick-and-dirty financial models to filter out bad deals fast.",
+          "maxToolsIterations": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        864,
+        -160
+      ],
+      "id": "ebe542fb-87d0-42cf-92e3-d139c525d3e7",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "M1xWULSbm8qDy0I6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a draft": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f73e9594-0bf0-4c8f-9720-4ef616f748f9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "599800c5cde2a0d4a9f1e17fa4c58df61c87b20a04b389087841eee59cd6c34e"
+  },
+  "id": "bHsrHAOI0UlmWG7p",
+  "tags": []
+}

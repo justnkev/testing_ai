@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getBillingDashboardData, getBillingKPIs, processBillRun, BillingDashboardRecord } from '@/lib/actions/billing';
+import { getBillingDashboardData, getBillingKPIs, processBillRun, batchSendInvoices, BillingDashboardRecord } from '@/lib/actions/billing';
 import { BillingAnalyticsCards } from '@/components/billing/billing-analytics-cards';
 import { BillingDataTable } from '@/components/billing/billing-data-table';
 import { BillingFloatingBar } from '@/components/billing/billing-floating-bar';
@@ -60,6 +60,38 @@ export default function BillingDashboardPage() {
         }
     });
 
+    const sendInvoicesMutation = useMutation({
+        mutationFn: async (invoiceIds: string[]) => {
+            return await batchSendInvoices(invoiceIds);
+        },
+        onSuccess: (res) => {
+            if (!res.success) {
+                toast.error(res.error || 'Failed to send invoices');
+                return;
+            }
+            if (res.data) {
+                const { sentCount, skippedCount, errors } = res.data;
+                if (sentCount > 0) {
+                    toast.success(`Successfully sent ${sentCount} invoice(s).`);
+                }
+                if (skippedCount > 0) {
+                    toast.info(`Skipped ${skippedCount} non-draft invoice(s).`);
+                }
+                if (errors && errors.length > 0) {
+                    errors.forEach((err: string) => toast.error(err));
+                }
+                // Clear selection
+                setSelectedRows([]);
+                // Invalidate cache
+                queryClient.invalidateQueries({ queryKey: ['billing_dashboard_data'] });
+                queryClient.invalidateQueries({ queryKey: ['billing_dashboard_kpis'] });
+            }
+        },
+        onError: (err: any) => {
+            toast.error(err.message || 'Error occurred during invoice send.');
+        }
+    });
+
     // Filtering
     const filteredData = useMemo(() => {
         if (selectedTab === 'all') return billingData;
@@ -70,6 +102,44 @@ export default function BillingDashboardPage() {
         if (selectedTab === 'paid') return billingData.filter(r => r.payment_status === 'paid');
         return billingData;
     }, [billingData, selectedTab]);
+
+    const exportToCSV = () => {
+        if (filteredData.length === 0) {
+            toast.info("No data to export based on current filters.");
+            return;
+        }
+
+        const headers = ["ID", "Customer Name", "Record Type", "Status", "Payment Status", "Total Amount", "Balance Due", "Created At", "Due Date"];
+        const csvRows = [headers.join(",")];
+
+        for (const row of filteredData) {
+            const values = [
+                row.display_id || '',
+                row.customer_name || '',
+                row.record_type || '',
+                row.status || '',
+                row.payment_status || '',
+                row.total_amount?.toString() || '0',
+                row.balance_due?.toString() || '0',
+                row.created_at ? new Date(row.created_at).toLocaleDateString() : '',
+                row.due_date ? new Date(row.due_date).toLocaleDateString() : ''
+            ];
+            // Escape values that might have commas
+            const escapedValues = values.map(v => `"${v?.replace(/"/g, '""') || ''}"`);
+            csvRows.push(escapedValues.join(","));
+        }
+
+        const csvContent = csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `AR_Report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -86,7 +156,11 @@ export default function BillingDashboardPage() {
                 </div>
                 <div className="flex gap-3">
                     {/* Could add a manual "Create Invoice" button here */}
-                    <Button variant="outline" className="bg-slate-800 border-slate-700 text-white hover:bg-slate-700">
+                    <Button 
+                        variant="outline" 
+                        onClick={exportToCSV}
+                        className="bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
+                    >
                         Export AR Report
                     </Button>
                 </div>
@@ -156,6 +230,8 @@ export default function BillingDashboardPage() {
                 selectedRows={selectedRows}
                 onBillRun={(jobIds) => billRunMutation.mutate(jobIds)}
                 isProcessing={billRunMutation.isPending}
+                onSendInvoices={(invoiceIds) => sendInvoicesMutation.mutate(invoiceIds)}
+                isSending={sendInvoicesMutation.isPending}
             />
         </div>
     );

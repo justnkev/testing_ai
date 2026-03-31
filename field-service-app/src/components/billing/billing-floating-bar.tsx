@@ -9,12 +9,16 @@ interface BillingFloatingBarProps {
     selectedRows: BillingDashboardRecord[];
     onBillRun: (jobsToBill: string[]) => void;
     isProcessing: boolean;
+    onSendInvoices?: (invoiceIds: string[]) => void;
+    isSending?: boolean;
 }
 
 export function BillingFloatingBar({
     selectedRows,
     onBillRun,
     isProcessing,
+    onSendInvoices,
+    isSending
 }: BillingFloatingBarProps) {
     if (selectedRows.length === 0) return null;
 
@@ -62,14 +66,19 @@ export function BillingFloatingBar({
                 {canSendInvoices && (
                     <Button
                         onClick={() => {
-                            // TODO: Add bulk send feature
-                            alert('Batch Send functionality not yet implemented.');
+                            if (onSendInvoices) {
+                                onSendInvoices(draftInvoices.map(i => i.display_id!));
+                            }
                         }}
-                        disabled={isProcessing}
+                        disabled={isSending}
                         variant="secondary"
                         className="bg-slate-700 hover:bg-slate-600 text-white rounded-full px-6 gap-2"
                     >
-                        <Send className="w-4 h-4" />
+                        {isSending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Send className="w-4 h-4" />
+                        )}
                         Send Invoices ({draftInvoices.length})
                     </Button>
                 )}

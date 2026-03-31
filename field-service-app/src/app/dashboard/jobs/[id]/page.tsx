@@ -219,7 +219,7 @@ export default function JobDetailPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href="/dashboard/jobs">
-                        <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-700">
+                        <Button variant="ghost" size="icon" className="text-slate-400 bg-transparent hover:text-white hover:bg-slate-700">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                     </Link>
@@ -243,7 +243,7 @@ export default function JobDetailPage() {
                         <>
                             {invoice ? (
                                 <Link href={`/dashboard/invoices/${invoice.id}`}>
-                                    <Button variant="outline" className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-950/30">
+                                    <Button variant="outline" className="border-cyan-500/30 bg-transparent text-cyan-400 hover:bg-cyan-950/30">
                                         <FileText className="w-4 h-4 mr-2" />
                                         View Invoice
                                     </Button>
@@ -401,7 +401,7 @@ export default function JobDetailPage() {
                         <div className="pt-4 flex flex-col sm:flex-row gap-2">
                             {job.customer.phone && (
                                 <a href={`tel:${job.customer.phone}`} className="flex-1">
-                                    <Button variant="outline" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700">
+                                    <Button variant="outline" className="w-full bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700">
                                         <Phone className="w-4 h-4 mr-2" />
                                         Call Customer
                                     </Button>

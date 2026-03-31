@@ -175,7 +175,7 @@ export default function InvoiceDetailsPage() {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href={`/dashboard/jobs/${invoice.job_id}`}>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                     </Link>

@@ -14,7 +14,7 @@ SELECT
     i.created_at as created_at,
     i.due_date as due_date,
     i.total_amount as total_amount,
-    i.balance_due as balance_due,
+    COALESCE(i.balance_due, i.total_amount) as balance_due,
     i.status as status,
     i.payment_status as payment_status,
     -- Aging logic: If not paid, how many days since creation?
@@ -89,7 +89,7 @@ AS $$
     -- total_unbilled: sum of implied amounts from completed jobs without invoices
 SELECT 
     (
-        SELECT COALESCE(SUM(balance_due), 0) 
+        SELECT COALESCE(SUM(COALESCE(balance_due, total_amount)), 0) 
         FROM public.invoices 
         WHERE status != 'draft' AND payment_status != 'paid'
     ) as total_receivables,

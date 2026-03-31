@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BillingDashboardRecord } from '@/lib/actions/billing';
 import { format } from 'date-fns';
+import Link from 'next/link';
 
 interface BillingDataTableProps {
     data: BillingDashboardRecord[];
@@ -128,7 +129,16 @@ export function BillingDataTable({ data, onRowSelectionChange }: BillingDataTabl
         {
             accessorKey: 'display_id',
             header: 'Invoice #',
-            cell: ({ row }) => <div className="font-medium text-slate-300">{row.getValue('display_id')}</div>,
+            cell: ({ row }) => {
+                const record = row.original;
+                const isInvoice = record.record_type === 'invoice';
+                const href = isInvoice ? `/dashboard/invoices/${record.id}` : `/dashboard/jobs/${record.id}`;
+                return (
+                    <Link href={href} className="font-medium text-blue-400 hover:text-blue-300 hover:underline">
+                        {row.getValue('display_id')}
+                    </Link>
+                );
+            },
         },
         {
             accessorKey: 'customer_name',
@@ -192,7 +202,7 @@ export function BillingDataTable({ data, onRowSelectionChange }: BillingDataTabl
             header: () => <div className="text-right">Balance Due</div>,
             cell: ({ row }) => {
                 const val = row.getValue('balance_due');
-                const balance = val != null ? parseFloat(val as string) : 0;
+                const balance = val != null ? parseFloat(val as string) : (row.original.total_amount || 0);
                 return (
                     <div className={`text-right font-medium ${balance > 0 ? "text-red-400" : "text-emerald-400"}`}>
                         {formatCurrency(balance)}

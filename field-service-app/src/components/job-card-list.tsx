@@ -58,6 +58,21 @@ function getPriorityColor(priority: string): string {
     }
 }
 
+function getInvoiceStatusColor(status: string): string {
+    switch (status) {
+        case 'paid':
+            return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+        case 'sent':
+            return 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30';
+        case 'draft':
+            return 'bg-slate-600/20 text-slate-400 border-slate-600/30';
+        case 'overdue':
+            return 'bg-red-500/20 text-red-400 border-red-500/30';
+        default:
+            return 'bg-amber-500/20 text-amber-400 border-amber-500/30'; // unbilled
+    }
+}
+
 function formatScheduledDate(dateStr: string): string {
     const date = new Date(dateStr);
     if (isToday(date)) return 'Today';
@@ -120,6 +135,9 @@ export function JobCard({ job, onEdit, onDelete }: JobCardProps) {
                     <div className="flex flex-wrap gap-2 mb-3">
                         <Badge variant="outline" className={getStatusColor(job.status)}>
                             {job.status.replace('_', ' ')}
+                        </Badge>
+                        <Badge variant="outline" className={getInvoiceStatusColor(job.invoices?.[0]?.status || 'unbilled')}>
+                            Inv: {job.invoices?.[0]?.status || 'Unbilled'}
                         </Badge>
                         {job.priority !== 'normal' && (
                             <Badge variant="outline" className={getPriorityColor(job.priority)}>

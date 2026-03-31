@@ -56,6 +56,21 @@ function getPriorityColor(priority: string): string {
     }
 }
 
+function getInvoiceStatusColor(status: string): string {
+    switch (status) {
+        case 'paid':
+            return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+        case 'sent':
+            return 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30';
+        case 'draft':
+            return 'bg-slate-600/20 text-slate-400 border-slate-600/30';
+        case 'overdue':
+            return 'bg-red-500/20 text-red-400 border-red-500/30';
+        default:
+            return 'bg-amber-500/20 text-amber-400 border-amber-500/30'; // unbilled
+    }
+}
+
 function formatScheduledDate(dateStr: string): string {
     const date = new Date(dateStr);
     if (isToday(date)) return 'Today';
@@ -78,6 +93,7 @@ export function JobTable({ jobs, onEdit, onDelete }: JobTableProps) {
                             <TableHead className="text-slate-400">Technician</TableHead>
                             <TableHead className="text-slate-400">Date/Time</TableHead>
                             <TableHead className="text-slate-400">Status</TableHead>
+                            <TableHead className="text-slate-400">Billing</TableHead>
                             <TableHead className="text-slate-400">Priority</TableHead>
                             <TableHead className="text-slate-400 text-right">Actions</TableHead>
                         </TableRow>
@@ -135,6 +151,11 @@ export function JobTable({ jobs, onEdit, onDelete }: JobTableProps) {
                                     <TableCell>
                                         <Badge variant="outline" className={getStatusColor(job.status)}>
                                             {job.status.replace('_', ' ')}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={getInvoiceStatusColor(job.invoices?.[0]?.status || 'unbilled')}>
+                                            {job.invoices?.[0]?.status || 'Unbilled'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
